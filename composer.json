@@ -3,5 +3,16 @@
     "description": "Symfony bundle for openid-connect",
     "type": "symfony-bundle",
     "license": "MIT",
+    "authors": [
+        {
+            "name": "Jeppe Kuhlmann Andersen",
+            "email": "jekua@aarhus.dk"
+        }
+    ],
+    "autoload": {
+        "psr-4": {
+            "ItkDev\\OpenIdConnectBundle\\": "src/"
+        }
+    },
     "require": {}
 }
