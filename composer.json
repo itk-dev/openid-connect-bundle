@@ -14,5 +14,7 @@
             "ItkDev\\OpenIdConnectBundle\\": "src/"
         }
     },
-    "require": {}
+    "require": {
+        "symfony/framework-bundle": "^5.2"
+    }
 }
