@@ -1,0 +1,7 @@
+{
+    "name": "itk-dev/openid-connect-bundle",
+    "description": "Symfony bundle for openid-connect",
+    "type": "symfony-bundle",
+    "license": "MIT",
+    "require": {}
+}
