@@ -52,7 +52,7 @@ abstract class OpenIdLoginAuthenticator extends AbstractGuardAuthenticator
         return json_decode($payload, true);
     }
 
-    abstract public function getUser($credentials, UserProviderInterface $userProvider)
+    abstract public function getUser($credentials, UserProviderInterface $userProvider);
 
     public function checkCredentials($credentials, UserInterface $user)
     {
@@ -65,9 +65,9 @@ abstract class OpenIdLoginAuthenticator extends AbstractGuardAuthenticator
         throw new AuthenticationException('Error occurred validating azure login');
     }
 
-    abstract public function onAuthenticationSuccess(Request $request, TokenInterface $token, string $providerKey)
+    abstract public function onAuthenticationSuccess(Request $request, TokenInterface $token, string $providerKey);
 
-    abstract public function start(Request $request, AuthenticationException $authException = null)
+    abstract public function start(Request $request, AuthenticationException $authException = null);
 
     public function supportsRememberMe()
     {
