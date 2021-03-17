@@ -1,0 +1,3 @@
+itk_dev_openid_connect_login:
+  path: /login
+  controller: ItkDev\OpenIdConnectBundle\Controller\LoginController::login
