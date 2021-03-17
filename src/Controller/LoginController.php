@@ -11,11 +11,20 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
 class LoginController extends AbstractController
 {
-    /** @var array */
+
+    /**
+     * @var array
+     */
     private $openIdProviderOptions;
 
-    public function __construct(array $openIdProviderOptions){
+    /**
+     * @var string
+     */
+    private $returnRoute;
+
+    public function __construct(array $openIdProviderOptions, string $returnRoute){
         $this->openIdProviderOptions = $openIdProviderOptions;
+        $this->returnRoute = $returnRoute;
     }
 
     /**
@@ -24,7 +33,7 @@ class LoginController extends AbstractController
     public function login(SessionInterface $session): Response
     {
         $provider = new OpenIdConfigurationProvider([
-                'redirectUri' => $this->generateUrl('login', [], UrlGeneratorInterface::ABSOLUTE_URL),
+                'redirectUri' => $this->generateUrl($this->returnRoute, [], UrlGeneratorInterface::ABSOLUTE_URL),
             ] + $this->openIdProviderOptions);
 
         $authUrl = $provider->getAuthorizationUrl();
