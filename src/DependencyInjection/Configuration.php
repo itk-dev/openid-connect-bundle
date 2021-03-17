@@ -38,6 +38,7 @@ class Configuration implements ConfigurationInterface
                 ->end()
                 ->scalarNode('default_uri')
                     ->defaultValue('https://127.0.0.1:8000')
+                    ->info('Default URI, used for CLI login via URL')
                     ->isRequired()->cannotBeEmpty()->end()
             ->end();
 
