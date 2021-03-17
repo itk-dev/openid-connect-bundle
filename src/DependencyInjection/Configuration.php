@@ -16,6 +16,7 @@ class Configuration implements ConfigurationInterface
 
         // Specify which variables must be configured in itk_dev_openid_connect file
         // That is client_id, client_secret, discovery url and cache path
+        // And return route for redirect uri generating in loginController
 
         $treeBuilder->getRootNode()
             ->children()
