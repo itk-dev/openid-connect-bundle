@@ -19,7 +19,7 @@ class Configuration implements ConfigurationInterface
 
         $treeBuilder->getRootNode()
             ->children()
-                ->arrayNode('openIdProviderOptions')
+                ->arrayNode('open_id_provider_options')
                     ->children()
                         ->scalarNode('open_id_provider_url')
                             ->info('URL to OpenId Discovery Document')
@@ -36,9 +36,8 @@ class Configuration implements ConfigurationInterface
                             ->isRequired()->cannotBeEmpty()->end()
                     ->end()
                 ->end()
-                ->scalarNode('default_uri')
-                    ->defaultValue('https://127.0.0.1:8000')
-                    ->info('Default URI, used for CLI login via URL')
+                ->scalarNode('open_id_return_route')
+                    ->info('Return route for authorizer')
                     ->isRequired()->cannotBeEmpty()->end()
             ->end();
 
