@@ -62,7 +62,7 @@ abstract class OpenIdLoginAuthenticator extends AbstractGuardAuthenticator
     public function onAuthenticationFailure(Request $request, AuthenticationException $exception)
     {
         // Throw (telling) error
-        throw new AuthenticationException('Error occurred validating azure login');
+        throw new AuthenticationException('Error occurred validating openid login');
     }
 
     abstract public function onAuthenticationSuccess(Request $request, TokenInterface $token, string $providerKey);
