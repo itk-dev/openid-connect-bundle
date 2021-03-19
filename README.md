@@ -16,17 +16,16 @@ If you wish to run the coding standard tests for Markdown files
 yarn install
 ```
 
-
 ## Usage
 
 ### Example configuration
 
 ## Changes for Symfony 6.0
 
-In Symfony 6.0 a new security system will be 
-[introduced](https://symfony.com/doc/current/security/experimental_authenticators.html). 
-This system is said to be almost fully backwards compatible, but changes may be needed. 
-If so a new version of this bundle might be necessary. 
+In Symfony 6.0 a new security system will be
+[introduced](https://symfony.com/doc/current/security/experimental_authenticators.html).
+This system is said to be almost fully backwards compatible, but changes may be needed.
+If so a new version of this bundle might be necessary.
 
 ## Coding standard tests
 
@@ -54,4 +53,4 @@ For the versions available, see the
 ## License
 
 This project is licensed under the MIT License - see the
-[LICENSE.md](LICENSE.md) file for details
+[LICENSE.md](LICENSE.md) file for details.
