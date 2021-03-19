@@ -1,0 +1,11 @@
+{
+  "dependencies": {
+    "markdownlint-cli": "^0.27.1"
+  },
+  "scripts": {
+    "coding-standards-check/markdownlint": "markdownlint README.md docs/**/*.md",
+    "coding-standards-check": "yarn coding-standards-check/markdownlint",
+    "coding-standards-apply/markdownlint": "markdownlint --fix README.md docs/**/*.md",
+    "coding-standards-apply": "yarn coding-standards-apply/markdownlint"
+  }
+}
