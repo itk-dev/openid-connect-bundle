@@ -104,8 +104,8 @@ security:
 
 #### Example authenticator functions
 
-Here is an example with a `User` with a name and email property.
-First we extract this data from the credentials,
+Here is an example using a `User` with a name and email property.
+First we extract data from the credentials,
 then check if this user already exists and
 finally update/create it based on whether it existed or not.
 
@@ -184,7 +184,7 @@ class TestAuthenticator extends OpenIdLoginAuthenticator
 In Symfony 6.0 a new security system will be
 [introduced](https://symfony.com/doc/current/security/experimental_authenticators.html).
 This system is said to be almost fully backwards compatible, but changes may be needed.
-If so a new version of this bundle might be necessary.
+If so, a new version of this bundle might be necessary.
 
 ## Coding standard tests
 
