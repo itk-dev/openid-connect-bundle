@@ -18,6 +18,22 @@ yarn install
 
 ## Usage
 
+Before being able to use the bundle, some configuration
+variables must be set. This includes a `itk_dev_openid_connect.yaml`
+file in the `/config/packages/` and `/config/routes/` folders.
+
+In `/config/packages/` you need the following configuration variables
+
+```yaml
+itk_dev_open_id_connect:
+  open_id_provider_options:
+    urlConfiguration: 'https://.../openid-configuration..' // url to OpenId Discovery document
+    clientId: 'client_id' // Client id assigned by authorizer
+    clientSecret: 'client_secret' // Client password assigned by authorizer
+    cachePath: '' // Path for caching discovery document
+  open_id_return_route: 'some_route_name' // Route to where the user is to be redirected after success
+```
+
 ### Example configuration
 
 ## Changes for Symfony 6.0
