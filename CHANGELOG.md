@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - README
 - LICENSE
+- OpenID Connect Bundle: Added bundle files, a login controller and an abstract authenticator.
 - This CHANGELOG file to hopefully serve as an evolving example of a
   standardized open source project CHANGELOG.
 - PHP-CS-Fixer

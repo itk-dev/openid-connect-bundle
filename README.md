@@ -49,7 +49,7 @@ the coding standard we decided to adhere to in this project.
 
 We use [SemVer](http://semver.org/) for versioning.
 For the versions available, see the
-[tags on this repository]().
+[tags on this repository](https://github.com/itk-dev/openid-connect-bundle/tags).
 
 ## License
 
