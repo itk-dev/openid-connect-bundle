@@ -2,7 +2,6 @@
 
 namespace ItkDev\OpenIdConnectBundle\Security;
 
-use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Session\SessionInterface;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
@@ -18,15 +17,9 @@ abstract class OpenIdLoginAuthenticator extends AbstractGuardAuthenticator
      */
     private $session;
 
-    /**
-     * @var EntityManagerInterface
-     */
-    private $entityManager;
 
-
-    public function __construct(EntityManagerInterface $entityManager, SessionInterface $session)
+    public function __construct(SessionInterface $session)
     {
-        $this->entityManager = $entityManager;
         $this->session = $session;
     }
 
@@ -61,7 +54,6 @@ abstract class OpenIdLoginAuthenticator extends AbstractGuardAuthenticator
 
     public function onAuthenticationFailure(Request $request, AuthenticationException $exception)
     {
-        // Throw (telling) error
         throw new AuthenticationException('Error occurred validating openid login');
     }
 

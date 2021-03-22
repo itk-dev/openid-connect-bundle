@@ -22,7 +22,8 @@ class LoginController extends AbstractController
      */
     private $returnRoute;
 
-    public function __construct(array $openIdProviderOptions, string $returnRoute){
+    public function __construct(array $openIdProviderOptions, string $returnRoute)
+    {
         $this->openIdProviderOptions = $openIdProviderOptions;
         $this->returnRoute = $returnRoute;
     }
@@ -40,6 +41,7 @@ class LoginController extends AbstractController
 
         $authUrl = $provider->getAuthorizationUrl();
 
+        // Set a oauth2state to avoid CSRF check it in authenticator
         $session->set('oauth2state', $provider->getState());
 
         return new RedirectResponse($authUrl);

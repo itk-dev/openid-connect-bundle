@@ -18,8 +18,8 @@ yarn install
 
 ## Usage
 
-Before being able to use the bundle effectively,
-you must have your created your own User entity and database.
+Before being able to use the bundle,
+you must have your own User entity and database setup.
 
 Once you have this, you need to configure variables for
 OpenId Connect and create an Authenticator class that extends
@@ -90,7 +90,7 @@ class SomeAuthenticator extends OpenIdLoginAuthenticator
 }
 ```
 
-Make sure to add your authenticator to the `security.yaml` file
+Make sure to add your authenticator to the `security.yaml` file -
 and if you have more than one to add an entry point.
 
 ```yaml
@@ -140,7 +140,7 @@ class TestAuthenticator extends OpenIdLoginAuthenticator
     {
         $this->router = $router;
         $this->entityManager = $entityManager;
-        parent::__construct($entityManager, $session);
+        parent::__construct($session);
     }
 
     public function getUser($credentials, UserProviderInterface $userProvider)
@@ -181,7 +181,7 @@ class TestAuthenticator extends OpenIdLoginAuthenticator
 
 ## Changes for Symfony 6.0
 
-In Symfony 6.0 a new security system will be
+In Symfony 6.0 a new security system is
 [introduced](https://symfony.com/doc/current/security/experimental_authenticators.html).
 This system is said to be almost fully backwards compatible, but changes may be needed.
 If so, a new version of this bundle might be necessary.

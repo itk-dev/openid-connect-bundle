@@ -20,6 +20,7 @@
         "doctrine/orm": "^2.8",
         "symfony/security-bundle": "^5.2",
         "itk-dev/openid-connect": "^1.0",
-        "friendsofphp/php-cs-fixer": "^2.18"
+        "friendsofphp/php-cs-fixer": "^2.18",
+        "ext-json": "*"
     }
 }
