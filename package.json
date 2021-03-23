@@ -1,5 +1,5 @@
 {
-  "dependencies": {
+  "devDependencies": {
     "markdownlint-cli": "^0.27.1"
   },
   "scripts": {
