@@ -32,7 +32,7 @@ class Configuration implements ConfigurationInterface
                                     }
                                 )
                                 ->thenInvalid('Invalid URL given.')
-                                ->end()
+                            ->end()
                             ->isRequired()->cannotBeEmpty()->end()
                         ->scalarNode('client_id')
                             ->info('Client ID assigned by authorizer')
@@ -46,6 +46,14 @@ class Configuration implements ConfigurationInterface
                             ->isRequired()->cannotBeEmpty()->end()
                         ->scalarNode('callback_uri')
                             ->info('Callback URI registered at identity provider')
+                            ->validate()
+                                ->ifTrue(
+                                    function ($value) {
+                                        return !filter_var($value, FILTER_VALIDATE_URL);
+                                    }
+                                )
+                                ->thenInvalid('Invalid URL given.')
+                            ->end()
                             ->isRequired()->cannotBeEmpty()->end()
                     ->end()
                 ->end()
