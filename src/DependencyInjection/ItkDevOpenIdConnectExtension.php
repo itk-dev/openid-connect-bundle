@@ -17,8 +17,16 @@ class ItkDevOpenIdConnectExtension extends Extension
 
         $configuration = new Configuration();
         $config = $this->processConfiguration($configuration, $configs);
+
+        $newConfig = [
+            'urlConfiguration' => $config['open_id_provider_options']['configuration_url'],
+            'clientId' => $config['open_id_provider_options']['client_id'],
+            'clientSecret' => $config['open_id_provider_options']['client_secret'],
+            'cachePath' => $config['open_id_provider_options']['cache_path'],
+            'redirectUri' => $config['open_id_provider_options']['callback_uri'],
+        ];
+
         $definition = $container->getDefinition(LoginController::class);
-        $definition->replaceArgument('$openIdProviderOptions', $config['open_id_provider_options']);
-        $definition->replaceArgument('$returnRoute', $config['open_id_return_route']);
+        $definition->replaceArgument('$openIdProviderOptions', $newConfig);
     }
 }

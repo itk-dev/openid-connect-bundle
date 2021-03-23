@@ -33,11 +33,11 @@ file for configuring OpenId Connect variables
 ```yaml
 itk_dev_open_id_connect:
   open_id_provider_options:
-    urlConfiguration: 'https://.../openid-configuration..' # url to OpenId Discovery document
-    clientId: 'client_id' # Client id assigned by authorizer
-    clientSecret: 'client_secret' # Client password assigned by authorizer
-    cachePath: '' # Path for caching discovery document
-  open_id_return_route: 'some_route_name' # Route to where the user is to be redirected after success
+    configuration_url: 'https://.../openid-configuration..' # url to OpenId Discovery document
+    client_id: 'client_id' # Client id assigned by authorizer
+    client_secret: 'client_secret' # Client password assigned by authorizer
+    cache_path: '' # Path for caching discovery document
+    callback_uri: 'absolute_uri_here' # Callback URI registered at identity provider
 ```
 
 In `/config/routes/` you need a similar

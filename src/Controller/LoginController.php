@@ -7,7 +7,6 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\Session\SessionInterface;
-use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
 class LoginController extends AbstractController
 {
@@ -17,15 +16,9 @@ class LoginController extends AbstractController
      */
     private $openIdProviderOptions;
 
-    /**
-     * @var string
-     */
-    private $returnRoute;
-
-    public function __construct(array $openIdProviderOptions, string $returnRoute)
+    public function __construct(array $openIdProviderOptions)
     {
         $this->openIdProviderOptions = $openIdProviderOptions;
-        $this->returnRoute = $returnRoute;
     }
 
     /**
@@ -34,9 +27,7 @@ class LoginController extends AbstractController
      */
     public function login(SessionInterface $session): Response
     {
-        $provider = new OpenIdConfigurationProvider([
-                'redirectUri' => $this->generateUrl($this->returnRoute, [], UrlGeneratorInterface::ABSOLUTE_URL),
-            ] + $this->openIdProviderOptions);
+        $provider = new OpenIdConfigurationProvider($this->openIdProviderOptions);
 
         $authUrl = $provider->getAuthorizationUrl();
 

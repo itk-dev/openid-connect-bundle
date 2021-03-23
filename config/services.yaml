@@ -18,6 +18,5 @@ services:
   ItkDev\OpenIdConnectBundle\Controller\LoginController:
     arguments:
       $openIdProviderOptions: ~
-      $returnRoute: ~
 
 

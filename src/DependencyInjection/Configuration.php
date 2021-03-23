@@ -23,24 +23,32 @@ class Configuration implements ConfigurationInterface
                 ->arrayNode('open_id_provider_options')
                     ->isRequired()
                     ->children()
-                        ->scalarNode('urlConfiguration')
+                        ->scalarNode('configuration_url')
                             ->info('URL to OpenId Discovery Document')
+                            ->validate()
+                                ->ifTrue(
+                                    function ($value) {
+                                        return !filter_var($value, FILTER_VALIDATE_URL);
+                                    }
+                                )
+                                ->thenInvalid('Invalid URL given.')
+                                ->end()
                             ->isRequired()->cannotBeEmpty()->end()
-                        ->scalarNode('clientId')
+                        ->scalarNode('client_id')
                             ->info('Client ID assigned by authorizer')
                             ->isRequired()->cannotBeEmpty()->end()
-                        ->scalarNode('clientSecret')
+                        ->scalarNode('client_secret')
                             ->info('Client secret/password assigned by authorizer')
                             ->isRequired()->cannotBeEmpty()->end()
-                        ->scalarNode('cachePath')
+                        ->scalarNode('cache_path')
                             ->info('Path for caching Discovery document')
                             ->defaultValue('%kernel.cache_dir%/openid_connect_configuration_cache.php')
                             ->isRequired()->cannotBeEmpty()->end()
+                        ->scalarNode('callback_uri')
+                            ->info('Callback URI registered at identity provider')
+                            ->isRequired()->cannotBeEmpty()->end()
                     ->end()
                 ->end()
-                ->scalarNode('open_id_return_route')
-                    ->info('Return route for authorizer')
-                    ->isRequired()->cannotBeEmpty()->end()
             ->end();
 
         return $treeBuilder;
