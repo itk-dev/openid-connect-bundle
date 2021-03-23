@@ -34,7 +34,7 @@ class Configuration implements ConfigurationInterface
                             ->isRequired()->cannotBeEmpty()->end()
                         ->scalarNode('cachePath')
                             ->info('Path for caching Discovery document')
-                            ->defaultValue('%kernel.cache_dir%/.well_known_cache.php')
+                            ->defaultValue('%kernel.cache_dir%/openid_connect_configuration_cache.php')
                             ->isRequired()->cannotBeEmpty()->end()
                     ->end()
                 ->end()

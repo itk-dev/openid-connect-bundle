@@ -29,7 +29,6 @@ class LoginController extends AbstractController
     }
 
     /**
-     * @Route("/login", name="itk_dev_openid_connect_login")
      * @param SessionInterface $session
      * @return Response
      */
