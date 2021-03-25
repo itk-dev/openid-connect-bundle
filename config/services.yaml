@@ -19,4 +19,6 @@ services:
     arguments:
       $openIdProviderOptions: ~
 
+  ItkDev\OpenIdConnectBundle\Command\UserLoginCommand:
+
 
