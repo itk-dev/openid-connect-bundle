@@ -179,6 +179,33 @@ class TestAuthenticator extends OpenIdLoginAuthenticator
 }
 ```
 
+### CLI login
+
+In order to use the CLI login feature the following environment variable must be set:
+
+```shell
+DEFAULT_URI=
+```
+
+See [Symfony documentation](https://symfony.com/doc/current/routing.html#generating-urls-in-commands)
+for more information.
+
+## Sign in from command line
+
+Rather than signing in via OpenId Connect, you can get
+a sign in url from the command line by providing a user email. Run
+
+```shell
+bin/console itk-dev:openid-connect:login <email>
+```
+
+Or simply run
+
+```shell
+bin/console itk-dev:openid-connect:login --help
+```
+for details.
+
 ## Changes for Symfony 6.0
 
 In Symfony 6.0 a new security system is
