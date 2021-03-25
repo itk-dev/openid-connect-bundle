@@ -3,7 +3,6 @@
 namespace ItkDev\OpenIdConnectBundle\Security;
 
 use Doctrine\ORM\EntityManagerInterface;
-use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
 use Symfony\Component\Security\Core\Exception\AuthenticationCredentialsNotFoundException;
@@ -37,7 +36,6 @@ abstract class LoginTokenAuthenticator extends AbstractGuardAuthenticator
 
     public function getUser($credentials, UserProviderInterface $userProvider)
     {
-
         if (null === $credentials) {
             // The token header was empty, authentication fails with HTTP Status
             // Code 401 "Unauthorized"
@@ -50,6 +48,7 @@ abstract class LoginTokenAuthenticator extends AbstractGuardAuthenticator
             // fail authentication with a custom error
             throw new AuthenticationCredentialsNotFoundException('Token could not be found.');
         }
+
         // User will always be set at this point,
         // reset token to avoid being able to reuse login url
         //$user->setLoginToken(null);

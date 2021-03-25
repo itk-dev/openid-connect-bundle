@@ -181,7 +181,8 @@ class TestAuthenticator extends OpenIdLoginAuthenticator
 
 ### CLI login
 
-In order to use the CLI login feature the following environment variable must be set:
+In order to use the CLI login feature the following
+environment variable must be set:
 
 ```shell
 DEFAULT_URI=
@@ -204,6 +205,7 @@ Or simply run
 ```shell
 bin/console itk-dev:openid-connect:login --help
 ```
+
 for details.
 
 ## Changes for Symfony 6.0
