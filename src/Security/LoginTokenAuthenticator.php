@@ -6,7 +6,6 @@ use Doctrine\ORM\EntityManagerInterface;
 use ItkDev\OpenIdConnectBundle\Util\CliLoginHelper;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
-use Symfony\Component\Security\Core\Exception\AuthenticationCredentialsNotFoundException;
 use Symfony\Component\Security\Core\Exception\AuthenticationException;
 use Symfony\Component\Security\Core\Exception\UsernameNotFoundException;
 use Symfony\Component\Security\Core\User\UserInterface;
@@ -48,22 +47,18 @@ abstract class LoginTokenAuthenticator extends AbstractGuardAuthenticator
         }
 
         // Get user from CliHelperLogin
-        $user = $this->cliLoginHelper->getUser($credentials);
+        $username = $this->cliLoginHelper->getUsername($credentials);
 
-//        $user = $this->entityManager->getRepository(User::class)
-//            ->findOneBy(['loginToken' => $credentials]);
-//
-//
-//        if (null === $user) {
-//            // fail authentication with a custom error
-//            throw new AuthenticationCredentialsNotFoundException('Token could not be found.');
-//        }
-//
-//        // User will always be set at this point,
-//        // reset token to avoid being able to reuse login url
-//        $user->setLoginToken(null);
-//        $this->entityManager->persist($user);
-//        $this->entityManager->flush();
+
+        // @todo Possibly dont just beneath if start() is implemented in project
+        // $user = $userProvider->loadUserByUsername($username);
+
+        // Fix for tests
+        try {
+            $user = $userProvider->loadUserByUsername($username);
+        } catch (UsernameNotFoundException $e) {
+            throw new \Exception('Token correct but user not found');
+        }
 
         return $user;
     }

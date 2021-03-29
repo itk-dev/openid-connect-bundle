@@ -3,16 +3,12 @@
 namespace ItkDev\OpenIdConnectBundle\Command;
 
 use ItkDev\OpenIdConnectBundle\Util\CliLoginHelper;
-use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Console\Command\Command;
-use Symfony\Component\Console\Exception\RuntimeException;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
-use Symfony\Component\Security\Core\User\UserProviderInterface;
-use Symfony\Component\Uid\Uuid;
 
 class UserLoginCommand extends Command
 {
@@ -22,18 +18,16 @@ class UserLoginCommand extends Command
      * @var UrlGeneratorInterface
      */
     private $urlGenerator;
-    /**
-     * @var EntityManagerInterface
-     */
-    private $userProvider;
 
+    /**
+     * @var CliLoginHelper
+     */
     private $cliLoginHelper;
 
-    public function __construct(CliLoginHelper $cliLoginHelper, UrlGeneratorInterface $urlGenerator, UserProviderInterface $userProvider)
+    public function __construct(CliLoginHelper $cliLoginHelper, UrlGeneratorInterface $urlGenerator)
     {
         $this->cliLoginHelper = $cliLoginHelper;
         $this->urlGenerator = $urlGenerator;
-        $this->userProvider = $userProvider;
 
         parent::__construct();
     }
@@ -47,26 +41,13 @@ class UserLoginCommand extends Command
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
+        // Use CliLoginHelper to check table setup correct
+        $this->cliLoginHelper->ensureInitialized();
         $io = new SymfonyStyle($input, $output);
         $email = $input->getArgument('email');
 
-        // Find user via user repository
-        $user = $this->userProvider->loadUserByUsername($email);
-
         // Create token via CliLoginHelper
-
-        $token = $this->cliLoginHelper->createToken($user);
-
-//        $user = $this->entityManager->getRepository(User::class)
-//            ->findOneBy(['email' => $email]);
-//        if (null === $user) {
-//            throw new RuntimeException('User not found in database');
-//        }
-//        // Generate new token and set it on the user
-//        $token = Uuid::v4()->toBase32();
-//        $user->setLoginToken($token);
-//        $this->entityManager->persist($user);
-//        $this->entityManager->flush();
+        $token = $this->cliLoginHelper->createToken($email);
 
         //Generate absolute url for login
         $loginPage = $this->urlGenerator->generate('homepage', [
