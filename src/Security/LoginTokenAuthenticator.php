@@ -3,24 +3,29 @@
 namespace ItkDev\OpenIdConnectBundle\Security;
 
 use Doctrine\ORM\EntityManagerInterface;
+use ItkDev\OpenIdConnectBundle\Util\CliLoginHelper;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
 use Symfony\Component\Security\Core\Exception\AuthenticationCredentialsNotFoundException;
 use Symfony\Component\Security\Core\Exception\AuthenticationException;
+use Symfony\Component\Security\Core\Exception\UsernameNotFoundException;
 use Symfony\Component\Security\Core\User\UserInterface;
 use Symfony\Component\Security\Core\User\UserProviderInterface;
 use Symfony\Component\Security\Guard\AbstractGuardAuthenticator;
 
 abstract class LoginTokenAuthenticator extends AbstractGuardAuthenticator
 {
+    private $cliLoginHelper;
+
     /**
      * @var EntityManagerInterface
      */
     private $entityManager;
 
 
-    public function __construct(EntityManagerInterface $entityManager)
+    public function __construct(CliLoginHelper $cliLoginHelper, EntityManagerInterface $entityManager)
     {
+        $this->cliLoginHelper = $cliLoginHelper;
         $this->entityManager = $entityManager;
     }
 
@@ -42,18 +47,23 @@ abstract class LoginTokenAuthenticator extends AbstractGuardAuthenticator
             return null;
         }
 
-        $user = $userProvider->loadUserByUsername($credentials);
+        // Get user from CliHelperLogin
+        $user = $this->cliLoginHelper->getUser($credentials);
 
-        if (null === $user) {
-            // fail authentication with a custom error
-            throw new AuthenticationCredentialsNotFoundException('Token could not be found.');
-        }
-
-        // User will always be set at this point,
-        // reset token to avoid being able to reuse login url
-        //$user->setLoginToken(null);
-        $this->entityManager->persist($user);
-        $this->entityManager->flush();
+//        $user = $this->entityManager->getRepository(User::class)
+//            ->findOneBy(['loginToken' => $credentials]);
+//
+//
+//        if (null === $user) {
+//            // fail authentication with a custom error
+//            throw new AuthenticationCredentialsNotFoundException('Token could not be found.');
+//        }
+//
+//        // User will always be set at this point,
+//        // reset token to avoid being able to reuse login url
+//        $user->setLoginToken(null);
+//        $this->entityManager->persist($user);
+//        $this->entityManager->flush();
 
         return $user;
     }
