@@ -21,14 +21,14 @@ yarn install
 Before being able to use the bundle,
 you must have your own User entity and a database setup.
 
-Once you have this, you need to configure variables for
-this bundle and then create an Authenticator class that extends `OpenIdLoginAuthenticator`
+Once you have this, you need to configure bundle variables,
+create an authenticator class that extends `OpenIdLoginAuthenticator`
 and one that extends `LoginTokenAuthenticator`.
 
 ### Variable configuration
 
 In `/config/packages/` you need the following `itk_dev_openid_connect.yaml`
-file for configuring table name and  OpenId-Connect variables
+file for configuring table name and OpenId-Connect variables:
 
 ```yaml
 itk_dev_openid_connect:
@@ -52,7 +52,7 @@ doctrine:
         schema_filter: ~^(?!itk_dev_)~
 ```
 
-If not done, doctrine will remove this table when migrating.
+If this is not done, doctrine will remove this table when migrating.
 
 In `/config/routes/` you need a similar
 `itk_dev_openid_connect.yaml` file for configuring the routing
@@ -65,7 +65,9 @@ itk_dev_openid_connect:
 
 It is not necessary to add a prefix to the bundle routes,
 but in case you want e.g. another `/login` route,
-it makes distinguishing between them easier.
+it makes distinguishing between them easier. To begin
+the authorization flow you will need to redirect to
+`/openidconnect/login`, if you used the `/openidconnect` prefix.
 
 ### Creating the authenticators
 
