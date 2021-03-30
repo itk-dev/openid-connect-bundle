@@ -36,6 +36,17 @@ class CliLoginHelper
 
     public function createToken(string $username): string
     {
+        // Check if user already has a token set
+        $token = $this->connection->fetchOne(
+            sprintf('SELECT token FROM %s WHERE username = :username', $this->platform->quoteIdentifier($this->getTableName())),
+            ['username' => $username]
+        );
+
+        if ($token) {
+            return $token;
+        }
+
+        // Token was not set, create and set it.
         $token = Uuid::v4();
 
         $this->connection->insert(
