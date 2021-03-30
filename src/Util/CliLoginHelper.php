@@ -63,7 +63,7 @@ class CliLoginHelper
         if (false === $username) {
             throw new Exception('Invalid token');
         }
-        
+
         if ($remove) {
             // Remove the token.
             $this->connection->delete($this->getTableName(), [

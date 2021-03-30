@@ -14,18 +14,14 @@ use Symfony\Component\Security\Guard\AbstractGuardAuthenticator;
 
 abstract class LoginTokenAuthenticator extends AbstractGuardAuthenticator
 {
+    /**
+     * @var CliLoginHelper
+     */
     private $cliLoginHelper;
 
-    /**
-     * @var EntityManagerInterface
-     */
-    private $entityManager;
-
-
-    public function __construct(CliLoginHelper $cliLoginHelper, EntityManagerInterface $entityManager)
+    public function __construct(CliLoginHelper $cliLoginHelper)
     {
         $this->cliLoginHelper = $cliLoginHelper;
-        $this->entityManager = $entityManager;
     }
 
     public function supports(Request $request)
@@ -46,7 +42,7 @@ abstract class LoginTokenAuthenticator extends AbstractGuardAuthenticator
             return null;
         }
 
-        // Get user from CliHelperLogin
+        // Get username from CliHelperLogin
         $username = $this->cliLoginHelper->getUsername($credentials);
 
 

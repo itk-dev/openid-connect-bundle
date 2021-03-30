@@ -31,7 +31,7 @@ class LoginController extends AbstractController
 
         $authUrl = $provider->getAuthorizationUrl();
 
-        // Set a oauth2state to avoid CSRF check it in authenticator
+        // Set a oauth2state to avoid CSRF, check it in authenticator
         $session->set('oauth2state', $provider->getState());
 
         return new RedirectResponse($authUrl);
