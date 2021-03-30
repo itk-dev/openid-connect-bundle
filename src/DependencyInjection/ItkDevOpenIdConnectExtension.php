@@ -33,4 +33,9 @@ class ItkDevOpenIdConnectExtension extends Extension
         $definition = $container->getDefinition(CliLoginHelper::class);
         $definition->replaceArgument('$tableName', $config['cli_login_table']);
     }
+
+    public function getAlias()
+    {
+        return  'itk_dev_openid_connect';
+    }
 }

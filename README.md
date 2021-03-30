@@ -19,19 +19,20 @@ yarn install
 ## Usage
 
 Before being able to use the bundle,
-you must have your own User entity and database setup.
+you must have your own User entity and a database setup.
 
 Once you have this, you need to configure variables for
-OpenId Connect and create an Authenticator class that extends
-the bundle authenticator, `OpenIdLoginAuthenticator`.
+this bundle and then create an Authenticator class that extends `OpenIdLoginAuthenticator`
+and one that extends `LoginTokenAuthenticator`.
 
 ### Variable configuration
 
 In `/config/packages/` you need the following `itk_dev_openid_connect.yaml`
-file for configuring OpenId Connect variables
+file for configuring table name and  OpenId-Connect variables
 
 ```yaml
-itk_dev_open_id_connect:
+itk_dev_openid_connect:
+  cli_login_table: 'table_name' # Name for table containing login tokens
   open_id_provider_options:
     configuration_url: 'https://.../openid-configuration..' # url to OpenId Discovery document
     client_id: 'client_id' # Client id assigned by authorizer
@@ -39,6 +40,19 @@ itk_dev_open_id_connect:
     cache_path: '' # Path for caching discovery document
     callback_uri: 'absolute_uri_here' # Callback URI registered at identity provider
 ```
+
+After choosing a fitting table name e.g. `itk_dev_login_table`,
+it is important that you add this to your doctrine
+[schema filter](https://symfony.com/doc/current/bundles/DoctrineMigrationsBundle/index.html#manual-tables),
+in `/config/packages/doctrine.yaml`:
+
+```yaml
+doctrine:
+    dbal:
+        schema_filter: ~^(?!itk_dev_)~
+```
+
+If not done, doctrine will remove this table when migrating.
 
 In `/config/routes/` you need a similar
 `itk_dev_openid_connect.yaml` file for configuring the routing
@@ -50,10 +64,12 @@ itk_dev_openid_connect:
 ```
 
 It is not necessary to add a prefix to the bundle routes,
-but in case you want i.e. another `/login` route,
+but in case you want e.g. another `/login` route,
 it makes distinguishing between them easier.
 
-### Creating the Authenticator
+### Creating the authenticators
+
+#### The OpenIdLoginAuthenticator
 
 The bundle handles the extraction of credentials received from the authorizer -
 therefore the only functions that needs to be implemented are `getUser()`,
@@ -70,7 +86,7 @@ use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
 use Symfony\Component\Security\Core\Exception\AuthenticationException;
 use Symfony\Component\Security\Core\User\UserProviderInterface;
 
-class SomeAuthenticator extends OpenIdLoginAuthenticator
+class SomeOpenIdAuthenticator extends OpenIdLoginAuthenticator
 {
 
     public function getUser($credentials, UserProviderInterface $userProvider)
@@ -90,8 +106,12 @@ class SomeAuthenticator extends OpenIdLoginAuthenticator
 }
 ```
 
-Make sure to add your authenticator to the `security.yaml` file -
-and if you have more than one to add an entry point.
+Similarly, you need a `SomeLoginTokenAuthenticator` that extends
+`LoginTokenAuthenticator`. This however only requires implementation
+of `onAuthenticationSuccess()` and `start()`.
+
+Make sure to add your authenticators to the `security.yaml` file
+and also add a [entry point](https://symfony.com/doc/current/security/multiple_guard_authenticators.html):
 
 ```yaml
 security:
@@ -99,7 +119,9 @@ security:
     main:
       guard:
         authenticators:
-          - App\Security\TestAuthenticator
+          - App\Security\SomeOpenIdAuthenticator
+          - App\Security\SomeLoginTokenAuthenticator
+        entry_point: App\Security\SomeOpenIdAuthenticator
 ```
 
 #### Example authenticator functions
@@ -206,7 +228,8 @@ Or simply run
 bin/console itk-dev:openid-connect:login --help
 ```
 
-for details.
+for details. Be aware that a login token only can be used once
+before it is removed.
 
 ## Changes for Symfony 6.0
 

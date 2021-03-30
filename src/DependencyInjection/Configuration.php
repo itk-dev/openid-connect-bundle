@@ -12,11 +12,11 @@ class Configuration implements ConfigurationInterface
      */
     public function getConfigTreeBuilder(): TreeBuilder
     {
-        $treeBuilder = new TreeBuilder('itk_dev_open_id_connect');
+        $treeBuilder = new TreeBuilder('itk_dev_openid_connect');
 
         // Specify which variables must be configured in itk_dev_openid_connect file
-        // That is client_id, client_secret, discovery url and cache path
-        // And return route for redirect uri generating in loginController
+        // That is a table name for login tokens,
+        // client_id, client_secret, discovery url, cache path and callback uri
 
         $treeBuilder->getRootNode()
             ->children()
