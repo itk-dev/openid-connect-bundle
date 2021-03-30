@@ -24,11 +24,14 @@ class CliLoginHelper
     /** @var AbstractPlatform */
     private $platform;
 
-    public function __construct(Connection $connection)
+    private $tableName;
+
+    public function __construct(Connection $connection, string $tableName)
     {
         $this->connection = $connection;
         $this->schemaManager = $connection->getSchemaManager();
         $this->platform = $connection->getDatabasePlatform();
+        $this->tableName = $tableName;
     }
 
     public function createToken(string $username): string
@@ -77,8 +80,7 @@ class CliLoginHelper
 
     private function getTableName(): string
     {
-        // @todo Get this from configuration.
-        return 'itk_dev_cli_login';
+        return $this->tableName;
     }
 
     public function ensureInitialized(): void

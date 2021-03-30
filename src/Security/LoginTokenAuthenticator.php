@@ -2,7 +2,6 @@
 
 namespace ItkDev\OpenIdConnectBundle\Security;
 
-use Doctrine\ORM\EntityManagerInterface;
 use ItkDev\OpenIdConnectBundle\Util\CliLoginHelper;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
