@@ -112,13 +112,22 @@ Similarly, you need a `SomeLoginTokenAuthenticator` that extends
 `LoginTokenAuthenticator`. This however only requires implementation
 of `onAuthenticationSuccess()` and `start()`.
 
+#### Configuration of `security.yaml`
+
 Make sure to add your authenticators to the `security.yaml` file
-and also add a [entry point](https://symfony.com/doc/current/security/multiple_guard_authenticators.html):
+and also add a [entry point](https://symfony.com/doc/current/security/multiple_guard_authenticators.html).
+Furthermore, you need to configure the user provider for the authenticators:
 
 ```yaml
 security:
+  providers:
+    app_user_provider:
+      entity:
+        class: App\Entity\User
+        property: 'email'
   firewalls:
     main:
+      provider: app_user_provider
       guard:
         authenticators:
           - App\Security\SomeOpenIdAuthenticator
@@ -126,11 +135,16 @@ security:
         entry_point: App\Security\SomeOpenIdAuthenticator
 ```
 
+The property is set to email as this is unique in most cases,
+but this is not required. Just be aware that whatever you configure
+it to is the argument to be provided during CLI login,
+and that the following example uses the above email configuration.
+
 #### Example authenticator functions
 
 Here is an example using a `User` with a name and email property.
 First we extract data from the credentials,
-then check if this user already exists and
+then check if this user already exists via user provider and
 finally update/create it based on whether it existed or not.
 
 ```php
@@ -147,6 +161,7 @@ use Symfony\Component\HttpFoundation\Session\SessionInterface;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
 use Symfony\Component\Security\Core\Exception\AuthenticationException;
+use Symfony\Component\Security\Core\Exception\UsernameNotFoundException;
 use Symfony\Component\Security\Core\User\UserProviderInterface;
 
 class TestAuthenticator extends OpenIdLoginAuthenticator
@@ -173,12 +188,12 @@ class TestAuthenticator extends OpenIdLoginAuthenticator
         $email = $credentials['upn'];
 
         //Check if user exists already - if not create a user
-        $user = $this->entityManager->getRepository(User::class)
-            ->findOneBy(['email'=> $email]);
-        if (null === $user) {
-            // Create the new user
+        try {
+            $user = $userProvider->loadUserByUsername($email);
+        } catch (UsernameNotFoundException $e){
             $user = new User();
         }
+        
         // Update/set names here
         $user->setName($name);
         $user->setEmail($email);
