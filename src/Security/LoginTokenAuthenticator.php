@@ -44,7 +44,6 @@ abstract class LoginTokenAuthenticator extends AbstractGuardAuthenticator
         // Get username from CliHelperLogin
         $username = $this->cliLoginHelper->getUsername($credentials);
 
-
         // @todo Possibly dont just beneath if start() is implemented in project
         // $user = $userProvider->loadUserByUsername($username);
 

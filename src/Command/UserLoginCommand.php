@@ -41,7 +41,7 @@ class UserLoginCommand extends Command
     {
         $this
             ->setDescription(self::$defaultDescription)
-            ->addArgument('email', InputArgument::REQUIRED, 'User email');
+            ->addArgument('username', InputArgument::REQUIRED, 'Username');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -49,18 +49,17 @@ class UserLoginCommand extends Command
         // Use CliLoginHelper to check table setup correct
         $this->cliLoginHelper->ensureInitialized();
         $io = new SymfonyStyle($input, $output);
-        $email = $input->getArgument('email');
+        $username = $input->getArgument('username');
 
-        // Check if email is registered in User database
-        // todo: possibly avoid beneath
+        // Check if username is registered in User database
         try {
-            $this->userProvider->loadUserByUsername($email);
+            $this->userProvider->loadUserByUsername($username);
         } catch (UsernameNotFoundException $e) {
             throw new \Exception('User does not exist');
         }
 
         // Create token via CliLoginHelper
-        $token = $this->cliLoginHelper->createToken($email);
+        $token = $this->cliLoginHelper->createToken($username);
 
         //Generate absolute url for login
         $loginPage = $this->urlGenerator->generate('homepage', [

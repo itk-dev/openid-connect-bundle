@@ -237,7 +237,7 @@ Rather than signing in via OpenId Connect, you can get
 a sign in url from the command line by providing a user email. Run
 
 ```shell
-bin/console itk-dev:openid-connect:login <email>
+bin/console itk-dev:openid-connect:login <username>
 ```
 
 Or simply run
@@ -247,7 +247,8 @@ bin/console itk-dev:openid-connect:login --help
 ```
 
 for details. Be aware that a login token only can be used once
-before it is removed.
+before it is removed, and if you used email as property
+the email goes into the `username` argument.
 
 ## Changes for Symfony 6.0
 
