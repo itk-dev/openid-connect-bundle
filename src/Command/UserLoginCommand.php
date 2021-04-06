@@ -9,6 +9,8 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
+use Symfony\Component\Security\Core\Exception\UsernameNotFoundException;
+use Symfony\Component\Security\Core\User\UserProviderInterface;
 
 class UserLoginCommand extends Command
 {
@@ -24,10 +26,13 @@ class UserLoginCommand extends Command
      */
     private $cliLoginHelper;
 
-    public function __construct(CliLoginHelper $cliLoginHelper, UrlGeneratorInterface $urlGenerator)
+    private $userProvider;
+
+    public function __construct(CliLoginHelper $cliLoginHelper, UrlGeneratorInterface $urlGenerator, UserProviderInterface $userProvider)
     {
         $this->cliLoginHelper = $cliLoginHelper;
         $this->urlGenerator = $urlGenerator;
+        $this->userProvider = $userProvider;
 
         parent::__construct();
     }
@@ -45,6 +50,14 @@ class UserLoginCommand extends Command
         $this->cliLoginHelper->ensureInitialized();
         $io = new SymfonyStyle($input, $output);
         $email = $input->getArgument('email');
+
+        // Check if email is registered in User database
+        // todo: possibly avoid beneath
+        try {
+            $this->userProvider->loadUserByUsername($email);
+        } catch (UsernameNotFoundException $e) {
+            throw new \Exception('User does not exist');
+        }
 
         // Create token via CliLoginHelper
         $token = $this->cliLoginHelper->createToken($email);
