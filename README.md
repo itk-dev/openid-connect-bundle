@@ -136,7 +136,8 @@ security:
 ```
 
 The property is set to email as this is unique in most cases,
-but this is not required. Just be aware that whatever you configure
+but it does not have to be configured to this.
+Just be aware that whatever you configure
 it to is the argument to be provided during CLI login,
 and that the following example uses the above email configuration.
 
