@@ -20,8 +20,9 @@ class Configuration implements ConfigurationInterface
 
         $treeBuilder->getRootNode()
             ->children()
-                ->scalarNode('cli_login_table')
-                    ->info('Name for table with login tokens')
+                ->scalarNode('cache_pool')
+                    ->info('Method for caching')
+                    ->defaultValue('cache.app')
                     ->isRequired()->cannotBeEmpty()->end()
                 ->arrayNode('open_id_provider_options')
                     ->isRequired()

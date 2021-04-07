@@ -23,6 +23,6 @@ services:
 
   ItkDev\OpenIdConnectBundle\Util\CliLoginHelper:
     arguments:
-      $tableName: ~
+      $cachePool: ~
 
 

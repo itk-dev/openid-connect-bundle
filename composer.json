@@ -21,7 +21,8 @@
         "symfony/security-bundle": "^5.2",
         "itk-dev/openid-connect": "^1.0",
         "ext-json": "*",
-        "symfony/uid": "^5.2"
+        "symfony/uid": "^5.2",
+        "symfony/cache": "^5.2"
     },
     "require-dev": {
         "friendsofphp/php-cs-fixer": "^2.18"

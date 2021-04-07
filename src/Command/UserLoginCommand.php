@@ -47,7 +47,6 @@ class UserLoginCommand extends Command
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         // Use CliLoginHelper to check table setup correct
-        $this->cliLoginHelper->ensureInitialized();
         $io = new SymfonyStyle($input, $output);
         $username = $input->getArgument('username');
 

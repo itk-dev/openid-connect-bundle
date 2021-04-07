@@ -2,64 +2,28 @@
 
 namespace ItkDev\OpenIdConnectBundle\Util;
 
-use Doctrine\DBAL\Connection;
-use Doctrine\DBAL\Connections\MasterSlaveConnection;
-use Doctrine\DBAL\Exception;
-use Doctrine\DBAL\Platforms\AbstractPlatform;
-use Doctrine\DBAL\Schema\AbstractSchemaManager;
-use Doctrine\DBAL\Schema\Comparator;
-use Doctrine\DBAL\Schema\Table;
-use Doctrine\DBAL\Schema\TableDiff;
-use Doctrine\DBAL\Types\Types;
+use Symfony\Component\Cache\Adapter\FilesystemAdapter;
 use Symfony\Component\Uid\Uuid;
 
 class CliLoginHelper
 {
-    /** @var Connection */
-    private $connection;
+    private $cachePool;
 
-    /** @var AbstractSchemaManager */
-    private $schemaManager;
-
-    /** @var AbstractPlatform */
-    private $platform;
-
-    private $tableName;
-
-    public function __construct(Connection $connection, string $tableName)
+    public function __construct(string $cachePool)
     {
-        $this->connection = $connection;
-        $this->schemaManager = $connection->getSchemaManager();
-        $this->platform = $connection->getDatabasePlatform();
-        $this->tableName = $tableName;
+        $this->cachePool = $cachePool;
     }
 
     public function createToken(string $username): string
     {
-        // Check if user already has a token set
-        $token = $this->connection->fetchOne(
-            sprintf('SELECT token FROM %s WHERE username = :username', $this->platform->quoteIdentifier($this->getTableName())),
-            ['username' => $username]
-        );
-
-        if ($token) {
-            return $token;
-        }
+        $cache = new FilesystemAdapter($this->cachePool, 3600);
 
         // Token was not set, create and set it.
-        $token = Uuid::v4();
+        $token = Uuid::v4()->toBase32();
 
-        $this->connection->insert(
-            $this->getTableName(),
-            [
-                'username' => $username,
-                'token' => $token,
-            ],
-            [
-                Types::STRING,
-                Types::STRING,
-            ]
-        );
+        $test = $cache->getItem($token);
+        $test->set($username);
+        $cache->save($test);
 
         return $token;
     }
@@ -67,109 +31,19 @@ class CliLoginHelper
 
     public function getUsername(string $token, bool $remove = true): ?string
     {
-        // Get username by token.
-        $username = $this->connection->fetchOne(
-            sprintf('SELECT username FROM %s WHERE token = :token', $this->platform->quoteIdentifier($this->getTableName())),
-            ['token' => $token]
-        );
+        $cache = new FilesystemAdapter($this->cachePool, 3600);
 
-        // fetchOne returns false if nothing found aka invalid token
-        if (false === $username) {
-            throw new Exception('Invalid token');
+        // check if token exists in cache
+        $username = $cache->getItem($token);
+        if (!$username->isHit()) {
+            // username does not exist in the cache
+            throw new \Exception('Token does not exist');
         }
 
-        if ($remove) {
-            // Remove the token.
-            $this->connection->delete($this->getTableName(), [
-                'token' => $token,
-            ]);
-        }
+        // delete token from cache
+        $cache->delete($token);
 
-        // $username may be `false`, but we want it to be a string or null.
-        return $username ?: null;
-    }
-
-    private function getTableName(): string
-    {
-        return $this->tableName;
-    }
-
-    public function ensureInitialized(): void
-    {
-        if (!$this->isInitialized()) {
-            $expectedSchemaChangelog = $this->getExpectedTable();
-            $this->schemaManager->createTable($expectedSchemaChangelog);
-
-            return;
-        }
-
-        $expectedSchemaChangelog = $this->getExpectedTable();
-        $diff = $this->needsUpdate($expectedSchemaChangelog);
-        if ($diff === null) {
-            return;
-        }
-
-        $this->schemaManager->alterTable($diff);
-    }
-
-    private function needsUpdate(Table $expectedTable): ?TableDiff
-    {
-        $comparator = new Comparator();
-        $currentTable = $this->schemaManager->listTableDetails($this->getTableName());
-        $diff = $comparator->diffTable($currentTable, $expectedTable);
-
-        return $diff instanceof TableDiff ? $diff : null;
-    }
-
-    private function isInitialized(): bool
-    {
-        if ($this->connection instanceof MasterSlaveConnection) {
-            $this->connection->connect('master');
-        }
-
-        // Check if table exists
-        // @todo Figure out how to use the beneath
-        // return $this->schemaManager->tablesExist([$this->getTableName()]);
-
-        // This is a work around
-        $table = $this->connection->fetchOne(
-            sprintf('SHOW TABLES LIKE "%s"', $this->getTableName())
-        );
-
-        return $table!==false;
-    }
-
-    private function getExpectedTable(): Table
-    {
-        $schemaChangelog = new Table($this->getTableName());
-
-        $schemaChangelog->addColumn(
-            'username',
-            Types::STRING,
-            [
-                'notnull' => true,
-            ]
-        );
-
-        $schemaChangelog->addColumn(
-            'token',
-            Types::STRING,
-            [
-                'notnull' => true,
-            ]
-        );
-
-        $schemaChangelog->addColumn(
-            'created_at',
-            Types::DATETIME_IMMUTABLE,
-            [
-                'notnull' => true,
-                'default' => 'CURRENT_TIMESTAMP',
-            ]
-        );
-
-        $schemaChangelog->addUniqueIndex(['token']);
-
-        return $schemaChangelog;
+        // return username
+        return $username->get();
     }
 }
