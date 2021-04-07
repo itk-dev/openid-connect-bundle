@@ -28,11 +28,11 @@ and one that extends `LoginTokenAuthenticator`.
 ### Variable configuration
 
 In `/config/packages/` you need the following `itk_dev_openid_connect.yaml`
-file for configuring table name and OpenId-Connect variables:
+file for configuring cache pool and OpenId-Connect variables:
 
 ```yaml
 itk_dev_openid_connect:
-  cli_login_table: 'table_name' # Name for table containing login tokens
+  cache_pool: 'cache.app' # cache pool, default is cache.app
   open_id_provider_options:
     configuration_url: 'https://.../openid-configuration..' # url to OpenId Discovery document
     client_id: 'client_id' # Client id assigned by authorizer
@@ -41,18 +41,9 @@ itk_dev_openid_connect:
     callback_uri: 'absolute_uri_here' # Callback URI registered at identity provider
 ```
 
-After choosing a fitting table name e.g. `itk_dev_login_table`,
-it is important that you add this to your doctrine
-[schema filter](https://symfony.com/doc/current/bundles/DoctrineMigrationsBundle/index.html#manual-tables),
-in `/config/packages/doctrine.yaml`:
-
-```yaml
-doctrine:
-    dbal:
-        schema_filter: ~^(?!itk_dev_)~
-```
-
-If this is not done, doctrine will remove this table when migrating.
+If you do not wish to use the default cache `cache.app` you can
+[configure](https://symfony.com/doc/current/cache.html#configuring-cache-with-frameworkbundle)
+this to your needs.
 
 In `/config/routes/` you need a similar
 `itk_dev_openid_connect.yaml` file for configuring the routing

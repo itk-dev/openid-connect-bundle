@@ -14,3 +14,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   standardized open source project CHANGELOG.
 - PHP-CS-Fixer
 - Markdownlint
+- OpenId Connect Bundle: Added CLI login feature.
