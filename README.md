@@ -234,7 +234,8 @@ for more information.
 ## Sign in from command line
 
 Rather than signing in via OpenId Connect, you can get
-a sign in url from the command line by providing a user email. Run
+a sign in url from the command line by providing a username.
+Make sure to configure `DEFAULT_URI` as stated above. Run
 
 ```shell
 bin/console itk-dev:openid-connect:login <username>
