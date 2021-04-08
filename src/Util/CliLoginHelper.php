@@ -18,18 +18,32 @@ class CliLoginHelper
     {
         $cache = new FilesystemAdapter($this->cachePool, 3600);
 
-        // Token was not set, create and set it.
-        $token = Uuid::v4()->toBase32();
+        $encodedUsername = base64_encode($username);
 
-        $test = $cache->getItem($token);
-        $test->set($username);
-        $cache->save($test);
+        // Token was not set, create and set it.
+        $token = 'itk-dev-login-token'.Uuid::v4()->toBase32();
+
+
+        // Add username => token to make sure no username has more than one token
+        $revCacheItem = $cache->getItem($encodedUsername);
+
+        if (!$revCacheItem->isHit()) {
+            $revCacheItem->set($token);
+            $cache->save($revCacheItem);
+        } else {
+            return $revCacheItem->get();
+        }
+
+        // Add token => username
+        $cacheItem = $cache->getItem($token);
+        $cacheItem->set($encodedUsername);
+        $cache->save($cacheItem);
 
         return $token;
     }
 
 
-    public function getUsername(string $token, bool $remove = true): ?string
+    public function getUsername(string $token): ?string
     {
         $cache = new FilesystemAdapter($this->cachePool, 3600);
 
@@ -40,10 +54,10 @@ class CliLoginHelper
             throw new \Exception('Token does not exist');
         }
 
-        // delete token from cache
+        // delete both entries from cache
         $cache->delete($token);
+        $cache->delete($username->get());
 
-        // return username
-        return $username->get();
+        return base64_decode($username->get());
     }
 }
