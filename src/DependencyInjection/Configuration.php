@@ -23,7 +23,7 @@ class Configuration implements ConfigurationInterface
                 ->scalarNode('cache_pool')
                     ->info('Method for caching')
                     ->defaultValue('cache.app')
-                    ->isRequired()->cannotBeEmpty()->end()
+                    ->cannotBeEmpty()->end()
                 ->arrayNode('open_id_provider_options')
                     ->isRequired()
                     ->children()

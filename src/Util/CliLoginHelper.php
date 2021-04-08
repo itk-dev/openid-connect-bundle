@@ -7,37 +7,32 @@ use Symfony\Component\Uid\Uuid;
 
 class CliLoginHelper
 {
-    private $cachePool;
+    private $cache;
 
     public function __construct(string $cachePool)
     {
-        $this->cachePool = $cachePool;
+        $this->cache = new FilesystemAdapter($cachePool, 3600);
     }
 
     public function createToken(string $username): string
     {
-        $cache = new FilesystemAdapter($this->cachePool, 3600);
-
         $encodedUsername = base64_encode($username);
 
-        // Token was not set, create and set it.
-        $token = 'itk-dev-login-token'.Uuid::v4()->toBase32();
-
+        $token = Uuid::v4()->toBase32();
 
         // Add username => token to make sure no username has more than one token
-        $revCacheItem = $cache->getItem($encodedUsername);
+        $revCacheItem = $this->cache->getItem($encodedUsername);
 
-        if (!$revCacheItem->isHit()) {
-            $revCacheItem->set($token);
-            $cache->save($revCacheItem);
-        } else {
+        if ($revCacheItem->isHit()) {
             return $revCacheItem->get();
         }
+        $revCacheItem->set($token);
+        $this->cache->save($revCacheItem);
 
         // Add token => username
-        $cacheItem = $cache->getItem($token);
+        $cacheItem = $this->cache->getItem($token);
         $cacheItem->set($encodedUsername);
-        $cache->save($cacheItem);
+        $this->cache->save($cacheItem);
 
         return $token;
     }
@@ -45,19 +40,23 @@ class CliLoginHelper
 
     public function getUsername(string $token): ?string
     {
-        $cache = new FilesystemAdapter($this->cachePool, 3600);
-
         // check if token exists in cache
-        $username = $cache->getItem($token);
+        $username = $this->cache->getItem($token);
         if (!$username->isHit()) {
             // username does not exist in the cache
             throw new \Exception('Token does not exist');
         }
 
         // delete both entries from cache
-        $cache->delete($token);
-        $cache->delete($username->get());
+        $this->cache->delete($token);
+        $this->cache->delete($username->get());
 
         return base64_decode($username->get());
     }
+
+    // Add 'namespace' itk-dev...
+
+    // private function encodeKey(string $key)
+
+    // private function decodeKey(string $key)
 }
