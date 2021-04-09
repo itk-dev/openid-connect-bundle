@@ -22,7 +22,5 @@ services:
   ItkDev\OpenIdConnectBundle\Command\UserLoginCommand:
 
   ItkDev\OpenIdConnectBundle\Util\CliLoginHelper:
-    arguments:
-      $cachePool: ~
 
 

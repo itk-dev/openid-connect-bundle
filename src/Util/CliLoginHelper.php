@@ -4,19 +4,20 @@ namespace ItkDev\OpenIdConnectBundle\Util;
 
 use Symfony\Component\Cache\Adapter\FilesystemAdapter;
 use Symfony\Component\Uid\Uuid;
+use Symfony\Contracts\Cache\CacheInterface;
 
 class CliLoginHelper
 {
     private $cache;
 
-    public function __construct(string $cachePool)
+    public function __construct()
     {
-        $this->cache = new FilesystemAdapter($cachePool, 3600);
+        //$this->cache = new FilesystemAdapter($cachePool, 3600);
     }
 
     public function createToken(string $username): string
     {
-        $encodedUsername = base64_encode($username);
+        $encodedUsername = $this->encodeKey($username);
 
         $token = Uuid::v4()->toBase32();
 
@@ -41,22 +42,36 @@ class CliLoginHelper
     public function getUsername(string $token): ?string
     {
         // check if token exists in cache
-        $username = $this->cache->getItem($token);
-        if (!$username->isHit()) {
+        $usernameItem = $this->cache->getItem($token);
+        if (!$usernameItem->isHit()) {
             // username does not exist in the cache
             throw new \Exception('Token does not exist');
         }
 
+        $username = $usernameItem->get();
+
         // delete both entries from cache
         $this->cache->delete($token);
-        $this->cache->delete($username->get());
+        $this->cache->delete($username);
 
-        return base64_decode($username->get());
+
+        return $this->decodeKey($username);
+    }
+
+    public function setCache(CacheInterface $cache)
+    {
+        $this->cache = $cache;
     }
 
     // Add 'namespace' itk-dev...
 
-    // private function encodeKey(string $key)
+    private function encodeKey(string $key): string
+    {
+        return base64_encode($key);
+    }
 
-    // private function decodeKey(string $key)
+    private function decodeKey(string $encodedKey): string
+    {
+        return base64_decode($encodedKey);
+    }
 }

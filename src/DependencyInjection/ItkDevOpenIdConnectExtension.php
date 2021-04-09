@@ -8,6 +8,7 @@ use Symfony\Component\Config\FileLocator;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Extension\Extension;
 use Symfony\Component\DependencyInjection\Loader\YamlFileLoader;
+use Symfony\Component\DependencyInjection\Reference;
 
 class ItkDevOpenIdConnectExtension extends Extension
 {
@@ -31,7 +32,7 @@ class ItkDevOpenIdConnectExtension extends Extension
         $definition->replaceArgument('$openIdProviderOptions', $providerConfig);
 
         $definition = $container->getDefinition(CliLoginHelper::class);
-        $definition->replaceArgument('$cachePool', $config['cache_pool']);
+        $definition->addMethodCall('setCache', [new Reference($config['cache_pool'])]);
     }
 
     public function getAlias()
