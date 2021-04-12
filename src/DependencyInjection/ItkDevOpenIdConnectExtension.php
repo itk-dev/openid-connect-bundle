@@ -32,10 +32,13 @@ class ItkDevOpenIdConnectExtension extends Extension
         $definition->replaceArgument('$openIdProviderOptions', $providerConfig);
 
         $definition = $container->getDefinition(CliLoginHelper::class);
-        $definition->addMethodCall('setCache', [new Reference($config['cache_pool'])]);
+        $definition->addArgument(new Reference($config['cache_pool']));
+
+        //$container->get($config['cache_pool']);
+        //$definition->addMethodCall('setCache', [new Reference($config['cache_pool'])]);
     }
 
-    public function getAlias()
+    public function getAlias(): string
     {
         return  'itk_dev_openid_connect';
     }

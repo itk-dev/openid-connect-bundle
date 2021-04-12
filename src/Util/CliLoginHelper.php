@@ -2,7 +2,6 @@
 
 namespace ItkDev\OpenIdConnectBundle\Util;
 
-use Symfony\Component\Cache\Adapter\FilesystemAdapter;
 use Symfony\Component\Uid\Uuid;
 use Symfony\Contracts\Cache\CacheInterface;
 
@@ -10,9 +9,12 @@ class CliLoginHelper
 {
     private $cache;
 
-    public function __construct()
+    private $itkNamespace;
+
+    public function __construct(CacheInterface $cache)
     {
-        //$this->cache = new FilesystemAdapter($cachePool, 3600);
+        $this->cache = $cache;
+        $this->itkNamespace = 'itk-dev-cli-login';
     }
 
     public function createToken(string $username): string
@@ -57,21 +59,21 @@ class CliLoginHelper
 
         return $this->decodeKey($username);
     }
-
-    public function setCache(CacheInterface $cache)
+    
+    public function encodeKey(string $key): string
     {
-        $this->cache = $cache;
+        // Add namespace to key before encoding
+        return base64_encode($this->itkNamespace.$key);
     }
 
-    // Add 'namespace' itk-dev...
-
-    private function encodeKey(string $key): string
+    public function decodeKey(string $encodedKey): string
     {
-        return base64_encode($key);
-    }
+        // Decode encoded key
+        $decodedKeyWithNamespace = base64_decode($encodedKey);
 
-    private function decodeKey(string $encodedKey): string
-    {
-        return base64_decode($encodedKey);
+        //Remove namespace
+        $key = str_replace($this->itkNamespace, '', $decodedKeyWithNamespace);
+
+        return $key;
     }
 }

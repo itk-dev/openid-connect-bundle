@@ -5,39 +5,37 @@ namespace ItkDev\OpenIdConnectBundle\Tests\Util;
 use ItkDev\OpenIdConnectBundle\Util\CliLoginHelper;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Cache\Adapter\FilesystemAdapter;
+use Symfony\Component\Uid\Uuid;
+use Symfony\Contracts\Cache\CacheInterface;
 
 class CliLoginHelperTest extends TestCase
 {
-    // todo test encode and decode key
 
-    public function testCreateTokenAndGetUsername()
+    public function testEncodeAndDecode()
     {
+        $cache = $this->createMock(CacheInterface::class);
         // Create CliLoginHelper
-        $cliHelper = new CliLoginHelper();
+        $cliHelper = new CliLoginHelper($cache);
 
-        $cache = new FilesystemAdapter('cache.app', 3600);
+        $randomUsername = Uuid::v4()->toBase32();
 
-        $cliHelper->setCache($cache);
+        // Encode the username
+        $encodedUsername = $cliHelper->encodeKey($randomUsername);
 
-        // Create and set a token for user test_user
-        $testUser = 'test_user';
-        $token = $cliHelper->createToken($testUser);
+        // Decode the encoded username
+        $decodedUsername = $cliHelper->decodeKey($encodedUsername);
 
-        // Get username from token created
-        $username = $cliHelper->getUsername($token);
+        // Assert equals
+        $this->assertEquals($randomUsername, $decodedUsername);
 
-        // Check that we get correct username back
-        $this->assertEquals($testUser, $username);
     }
 
     public function testReuseSetTokenRatherThanRemake()
     {
-        // Create CliLoginHelper
-        $cliHelper = new CliLoginHelper();
-
         $cache = new FilesystemAdapter('cache.app', 3600);
 
-        $cliHelper->setCache($cache);
+        // Create CliLoginHelper
+        $cliHelper = new CliLoginHelper($cache);
 
         // Create and set a token for user test_user
         $testUser = 'test_user';
@@ -53,26 +51,23 @@ class CliLoginHelperTest extends TestCase
     public function testThrowExceptionIfTokenDoesNotExist()
     {
         $this->expectException(\Exception::class);
-        // Create CliLoginHelper
-        $cliHelper = new CliLoginHelper();
 
         $cache = new FilesystemAdapter('cache.app', 3600);
 
-        $cliHelper->setCache($cache);
+        // Create CliLoginHelper
+        $cliHelper = new CliLoginHelper($cache);
 
-        $username = $cliHelper->getUsername('random_gipperish_token');
+        $username = $cliHelper->getUsername('random_gibberish_token');
     }
 
     public function testTokenIsRemovedAfterUse()
     {
         $this->expectException(\Exception::class);
 
-        // Create CliLoginHelper
-        $cliHelper = new CliLoginHelper();
-
         $cache = new FilesystemAdapter('cache.app', 3600);
 
-        $cliHelper->setCache($cache);
+        // Create CliLoginHelper
+        $cliHelper = new CliLoginHelper($cache);
 
         // Create and set a token for user test_user
         $testUser = 'test_user';
@@ -83,6 +78,28 @@ class CliLoginHelperTest extends TestCase
 
         //Try again, to ensure its gone
         $username = $cliHelper->getUsername($token);
-
     }
+
+    /*public function testCreateTokenAndGetUsername()
+    {
+        // Create a mock for testing purposes
+        $cache = $this->createMock(CacheInterface::class);
+
+        // Create CliLoginHelper
+        $cliHelper = new CliLoginHelper($cache);
+
+        //$cache = new FilesystemAdapter('cache.app', 3600);
+
+        //$cliHelper->setCache($cache);
+
+        // Create and set a token for user test_user
+        $testUser = 'test_user';
+        $token = $cliHelper->createToken($testUser);
+
+        // Get username from token created
+        $username = $cliHelper->getUsername($token);
+
+        // Check that we get correct username back
+        $this->assertEquals($testUser, $username);
+    }*/
 }
