@@ -28,7 +28,7 @@ and one that extends `LoginTokenAuthenticator`.
 ### Variable configuration
 
 In `/config/packages/` you need the following `itk_dev_openid_connect.yaml`
-file for configuring cache pool and OpenId-Connect variables:
+file for configuring cache pool and OpenId Connect variables:
 
 ```yaml
 itk_dev_openid_connect:
@@ -37,7 +37,7 @@ itk_dev_openid_connect:
     configuration_url: 'https://.../openid-configuration..' # url to OpenId Discovery document
     client_id: 'client_id' # Client id assigned by authorizer
     client_secret: 'client_secret' # Client password assigned by authorizer
-    cache_path: '' # Path for caching discovery document
+    cache_path: '%kernel.cache_dir%/.openid_connect_cache.php' # Path for caching discovery document
     callback_uri: 'absolute_uri_here' # Callback URI registered at identity provider
 ```
 
@@ -265,6 +265,20 @@ the coding standard we decided to adhere to in this project.
     ```sh
     yarn coding-standards-check
     ```
+
+## Tests
+
+The following command let you run the bundle tests
+
+```shell
+./vendor/bin/phpunit --testdox tests
+```
+
+The tests are based on one specific
+[cache adapter](https://symfony.com/doc/current/components/cache.html#available-cache-adapters),
+namely the
+[Filesystem Cache Adapter](https://symfony.com/doc/current/components/cache/adapters/filesystem_adapter.html),
+to make sure the bundle is behaving correctly.
 
 ## Versioning
 
