@@ -2,17 +2,22 @@
 
 namespace ItkDev\OpenIdConnectBundle\Util;
 
-use Symfony\Component\Cache\Adapter\AdapterInterface;
 use Symfony\Component\Uid\Uuid;
 use Symfony\Contracts\Cache\CacheInterface;
 
 class CliLoginHelper
 {
+    /**
+     * @var CacheInterface
+     */
     private $cache;
 
+    /**
+     * @var string
+     */
     private $itkNamespace;
 
-    public function __construct(AdapterInterface $cache)
+    public function __construct(CacheInterface $cache)
     {
         $this->cache = $cache;
         $this->itkNamespace = 'itk-dev-cli-login';
