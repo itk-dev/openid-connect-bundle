@@ -19,7 +19,7 @@ yarn install
 ## Usage
 
 Before being able to use the bundle,
-you must have your own User entity and a database setup.
+you must have your own User entity and database setup.
 
 Once you have this, you need to configure bundle variables,
 create an authenticator class that extends `OpenIdLoginAuthenticator`
@@ -32,7 +32,7 @@ file for configuring cache pool and OpenId Connect variables:
 
 ```yaml
 itk_dev_openid_connect:
-  cache_pool: 'cache.app' # cache pool, default is cache.app
+  cache_pool: 'cache.app' # cache pool, for caching CLI login tokens
   open_id_provider_options:
     configuration_url: 'https://.../openid-configuration..' # url to OpenId Discovery document
     client_id: 'client_id' # Client id assigned by authorizer
@@ -46,7 +46,7 @@ If you do not wish to use the default cache `cache.app` you can
 this to your needs.
 
 In `/config/routes/` you need a similar
-`itk_dev_openid_connect.yaml` file for configuring the routing
+`itk_dev_openid_connect.yaml` file for configuring routing
 
 ```yaml
 itk_dev_openid_connect:
@@ -105,7 +105,7 @@ of `onAuthenticationSuccess()` and `start()`.
 
 #### Configuration of `security.yaml`
 
-Make sure to add your authenticators to the `security.yaml` file
+Make sure to add both authenticators to the `security.yaml` file
 and also add a [entry point](https://symfony.com/doc/current/security/multiple_guard_authenticators.html).
 Furthermore, you need to configure the user provider for the authenticators:
 
@@ -126,9 +126,10 @@ security:
         entry_point: App\Security\SomeOpenIdAuthenticator
 ```
 
-The property is set to email as this is unique in most cases,
-but it does not have to be configured to this.
-Just be aware that whatever you configure
+The provider property in this example configuration is set to email,
+as this is unique in most cases.
+It does not have to be configured this way,
+just be aware that whatever you configure
 it to is the argument to be provided during CLI login,
 and that the following example uses the above email configuration.
 
