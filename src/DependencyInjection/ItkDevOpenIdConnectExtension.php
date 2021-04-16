@@ -2,6 +2,7 @@
 
 namespace ItkDev\OpenIdConnectBundle\DependencyInjection;
 
+use ItkDev\OpenIdConnectBundle\Command\UserLoginCommand;
 use ItkDev\OpenIdConnectBundle\Controller\LoginController;
 use ItkDev\OpenIdConnectBundle\Util\CliLoginHelper;
 use Symfony\Component\Config\FileLocator;
@@ -34,8 +35,8 @@ class ItkDevOpenIdConnectExtension extends Extension
         $definition = $container->getDefinition(CliLoginHelper::class);
         $definition->addArgument(new Reference($config['cache_pool']));
 
-        //$container->get($config['cache_pool']);
-        //$definition->addMethodCall('setCache', [new Reference($config['cache_pool'])]);
+        $definition = $container->getDefinition(UserLoginCommand::class);
+        $definition->replaceArgument('$cliLoginRedirectRoute', $config['cli_redirect']);
     }
 
     public function getAlias(): string

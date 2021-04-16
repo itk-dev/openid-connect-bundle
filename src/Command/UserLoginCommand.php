@@ -28,9 +28,12 @@ class UserLoginCommand extends Command
 
     private $userProvider;
 
-    public function __construct(CliLoginHelper $cliLoginHelper, UrlGeneratorInterface $urlGenerator, UserProviderInterface $userProvider)
+    private $cliLoginRedirectRoute;
+
+    public function __construct(CliLoginHelper $cliLoginHelper, string $cliLoginRedirectRoute, UrlGeneratorInterface $urlGenerator, UserProviderInterface $userProvider)
     {
         $this->cliLoginHelper = $cliLoginHelper;
+        $this->cliLoginRedirectRoute = $cliLoginRedirectRoute;
         $this->urlGenerator = $urlGenerator;
         $this->userProvider = $userProvider;
 

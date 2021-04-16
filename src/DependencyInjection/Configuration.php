@@ -20,6 +20,9 @@ class Configuration implements ConfigurationInterface
 
         $treeBuilder->getRootNode()
             ->children()
+                ->scalarNode('cli_redirect')
+                    ->info('Return route for CLI login')
+                    ->cannotBeEmpty()->end()
                 ->scalarNode('cache_pool')
                     ->info('Method for caching')
                     ->defaultValue('cache.app')

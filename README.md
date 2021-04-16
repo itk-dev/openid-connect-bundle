@@ -32,6 +32,7 @@ file for configuring cache pool and OpenId Connect variables:
 
 ```yaml
 itk_dev_openid_connect:
+  cli_redirect: 'homepage' # Redirect route for CLI login
   cache_pool: 'cache.app' # cache pool, for caching CLI login tokens
   open_id_provider_options:
     configuration_url: 'https://.../openid-configuration..' # url to OpenId Discovery document
