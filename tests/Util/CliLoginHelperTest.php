@@ -4,6 +4,7 @@ namespace ItkDev\OpenIdConnectBundle\Tests\Util;
 
 use ItkDev\OpenIdConnectBundle\Util\CliLoginHelper;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Cache\Adapter\ArrayAdapter;
 use Symfony\Component\Cache\Adapter\FilesystemAdapter;
 use Symfony\Component\Uid\Uuid;
 use Symfony\Contracts\Cache\CacheInterface;
@@ -12,7 +13,7 @@ class CliLoginHelperTest extends TestCase
 {
     public function testEncodeAndDecode()
     {
-        $cache = $this->createMock(CacheInterface::class);
+        $cache = new ArrayAdapter();
         // Create CliLoginHelper
         $cliHelper = new CliLoginHelper($cache);
 
@@ -34,7 +35,7 @@ class CliLoginHelperTest extends TestCase
         $this->expectException(\Exception::class);
 
         // Testing it works with one adapter
-        $cache = new FilesystemAdapter('cache.app', 3600);
+        $cache = new ArrayAdapter();
 
         // Create CliLoginHelper
         $cliHelper = new CliLoginHelper($cache);
@@ -46,7 +47,7 @@ class CliLoginHelperTest extends TestCase
     public function testReuseSetTokenRatherThanRemake()
     {
         // Testing it works with one adapter
-        $cache = new FilesystemAdapter('cache.app', 3600);
+        $cache = new ArrayAdapter();
 
         // Create CliLoginHelper
         $cliHelper = new CliLoginHelper($cache);
@@ -65,7 +66,7 @@ class CliLoginHelperTest extends TestCase
     public function testTokenIsRemovedAfterUse()
     {
         // Testing it works with one adapter
-        $cache = new FilesystemAdapter('cache.app', 3600);
+        $cache = new ArrayAdapter();
 
         // Create CliLoginHelper
         $cliHelper = new CliLoginHelper($cache);
@@ -87,7 +88,7 @@ class CliLoginHelperTest extends TestCase
     public function testCreateTokenAndGetUsername()
     {
         // Testing it works with one adapter
-        $cache = new FilesystemAdapter('cache.app', 3600);
+        $cache = new ArrayAdapter();
 
         // Create CliLoginHelper
         $cliHelper = new CliLoginHelper($cache);
