@@ -276,12 +276,6 @@ The following command let you run the bundle tests
 ./vendor/bin/phpunit --testdox tests
 ```
 
-The tests are based on one specific
-[cache adapter](https://symfony.com/doc/current/components/cache.html#available-cache-adapters),
-namely the
-[Filesystem Cache Adapter](https://symfony.com/doc/current/components/cache/adapters/filesystem_adapter.html),
-to make sure the bundle is behaving correctly.
-
 ## Versioning
 
 We use [SemVer](http://semver.org/) for versioning.
