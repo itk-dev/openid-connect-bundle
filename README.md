@@ -18,8 +18,7 @@ yarn install
 
 ## Usage
 
-Before being able to use the bundle,
-you must have your own User entity and database setup.
+The bundle requires your own User entity and database setup.
 
 Once you have this, you need to configure bundle variables and
 create an authenticator class that extends `OpenIdLoginAuthenticator`.
@@ -27,12 +26,12 @@ create an authenticator class that extends `OpenIdLoginAuthenticator`.
 ### Variable configuration
 
 In `/config/packages/` you need the following `itk_dev_openid_connect.yaml`
-file for configuring CLI login redirect upon success,
+file for configuring successful CLI login redirect,
 cache pool and OpenId Connect variables:
 
 ```yaml
 itk_dev_openid_connect:
-  cli_redirect: 'homepage' # Redirect route for CLI login
+  cli_redirect: 'homepage' # Redirect route for CLI login upon success
   cache_pool: 'cache.app' # cache pool, for caching CLI login tokens
   open_id_provider_options:
     configuration_url: 'https://.../openid-configuration..' # url to OpenId Discovery document
@@ -47,7 +46,7 @@ If you do not wish to use the default cache `cache.app` you can
 this to your needs.
 
 In `/config/routes/` you need a similar
-`itk_dev_openid_connect.yaml` file for configuring routing
+`itk_dev_openid_connect.yaml` file for routing configuration
 
 ```yaml
 itk_dev_openid_connect:
@@ -59,7 +58,7 @@ It is not necessary to add a prefix to the bundle routes,
 but in case you want e.g. another `/login` route,
 it makes distinguishing between them easier. To begin
 the authorization flow you will need to redirect to
-`/openidconnect/login`, if you used the `/openidconnect` prefix,
+`/openidconnect/login` (if you used the `/openidconnect` prefix)
 or simply the route named `itk_dev_openid_connect_login`.
 
 ### Creating the OpenIdLoginAuthenticator
@@ -103,7 +102,7 @@ class SomeOpenIdAuthenticator extends OpenIdLoginAuthenticator
 
 Make sure to add your authenticator and the bundle `LoginTokenAuthenticator`
 to the `security.yaml` file
-and also add a [entry point](https://symfony.com/doc/current/security/multiple_guard_authenticators.html).
+and also to add an [entry point](https://symfony.com/doc/current/security/multiple_guard_authenticators.html).
 Furthermore, you need to configure the user provider for the authenticators:
 
 ```yaml
