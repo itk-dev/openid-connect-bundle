@@ -21,14 +21,14 @@ yarn install
 Before being able to use the bundle,
 you must have your own User entity and database setup.
 
-Once you have this, you need to configure bundle variables,
-create an authenticator class that extends `OpenIdLoginAuthenticator`
-and one that extends `LoginTokenAuthenticator`.
+Once you have this, you need to configure bundle variables and
+create an authenticator class that extends `OpenIdLoginAuthenticator`.
 
 ### Variable configuration
 
 In `/config/packages/` you need the following `itk_dev_openid_connect.yaml`
-file for configuring cache pool and OpenId Connect variables:
+file for configuring CLI login redirect upon success,
+cache pool and OpenId Connect variables:
 
 ```yaml
 itk_dev_openid_connect:
@@ -59,13 +59,12 @@ It is not necessary to add a prefix to the bundle routes,
 but in case you want e.g. another `/login` route,
 it makes distinguishing between them easier. To begin
 the authorization flow you will need to redirect to
-`/openidconnect/login`, if you used the `/openidconnect` prefix.
+`/openidconnect/login`, if you used the `/openidconnect` prefix,
+or simply the route named `itk_dev_openid_connect_login`.
 
-### Creating the authenticators
+### Creating the OpenIdLoginAuthenticator
 
-#### The OpenIdLoginAuthenticator
-
-The bundle handles the extraction of credentials received from the authorizer -
+The bundle handles extraction of credentials received from the authorizer -
 therefore the only functions that needs to be implemented are `getUser()`,
 `onAuthenticationSuccess()` and `start()`.
 
@@ -100,13 +99,10 @@ class SomeOpenIdAuthenticator extends OpenIdLoginAuthenticator
 }
 ```
 
-Similarly, you need a `SomeLoginTokenAuthenticator` that extends
-`LoginTokenAuthenticator`. This however only requires implementation
-of `onAuthenticationSuccess()` and `start()`.
-
 #### Configuration of `security.yaml`
 
-Make sure to add both authenticators to the `security.yaml` file
+Make sure to add your authenticator and the bundle `LoginTokenAuthenticator`
+to the `security.yaml` file
 and also add a [entry point](https://symfony.com/doc/current/security/multiple_guard_authenticators.html).
 Furthermore, you need to configure the user provider for the authenticators:
 
@@ -123,18 +119,17 @@ security:
       guard:
         authenticators:
           - App\Security\SomeOpenIdAuthenticator
-          - App\Security\SomeLoginTokenAuthenticator
+          - ItkDev\OpenIdConnectBundle\Security\LoginTokenAuthenticator
         entry_point: App\Security\SomeOpenIdAuthenticator
 ```
 
 The provider property in this example configuration is set to email,
-as this is unique in most cases.
-It does not have to be configured this way,
+as this is unique in most cases. It does not have to be configured this way,
 just be aware that whatever you configure
 it to is the argument to be provided during CLI login,
 and that the following example uses the above email configuration.
 
-#### Example authenticator functions
+#### Example authenticator
 
 Here is an example using a `User` with a name and email property.
 First we extract data from the credentials,
@@ -158,7 +153,7 @@ use Symfony\Component\Security\Core\Exception\AuthenticationException;
 use Symfony\Component\Security\Core\Exception\UsernameNotFoundException;
 use Symfony\Component\Security\Core\User\UserProviderInterface;
 
-class TestAuthenticator extends OpenIdLoginAuthenticator
+class SomeOpenIdAuthenticator extends OpenIdLoginAuthenticator
 {
     /**
      * @var UrlGeneratorInterface
@@ -240,8 +235,10 @@ Or simply run
 bin/console itk-dev:openid-connect:login --help
 ```
 
-for details. Be aware that a login token only can be used once
-before it is removed, and if you used email as property
+for details.
+
+Be aware that a login token only can be used once
+before it is removed, and if you used email as your user provider property
 the email goes into the `username` argument.
 
 ## Changes for Symfony 6.0

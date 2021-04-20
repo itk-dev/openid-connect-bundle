@@ -22,6 +22,11 @@ services:
   ItkDev\OpenIdConnectBundle\Command\UserLoginCommand:
     $cliLoginRedirectRoute: ~
 
+  ItkDev\OpenIdConnectBundle\Security\LoginTokenAuthenticator:
+    $cliLoginRedirectRoute: ~
+
   ItkDev\OpenIdConnectBundle\Util\CliLoginHelper:
+
+
 
 

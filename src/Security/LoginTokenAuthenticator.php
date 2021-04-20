@@ -3,7 +3,9 @@
 namespace ItkDev\OpenIdConnectBundle\Security;
 
 use ItkDev\OpenIdConnectBundle\Util\CliLoginHelper;
+use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
 use Symfony\Component\Security\Core\Exception\AuthenticationException;
 use Symfony\Component\Security\Core\Exception\UsernameNotFoundException;
@@ -11,16 +13,28 @@ use Symfony\Component\Security\Core\User\UserInterface;
 use Symfony\Component\Security\Core\User\UserProviderInterface;
 use Symfony\Component\Security\Guard\AbstractGuardAuthenticator;
 
-abstract class LoginTokenAuthenticator extends AbstractGuardAuthenticator
+class LoginTokenAuthenticator extends AbstractGuardAuthenticator
 {
     /**
      * @var CliLoginHelper
      */
     private $cliLoginHelper;
 
-    public function __construct(CliLoginHelper $cliLoginHelper)
+    /**
+     * @var UrlGeneratorInterface
+     */
+    private $router;
+
+    /**
+     * @var string
+     */
+    private $cliLoginRedirectRoute;
+
+    public function __construct(CliLoginHelper $cliLoginHelper, string $cliLoginRedirectRoute, UrlGeneratorInterface $router)
     {
         $this->cliLoginHelper = $cliLoginHelper;
+        $this->cliLoginRedirectRoute = $cliLoginRedirectRoute;
+        $this->router = $router;
     }
 
     public function supports(Request $request)
@@ -65,9 +79,16 @@ abstract class LoginTokenAuthenticator extends AbstractGuardAuthenticator
         throw new AuthenticationException('Error occurred validating login token');
     }
 
-    abstract public function onAuthenticationSuccess(Request $request, TokenInterface $token, string $providerKey);
+    public function onAuthenticationSuccess(Request $request, TokenInterface $token, string $providerKey)
+    {
+        return new RedirectResponse($this->router->generate($this->cliLoginRedirectRoute));
+    }
 
-    abstract public function start(Request $request, AuthenticationException $authException = null);
+    public function start(Request $request, AuthenticationException $authException = null)
+    {
+        // Only way to start the CLI login flow should be via CMD and URL
+        throw new AuthenticationException('Authentication needed to access this URI/resource.');
+    }
 
     public function supportsRememberMe()
     {

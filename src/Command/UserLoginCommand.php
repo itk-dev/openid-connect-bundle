@@ -63,7 +63,7 @@ class UserLoginCommand extends Command
         $token = $this->cliLoginHelper->createToken($username);
 
         //Generate absolute url for login
-        $loginPage = $this->urlGenerator->generate('homepage', [
+        $loginPage = $this->urlGenerator->generate($this->cliLoginRedirectRoute, [
             'loginToken' => $token,
         ], UrlGeneratorInterface::ABSOLUTE_URL);
 
