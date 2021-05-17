@@ -186,30 +186,78 @@ In Symfony 6.0 a new security system is
 This system is said to be almost fully backwards compatible, but changes may be needed.
 If so, a new version of this bundle might be necessary.
 
-## Coding standard tests
+## Development Setup
+
+A `docker-compose.yml` file with a PHP 7.4 image is included in this project.
+To install the dependencies you can run
+
+```shell
+docker compose up -d
+docker compose exec phpfpm composer install
+```
+
+### Unit Testing
+
+A PhpUnit setup is included in this library. To run the unit tests:
+
+```shell
+docker compose exec phpfpm composer install
+docker compose exec phpfpm ./vendor/bin/phpunit
+```
+
+### Check Coding Standard
 
 The following command let you test that the code follows
-the coding standard we decided to adhere to in this project.
+the coding standard for the project.
 
 * PHP files (PHP-CS-Fixer)
 
-    ```sh
-    ./vendor/bin/php-cs-fixer fix src --dry-run
+    ```shell
+    docker compose exec phpfpm composer check-coding-standards
     ```
 
 * Markdown files (markdownlint standard rules)
 
-    ```sh
-    yarn coding-standards-check
+    ```shell
+    docker run -v ${PWD}:/app itkdev/yarn:latest install
+    docker run -v ${PWD}:/app itkdev/yarn:latest check-coding-standards
     ```
+
+### Apply Coding Standards
+
+To attempt to automatically fix coding style
+
+* PHP files (PHP-CS-Fixer)
+
+    ```sh
+    docker compose exec phpfpm composer apply-coding-standards
+    ```
+
+* Markdown files (markdownlint standard rules)
+
+    ```shell
+    docker run -v ${PWD}:/app itkdev/yarn:latest install
+    docker run -v ${PWD}:/app itkdev/yarn:latest check-coding-standards
+    ```
+
+## CI
+
+Github Actions are used to run the test suite and code style checks on all PR's.
+
+If you wish to test against the jobs locally you can install [act](https://github.com/nektos/act).
+Then do:
+
+```shell
+act -P ubuntu-latest=shivammathur/node:latest pull_request
+```
 
 ## Versioning
 
 We use [SemVer](http://semver.org/) for versioning.
 For the versions available, see the
-[tags on this repository](https://github.com/itk-dev/openid-connect-bundle/tags).
+[tags on this repository](https://github.com/itk-dev/openid-connect/tags).
 
 ## License
 
 This project is licensed under the MIT License - see the
-[LICENSE.md](LICENSE.md) file for details.
+[LICENSE.md](LICENSE.md) file for details
