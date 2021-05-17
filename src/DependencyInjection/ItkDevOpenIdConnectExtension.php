@@ -10,6 +10,9 @@ use Symfony\Component\DependencyInjection\Loader\YamlFileLoader;
 
 class ItkDevOpenIdConnectExtension extends Extension
 {
+    /**
+     * @return void
+     */
     public function load(array $configs, ContainerBuilder $container)
     {
         $loader = new YamlFileLoader($container, new FileLocator(\dirname(__DIR__).'/../config'));

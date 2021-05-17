@@ -205,6 +205,16 @@ docker compose exec phpfpm composer install
 docker compose exec phpfpm ./vendor/bin/phpunit
 ```
 
+### Psalm static analysis
+
+Where using [Psalm](https://psalm.dev/) for static analysis. To run 
+psalm do
+
+```shell
+docker compose exec phpfpm composer install
+docker compose exec phpfpm ./vendor/bin/psalm
+```
+
 ### Check Coding Standard
 
 The following command let you test that the code follows
