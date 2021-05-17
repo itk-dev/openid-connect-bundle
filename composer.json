@@ -18,6 +18,11 @@
             "ItkDev\\OpenIdConnectBundle\\": "src/"
         }
     },
+    "autoload-dev": {
+        "psr-4": {
+            "ItkDev\\OpenIdConnectBundle\\Tests\\": "tests/"
+        }
+    },
     "require": {
         "php": "^7.3|^8.0",
         "ext-json": "*",

@@ -6,17 +6,19 @@ use ItkDev\OpenIdConnectBundle\Controller\LoginController;
 use Symfony\Component\Config\FileLocator;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Extension\Extension;
+use Symfony\Component\DependencyInjection\Loader\FileLoader;
+use Symfony\Component\DependencyInjection\Loader\XmlFileLoader;
 use Symfony\Component\DependencyInjection\Loader\YamlFileLoader;
 
 class ItkDevOpenIdConnectExtension extends Extension
 {
     /**
-     * @return void
+     * {@inheritdoc}
      */
     public function load(array $configs, ContainerBuilder $container)
     {
-        $loader = new YamlFileLoader($container, new FileLocator(\dirname(__DIR__).'/../config'));
-        $loader->load('services.yaml');
+        $loader = new XmlFileLoader($container, new FileLocator(__DIR__.'/../Resources/config'));
+        $loader->load('services.xml');
 
         $configuration = new Configuration();
         $config = $this->processConfiguration($configuration, $configs);
@@ -29,7 +31,15 @@ class ItkDevOpenIdConnectExtension extends Extension
             'redirectUri' => $config['open_id_provider_options']['callback_uri'],
         ];
 
-        $definition = $container->getDefinition(LoginController::class);
+        $definition = $container->getDefinition('itkdev.openid_login_controller');
         $definition->replaceArgument('$openIdProviderOptions', $newConfig);
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function getAlias()
+    {
+        return 'itkdev_openid_connect';
     }
 }
