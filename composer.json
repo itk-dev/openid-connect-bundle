@@ -7,6 +7,10 @@
         {
             "name": "Jeppe Kuhlmann Andersen",
             "email": "jekua@aarhus.dk"
+        },
+        {
+            "name": "Ture Gjørup",
+            "email": "tug@aarhus.dk"
         }
     ],
     "autoload": {
@@ -15,14 +19,33 @@
         }
     },
     "require": {
-        "php": ">=7.2.5",
+        "php": "^7.3|^8.0",
+        "ext-json": "*",
+        "ext-openssl": "*",
         "symfony/framework-bundle": "^5.2",
         "doctrine/orm": "^2.8",
         "symfony/security-bundle": "^5.2",
-        "itk-dev/openid-connect": "^1.0",
-        "ext-json": "*"
+        "itk-dev/openid-connect": "^1.0"
     },
     "require-dev": {
-        "friendsofphp/php-cs-fixer": "^2.18"
+        "phpunit/phpunit": "^9.5",
+        "dealerdirect/phpcodesniffer-composer-installer": "^0.7.1",
+        "escapestudios/symfony2-coding-standard": "^3.12",
+        "vimeo/psalm": "^4.7"
+    },
+    "scripts": {
+        "test": "./vendor/bin/phpunit",
+        "apply-coding-standards": [
+            "phpcbf --standard=phpcs.xml.dist"
+        ],
+        "check-coding-standards": [
+            "phpcs --standard=phpcs.xml.dist"
+        ],
+        "install-codestandards": [
+            "Dealerdirect\\Composer\\Plugin\\Installers\\PHPCodeSniffer\\Plugin::run"
+        ],
+        "post-install-cmd": [
+            "@install-codestandards"
+        ]
     }
 }
