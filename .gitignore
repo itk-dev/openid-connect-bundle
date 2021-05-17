@@ -14,3 +14,4 @@ yarn.lock
 .phpunit.result.cache
 build
 var
+.phpcs-cache

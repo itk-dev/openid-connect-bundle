@@ -1,10 +1,13 @@
 <?php
 
+namespace ItkDev\OpenIdConnectBundle\Tests;
+
 use ItkDev\OpenIdConnectBundle\Controller\LoginController;
-use ItkDev\OpenIdConnectBundle\Security\OpenIdLoginAuthenticator;
-use ItkDev\OpenIdConnectBundle\Tests\ItkDevOpenIdConnectBundleTestingKernel;
 use PHPUnit\Framework\TestCase;
 
+/**
+ * Class ItkDevOpenIdConnectBundleTest
+ */
 class ItkDevOpenIdConnectBundleTest extends TestCase
 {
     /**

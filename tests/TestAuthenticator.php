@@ -1,8 +1,6 @@
 <?php
 
-
 namespace ItkDev\OpenIdConnectBundle\Tests;
-
 
 use ItkDev\OpenIdConnectBundle\Security\OpenIdLoginAuthenticator;
 use Symfony\Component\HttpFoundation\Request;
