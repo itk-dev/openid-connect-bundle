@@ -1,0 +1,128 @@
+on: pull_request
+name: Test & Code Style Review
+jobs:
+
+  test-composer-install:
+    name: Validate composer (${{ matrix.php}}) / (${{ matrix.dependency-version}})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php: [ '7.3', '7.4', '8.0' ]
+        dependency-version: [ prefer-lowest, prefer-stable ]
+    steps:
+      - uses: actions/checkout@master
+
+      - name: Setup PHP, with composer and extensions
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php}}
+          coverage: none
+
+      - name: Get composer cache directory
+        id: composer-cache
+        run: echo "::set-output name=dir::$(composer config cache-files-dir)"
+
+      - name: Cache dependencies
+        uses: actions/cache@v2
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.json') }}-${{ matrix.dependency-version }}-
+          restore-keys: ${{ runner.os }}-composer-${{ matrix.dependency-version }}-
+
+      - name: Validate composer files
+        run: composer validate composer.json --strict
+
+      - name: Install dependencies
+        run: |
+          composer update --${{ matrix.dependency-version }} --prefer-dist --no-interaction
+
+  unit-tests:
+    name: Unit tests (${{ matrix.php}}) / (${{ matrix.dependency-version}})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php: [ '7.3', '7.4', '8.0' ]
+        dependency-version: [ prefer-lowest, prefer-stable ]
+    steps:
+      - uses: actions/checkout@master
+
+      - name: Setup PHP, with composer and extensions
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php}}
+          coverage: xdebug
+
+      - name: Get composer cache directory
+        id: composer-cache
+        run: echo "::set-output name=dir::$(composer config cache-files-dir)"
+
+      - name: Cache dependencies
+        uses: actions/cache@v2
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.json') }}-${{ matrix.dependency-version }}-
+          restore-keys: ${{ runner.os }}-composer-${{ matrix.dependency-version }}-
+
+      - name: Install dependencies
+        run: |
+          composer update --${{ matrix.dependency-version }} --prefer-dist --no-interaction
+
+      - name: Unit tests
+        run: ./vendor/bin/phpunit --coverage-clover=coverage/unit.xml
+
+      - name: Report coverage to Codecov
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+        run: |
+          bash <(curl -s https://codecov.io/bash) -F Unit -f coverage/unit.xml
+
+  phpcs:
+    name: PHP Code Sniffer (${{ matrix.php }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['7.4']
+    steps:
+      - uses: actions/checkout@master
+
+      - name: Setup PHP, with composer and extensions
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php}}
+          coverage: none
+          tools: cs2pr, phpcs
+
+      - name: Get composer cache directory
+        id: composer-cache
+        run: echo "::set-output name=dir::$(composer config cache-files-dir)"
+
+      - name: Cache dependencies
+        uses: actions/cache@v2
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.json') }}-
+          restore-keys: ${{ runner.os }}-composer-
+
+      - name: Install dependencies
+        run: composer update --prefer-stable --prefer-dist --no-interaction
+
+      # @TODO get "cs2pr" to actually work. Currently doesn't annotate the PR.
+      - name: Check PHP code style
+        continue-on-error: true
+        run: ./vendor/bin/phpcs --report-full --report-checkstyle=./phpcs-report.xml
+
+      - name: Show PHPCS results in PR
+        run: cs2pr ./phpcs-report.xml
+
+  psalm:
+    name: Psalm
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Psalm
+        uses: docker://vimeo/psalm-github-actions
