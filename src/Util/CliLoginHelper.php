@@ -60,7 +60,6 @@ class CliLoginHelper
         $this->cache->delete($token);
         $this->cache->delete($username);
 
-
         return $this->decodeKey($username);
     }
 

@@ -2,6 +2,9 @@
 
 namespace ItkDev\OpenIdConnectBundle\Security;
 
+use ItkDev\OpenIdConnect\Exception\ItkOpenIdConnectException;
+use ItkDev\OpenIdConnect\Exception\ValidationException;
+use ItkDev\OpenIdConnect\Security\OpenIdConfigurationProvider;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Session\SessionInterface;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
@@ -17,10 +20,12 @@ abstract class OpenIdLoginAuthenticator extends AbstractGuardAuthenticator
      */
     private $session;
 
+    private $provider;
 
-    public function __construct(SessionInterface $session)
+    public function __construct(SessionInterface $session, OpenIdConfigurationProvider $provider)
     {
         $this->session = $session;
+        $this->provider = $provider;
     }
 
     public function supports(Request $request)
@@ -29,12 +34,24 @@ abstract class OpenIdLoginAuthenticator extends AbstractGuardAuthenticator
         return $request->query->has('state') && $request->query->has('id_token');
     }
 
+    /**
+     * @throws ValidationException
+     */
     public function getCredentials(Request $request)
     {
-        // Make sure state and oauth2sate are the same
+        // Make sure state and oauth2state are the same
         if ($request->query->get('state') !== $this->session->get('oauth2state')) {
             $this->session->remove('oauth2state');
-            throw new \RuntimeException('Invalid state');
+            throw new ValidationException('Invalid state');
+        }
+        try {
+            $claims = $this->provider->validateIdToken($request->query->get('id_token'), $this->session->get('oauth2nonce'));
+            // Authentication successful
+        } catch (ItkOpenIdConnectException $exception) {
+            // Handle failed authentication
+            throw new ValidationException('Token validation failed.');
+        } finally {
+            $this->session->remove('oauth2nonce');
         }
 
         // Retrieve id_token and decode it

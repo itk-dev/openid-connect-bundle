@@ -15,18 +15,20 @@ services:
       - '../src/Kernel.php'
       - '../src/Tests/'
 
-  ItkDev\OpenIdConnectBundle\Controller\LoginController:
-    arguments:
-      $openIdProviderOptions: ~
-
   ItkDev\OpenIdConnectBundle\Command\UserLoginCommand:
     $cliLoginRedirectRoute: ~
 
   ItkDev\OpenIdConnectBundle\Security\LoginTokenAuthenticator:
     $cliLoginRedirectRoute: ~
 
+  ItkDev\OpenIdConnectBundle\Security\OpenIdLoginAuthenticator:
+    arguments:
+      $session: ~
+      $provider: ~
+
   ItkDev\OpenIdConnectBundle\Util\CliLoginHelper:
 
-
-
-
+  ItkDev\OpenIdConnect\Security\OpenIdConfigurationProvider:
+    arguments:
+      $options: ~
+      $collaborators: ~

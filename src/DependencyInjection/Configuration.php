@@ -15,8 +15,6 @@ class Configuration implements ConfigurationInterface
         $treeBuilder = new TreeBuilder('itk_dev_openid_connect');
 
         // Specify which variables must be configured in itk_dev_openid_connect file
-        // That is a cache_pool,
-        // client_id, client_secret, discovery url, cache path and callback uri
 
         $treeBuilder->getRootNode()
             ->children()
@@ -47,9 +45,9 @@ class Configuration implements ConfigurationInterface
                         ->scalarNode('client_secret')
                             ->info('Client secret/password assigned by authorizer')
                             ->isRequired()->cannotBeEmpty()->end()
-                        ->scalarNode('cache_path')
-                            ->info('Path for caching Discovery document')
-                            ->defaultValue('%kernel.cache_dir%/openid_connect_configuration_cache.php')
+                        ->scalarNode('cache_pool')
+                            ->info('Cache pool for caching Discovery document')
+                            ->defaultValue('Psr6/CacheItemPoolInterface')
                             ->isRequired()->cannotBeEmpty()->end()
                         ->scalarNode('callback_uri')
                             ->info('Callback URI registered at identity provider')
