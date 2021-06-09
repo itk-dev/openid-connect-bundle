@@ -17,8 +17,8 @@ class ItkDevOpenIdConnectExtension extends Extension
      */
     public function load(array $configs, ContainerBuilder $container)
     {
-        $loader = new XmlFileLoader($container, new FileLocator(__DIR__ . '/../Resources/config'));
-        $loader->load('services.xml');
+        $loader = new YamlFileLoader($container, new FileLocator(__DIR__ . '/../Resources/config'));
+        $loader->load('services.yaml');
 
         $configuration = new Configuration();
         $config = $this->processConfiguration($configuration, $configs);
@@ -31,7 +31,7 @@ class ItkDevOpenIdConnectExtension extends Extension
             'redirectUri' => $config['open_id_provider_options']['callback_uri'],
         ];
 
-        $definition = $container->getDefinition('itkdev.openid_login_controller');
+        $definition = $container->getDefinition(LoginController::class);
         $definition->replaceArgument('$openIdProviderOptions', $newConfig);
     }
 
