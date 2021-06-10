@@ -40,7 +40,7 @@ abstract class OpenIdLoginAuthenticator extends AbstractGuardAuthenticator
         // Retrieve id_token and decode it
         // @see https://tools.ietf.org/html/rfc7519
         $idToken = $request->query->get('id_token');
-        if(null === $idToken) {
+        if (null === $idToken) {
             throw new \RuntimeException('Id token not found');
         }
 
