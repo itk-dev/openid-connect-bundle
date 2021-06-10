@@ -11,3 +11,7 @@ yarn.lock
 ###< friendsofphp/php-cs-fixer ###
 
 /composer.lock
+.phpunit.result.cache
+build
+var
+.phpcs-cache

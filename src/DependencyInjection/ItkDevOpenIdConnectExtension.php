@@ -6,13 +6,18 @@ use ItkDev\OpenIdConnectBundle\Controller\LoginController;
 use Symfony\Component\Config\FileLocator;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Extension\Extension;
+use Symfony\Component\DependencyInjection\Loader\FileLoader;
+use Symfony\Component\DependencyInjection\Loader\XmlFileLoader;
 use Symfony\Component\DependencyInjection\Loader\YamlFileLoader;
 
 class ItkDevOpenIdConnectExtension extends Extension
 {
+    /**
+     * {@inheritdoc}
+     */
     public function load(array $configs, ContainerBuilder $container)
     {
-        $loader = new YamlFileLoader($container, new FileLocator(\dirname(__DIR__).'/../config'));
+        $loader = new YamlFileLoader($container, new FileLocator(__DIR__ . '/../Resources/config'));
         $loader->load('services.yaml');
 
         $configuration = new Configuration();
@@ -28,5 +33,13 @@ class ItkDevOpenIdConnectExtension extends Extension
 
         $definition = $container->getDefinition(LoginController::class);
         $definition->replaceArgument('$openIdProviderOptions', $newConfig);
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function getAlias()
+    {
+        return 'itkdev_openid_connect';
     }
 }
