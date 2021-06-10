@@ -27,7 +27,9 @@ class ItkDevOpenIdConnectBundleTest extends TestCase
         $kernel->boot();
         $container = $kernel->getContainer();
 
-        $controller = $container->get('itkdev.openid_login_controller');
+        $this->assertTrue($container->has(LoginController::class));
+
+        $controller = $container->get(LoginController::class);
         $this->assertInstanceOf(LoginController::class, $controller);
     }
 }
