@@ -16,5 +16,5 @@ services:
 
   ItkDev\OpenIdConnectBundle\Security\OpenIdLoginAuthenticator:
     arguments:
-      $provider: ~
+      $provider: '@ItkDev\OpenIdConnect\Security\OpenIdConfigurationProvider'
       $session: ~
