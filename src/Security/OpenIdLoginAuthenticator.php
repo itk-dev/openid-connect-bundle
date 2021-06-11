@@ -2,6 +2,9 @@
 
 namespace ItkDev\OpenIdConnectBundle\Security;
 
+use ItkDev\OpenIdConnect\Exception\ItkOpenIdConnectException;
+use ItkDev\OpenIdConnect\Exception\ValidationException;
+use ItkDev\OpenIdConnect\Security\OpenIdConfigurationProvider;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Session\SessionInterface;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
@@ -17,9 +20,14 @@ abstract class OpenIdLoginAuthenticator extends AbstractGuardAuthenticator
      */
     private $session;
 
+    /**
+     * @var OpenIdConfigurationProvider
+     */
+    private $provider;
 
-    public function __construct(SessionInterface $session)
+    public function __construct(OpenIdConfigurationProvider $provider, SessionInterface $session)
     {
+        $this->provider = $provider;
         $this->session = $session;
     }
 
@@ -29,27 +37,27 @@ abstract class OpenIdLoginAuthenticator extends AbstractGuardAuthenticator
         return $request->query->has('state') && $request->query->has('id_token');
     }
 
+    /**
+     * @throws ValidationException
+     */
     public function getCredentials(Request $request)
     {
-        // Make sure state and oauth2sate are the same
+        // Make sure state and oauth2state are the same
         if ($request->query->get('state') !== $this->session->get('oauth2state')) {
             $this->session->remove('oauth2state');
-            throw new \RuntimeException('Invalid state');
+            throw new ValidationException('Invalid state');
+        }
+        try {
+            $claims = $this->provider->validateIdToken($request->query->get('id_token'), $this->session->get('oauth2nonce'));
+            // Authentication successful
+        } catch (ItkOpenIdConnectException $exception) {
+            // Handle failed authentication
+            throw new ValidationException('Token validation failed.');
+        } finally {
+            $this->session->remove('oauth2nonce');
         }
 
-        // Retrieve id_token and decode it
-        // @see https://tools.ietf.org/html/rfc7519
-        $idToken = $request->query->get('id_token');
-        if (null === $idToken) {
-            throw new \RuntimeException('Id token not found');
-        }
-
-        if (!is_string($idToken)) {
-            throw new \RuntimeException('Id token not type string');
-        }
-        [$jose, $payload, $signature] = array_map('base64_decode', explode('.', $idToken));
-
-        return json_decode($payload, true);
+        return (array) $claims;
     }
 
     abstract public function getUser($credentials, UserProviderInterface $userProvider);
