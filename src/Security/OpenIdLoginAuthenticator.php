@@ -48,7 +48,17 @@ abstract class OpenIdLoginAuthenticator extends AbstractGuardAuthenticator
             throw new ValidationException('Invalid state');
         }
         try {
-            $claims = $this->provider->validateIdToken($request->query->get('id_token'), $this->session->get('oauth2nonce'));
+            $idToken = $request->query->get('id_token');
+
+            if (null === $idToken){
+                throw new ValidationException('Id token not found.');
+            }
+
+            if (!is_string($idToken)) {
+                throw new ValidationException('Id token not type string');
+            }
+
+            $claims = $this->provider->validateIdToken($idToken, $this->session->get('oauth2nonce'));
             // Authentication successful
         } catch (ItkOpenIdConnectException $exception) {
             // Handle failed authentication
