@@ -31,8 +31,8 @@ In `/config/packages/` you need the following `itk_dev_openid_connect.yaml`
 file for configuring OpenId Connect variables
 
 ```yaml
-itk_dev_open_id_connect:
-  open_id_provider_options:
+itkdev_openid_connect:
+  openid_provider_options:
     configuration_url: 'https://.../openid-configuration..' # url to OpenId Discovery document
     client_id: 'client_id' # Client id assigned by authorizer
     client_secret: 'client_secret' # Client password assigned by authorizer
@@ -44,8 +44,8 @@ In `/config/routes/` you need a similar
 `itk_dev_openid_connect.yaml` file for configuring the routing
 
 ```yaml
-itk_dev_openid_connect:
-  resource: "@ItkDevOpenIdConnectBundle/config/routes.yaml"
+itkdev_openid_connect:
+  resource: "@ItkDevOpenIdConnectBundle/src/Resources/config/routes.yaml"
   prefix: "/openidconnect" # Prefix for bundle routes  
 ```
 

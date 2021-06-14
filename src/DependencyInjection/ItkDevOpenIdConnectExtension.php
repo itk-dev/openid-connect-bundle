@@ -26,11 +26,11 @@ class ItkDevOpenIdConnectExtension extends Extension
         $config = $this->processConfiguration($configuration, $configs);
 
         $providerConfig = [
-            'openIDConnectMetadataUrl' => $config['open_id_provider_options']['configuration_url'],
-            'clientId' => $config['open_id_provider_options']['client_id'],
-            'clientSecret' => $config['open_id_provider_options']['client_secret'],
-            'cacheItemPool' => new Reference($config['open_id_provider_options']['cache_path']),
-            'redirectUri' => $config['open_id_provider_options']['callback_uri'],
+            'openIDConnectMetadataUrl' => $config['openid_provider_options']['configuration_url'],
+            'clientId' => $config['openid_provider_options']['client_id'],
+            'clientSecret' => $config['openid_provider_options']['client_secret'],
+            'cacheItemPool' => new Reference($config['openid_provider_options']['cache_path']),
+            'redirectUri' => $config['openid_provider_options']['callback_uri'],
         ];
 
         $definition = $container->getDefinition(OpenIdConfigurationProvider::class);
