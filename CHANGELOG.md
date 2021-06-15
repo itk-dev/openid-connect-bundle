@@ -14,3 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   standardized open source project CHANGELOG.
 - PHP-CS-Fixer
 - Markdownlint
+- Test Suite
+- Psalm setup for static analysis
+- Code formatting
+- OpenID Connect Bundle: Upgraded from
+  `itk-dev/openid-connect` 1.0.0 to 2.1.0
