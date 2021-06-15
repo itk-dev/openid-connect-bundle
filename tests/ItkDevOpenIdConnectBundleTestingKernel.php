@@ -8,6 +8,7 @@
 namespace ItkDev\OpenIdConnectBundle\Tests;
 
 use ItkDev\OpenIdConnectBundle\ItkDevOpenIdConnectBundle;
+use Symfony\Bundle\FrameworkBundle\FrameworkBundle;
 use Symfony\Component\Config\Loader\LoaderInterface;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\HttpClient\CurlHttpClient;
@@ -19,12 +20,11 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
  */
 class ItkDevOpenIdConnectBundleTestingKernel extends Kernel
 {
-    private $config;
+    private $pathToConfigs;
 
-    public function __construct(array $config)
+    public function __construct(array $pathToConfigs)
     {
-        $this->config = $config;
-
+        $this->pathToConfigs = $pathToConfigs;
         parent::__construct('test', true);
     }
 
@@ -35,6 +35,7 @@ class ItkDevOpenIdConnectBundleTestingKernel extends Kernel
     {
         return [
             new ItkDevOpenIdConnectBundle(),
+            new FrameworkBundle(),
         ];
     }
 
@@ -43,8 +44,10 @@ class ItkDevOpenIdConnectBundleTestingKernel extends Kernel
      */
     public function registerContainerConfiguration(LoaderInterface $loader)
     {
-        $loader->load(function (ContainerBuilder $containerBuilder) {
-            $containerBuilder->loadFromExtension('itkdev_openid_connect', $this->config);
-        });
+        foreach ($this->pathToConfigs as $path) {
+            if (file_exists($path)) {
+                $loader->load($path);
+            }
+        }
     }
 }

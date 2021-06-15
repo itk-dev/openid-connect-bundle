@@ -27,7 +27,7 @@ the bundle authenticator, `OpenIdLoginAuthenticator`.
 
 ### Variable configuration
 
-In `/config/packages/` you need the following `itk_dev_openid_connect.yaml`
+In `/config/packages/` you need the following `itkdev_openid_connect.yaml`
 file for configuring OpenId Connect variables
 
 ```yaml
@@ -41,7 +41,7 @@ itkdev_openid_connect:
 ```
 
 In `/config/routes/` you need a similar
-`itk_dev_openid_connect.yaml` file for configuring the routing
+`itkdev_openid_connect.yaml` file for configuring the routing
 
 ```yaml
 itkdev_openid_connect:
@@ -136,11 +136,12 @@ class TestAuthenticator extends OpenIdLoginAuthenticator
      */
     private $entityManager;
 
-    public function __construct(EntityManagerInterface $entityManager, SessionInterface $session, UrlGeneratorInterface $router)
+    public function __construct(EntityManagerInterface $entityManager, SessionInterface $session, UrlGeneratorInterface $router, OpenIdConfigurationProvider $provider)
     {
         $this->router = $router;
         $this->entityManager = $entityManager;
-        parent::__construct($session);
+        // Set leeway directly or configure via .env (must be positive)
+        parent::__construct($provider, $session, $leeway);
     }
 
     public function getUser($credentials, UserProviderInterface $userProvider)
@@ -148,19 +149,19 @@ class TestAuthenticator extends OpenIdLoginAuthenticator
         $name = $credentials['name'];
         $email = $credentials['upn'];
 
-        //Check if user exists already - if not create a user
+        // Check if user exists already - if not create a user
         $user = $this->entityManager->getRepository(User::class)
             ->findOneBy(['email'=> $email]);
         if (null === $user) {
             // Create the new user
             $user = new User();
         }
-        // Update/set names here
+        // Update/set user properties
         $user->setName($name);
         $user->setEmail($email);
 
-        // persist and flush user to database
-        // If no change persist will recognize this
+        // Persist and flush user to database
+        // If no change, persist will recognize this
         $this->entityManager->persist($user);
         $this->entityManager->flush();
 
@@ -174,7 +175,7 @@ class TestAuthenticator extends OpenIdLoginAuthenticator
 
     public function start(Request $request, AuthenticationException $authException = null)
     {
-        return new RedirectResponse($this->router->generate('itk_dev_openid_connect_login'));
+        return new RedirectResponse($this->router->generate('itkdev_openid_connect_login'));
     }
 }
 ```

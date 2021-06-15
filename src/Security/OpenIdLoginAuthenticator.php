@@ -25,10 +25,13 @@ abstract class OpenIdLoginAuthenticator extends AbstractGuardAuthenticator
      */
     private $provider;
 
-    public function __construct(OpenIdConfigurationProvider $provider, SessionInterface $session)
+    private $leeway;
+
+    public function __construct(OpenIdConfigurationProvider $provider, SessionInterface $session, int $leeway = 0)
     {
         $this->provider = $provider;
         $this->session = $session;
+        $this->leeway = $leeway;
     }
 
     public function supports(Request $request)
@@ -47,6 +50,7 @@ abstract class OpenIdLoginAuthenticator extends AbstractGuardAuthenticator
             $this->session->remove('oauth2state');
             throw new ValidationException('Invalid state');
         }
+
         try {
             $idToken = $request->query->get('id_token');
 
@@ -58,11 +62,11 @@ abstract class OpenIdLoginAuthenticator extends AbstractGuardAuthenticator
                 throw new ValidationException('Id token not type string');
             }
 
-            $claims = $this->provider->validateIdToken($idToken, $this->session->get('oauth2nonce'));
+            $claims = $this->provider->validateIdToken($idToken, $this->session->get('oauth2nonce'), $this->leeway);
             // Authentication successful
         } catch (ItkOpenIdConnectException $exception) {
             // Handle failed authentication
-            throw new ValidationException('Token validation failed.');
+            throw new ValidationException($exception->getMessage());
         } finally {
             $this->session->remove('oauth2nonce');
         }
