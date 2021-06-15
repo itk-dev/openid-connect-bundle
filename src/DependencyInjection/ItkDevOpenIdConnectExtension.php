@@ -41,7 +41,7 @@ class ItkDevOpenIdConnectExtension extends Extension
         $definition->replaceArgument('$collaborators', []);
 
         $definition = $container->getDefinition(CliLoginHelper::class);
-        $definition->addArgument(new Reference($config['cli_login_options']['cache_pool']));
+        $definition->replaceArgument('$cache', new Reference($config['cli_login_options']['cache_pool']));
 
         $definition = $container->getDefinition(UserLoginCommand::class);
         $definition->replaceArgument('$cliLoginRedirectRoute', $config['cli_login_options']['cli_redirect']);
