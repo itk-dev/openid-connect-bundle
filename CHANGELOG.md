@@ -19,3 +19,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Code formatting
 - OpenID Connect Bundle: Upgraded from
   `itk-dev/openid-connect` 1.0.0 to 2.1.0
+- OpenId Connect Bundle: Added CLI login feature.
