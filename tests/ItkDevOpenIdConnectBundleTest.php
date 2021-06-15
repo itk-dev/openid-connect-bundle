@@ -19,8 +19,8 @@ class ItkDevOpenIdConnectBundleTest extends TestCase
     public function testServiceWiring()
     {
         $kernel = new ItkDevOpenIdConnectBundleTestingKernel([
-            __DIR__.'/config/framework.yml',
-            __DIR__.'/config/itkdev_openid_connect.yml',
+            __DIR__ . '/config/framework.yml',
+            __DIR__ . '/config/itkdev_openid_connect.yml',
         ]);
         $kernel->boot();
         $container = $kernel->getContainer();

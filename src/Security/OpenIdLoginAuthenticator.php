@@ -54,7 +54,7 @@ abstract class OpenIdLoginAuthenticator extends AbstractGuardAuthenticator
         try {
             $idToken = $request->query->get('id_token');
 
-            if (null === $idToken){
+            if (null === $idToken) {
                 throw new ValidationException('Id token not found.');
             }
 
