@@ -208,7 +208,7 @@ docker compose exec phpfpm ./vendor/bin/phpunit
 
 ### Psalm static analysis
 
-Where using [Psalm](https://psalm.dev/) for static analysis. To run 
+Where using [Psalm](https://psalm.dev/) for static analysis. To run
 psalm do
 
 ```shell
@@ -231,7 +231,7 @@ the coding standard for the project.
 
     ```shell
     docker run -v ${PWD}:/app itkdev/yarn:latest install
-    docker run -v ${PWD}:/app itkdev/yarn:latest check-coding-standards
+    docker run -v ${PWD}:/app itkdev/yarn:latest coding-standards-check
     ```
 
 ### Apply Coding Standards
@@ -248,7 +248,7 @@ To attempt to automatically fix coding style
 
     ```shell
     docker run -v ${PWD}:/app itkdev/yarn:latest install
-    docker run -v ${PWD}:/app itkdev/yarn:latest check-coding-standards
+    docker run -v ${PWD}:/app itkdev/yarn:latest coding-standards-apply
     ```
 
 ## CI
