@@ -4,11 +4,12 @@ namespace ItkDev\OpenIdConnectBundle\Util;
 
 use Symfony\Component\Uid\Uuid;
 use Symfony\Contracts\Cache\CacheInterface;
+use Psr\Cache\CacheItemPoolInterface;
 
 class CliLoginHelper
 {
     /**
-     * @var CacheInterface
+     * @var CacheItemPoolInterface
      */
     private $cache;
 
@@ -17,7 +18,7 @@ class CliLoginHelper
      */
     private $itkNamespace;
 
-    public function __construct(CacheInterface $cache)
+    public function __construct(CacheItemPoolInterface $cache)
     {
         $this->cache = $cache;
         $this->itkNamespace = 'itk-dev-cli-login';
@@ -43,8 +44,7 @@ class CliLoginHelper
 
         return $token;
     }
-
-
+    
     public function getUsername(string $token): ?string
     {
         // check if token exists in cache
@@ -57,8 +57,8 @@ class CliLoginHelper
         $username = $usernameItem->get();
 
         // delete both entries from cache
-        $this->cache->delete($token);
-        $this->cache->delete($username);
+        $this->cache->deleteItem($token);
+        $this->cache->deleteItem($username);
 
         return $this->decodeKey($username);
     }
