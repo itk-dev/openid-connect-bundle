@@ -31,7 +31,9 @@
         "doctrine/orm": "^2.8",
         "symfony/security-bundle": "^5.2",
         "itk-dev/openid-connect": "^2.0",
-        "symfony/yaml": "^5.2"
+        "symfony/yaml": "^5.2",
+        "symfony/uid": "^5.2",
+        "symfony/cache": "^5.2"
     },
     "require-dev": {
         "phpunit/phpunit": "^9.5",

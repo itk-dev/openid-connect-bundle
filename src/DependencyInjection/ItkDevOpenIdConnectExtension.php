@@ -3,7 +3,10 @@
 namespace ItkDev\OpenIdConnectBundle\DependencyInjection;
 
 use ItkDev\OpenIdConnect\Security\OpenIdConfigurationProvider;
+use ItkDev\OpenIdConnectBundle\Command\UserLoginCommand;
 use ItkDev\OpenIdConnectBundle\Controller\LoginController;
+use ItkDev\OpenIdConnectBundle\Security\LoginTokenAuthenticator;
+use ItkDev\OpenIdConnectBundle\Util\CliLoginHelper;
 use Symfony\Component\Config\FileLocator;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Extension\Extension;
@@ -36,6 +39,15 @@ class ItkDevOpenIdConnectExtension extends Extension
         $definition = $container->getDefinition(OpenIdConfigurationProvider::class);
         $definition->replaceArgument('$options', $providerConfig);
         $definition->replaceArgument('$collaborators', []);
+
+        $definition = $container->getDefinition(CliLoginHelper::class);
+        $definition->addArgument(new Reference($config['cli_login_options']['cache_pool']));
+
+        $definition = $container->getDefinition(UserLoginCommand::class);
+        $definition->replaceArgument('$cliLoginRedirectRoute', $config['cli_login_options']['cli_redirect']);
+
+        $definition = $container->getDefinition(LoginTokenAuthenticator::class);
+        $definition->replaceArgument('$cliLoginRedirectRoute', $config['cli_login_options']['cli_redirect']);
     }
 
     /**
