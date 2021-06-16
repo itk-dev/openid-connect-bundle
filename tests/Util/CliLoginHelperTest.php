@@ -2,12 +2,11 @@
 
 namespace ItkDev\OpenIdConnectBundle\Tests\Util;
 
+use ItkDev\OpenIdConnectBundle\Exception\ItkOpenIdConnectBundleException;
 use ItkDev\OpenIdConnectBundle\Util\CliLoginHelper;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Cache\Adapter\ArrayAdapter;
-use Symfony\Component\Cache\Adapter\FilesystemAdapter;
 use Symfony\Component\Uid\Uuid;
-use Symfony\Contracts\Cache\CacheInterface;
 
 class CliLoginHelperTest extends TestCase
 {
@@ -32,7 +31,7 @@ class CliLoginHelperTest extends TestCase
     public function testThrowExceptionIfTokenDoesNotExist()
     {
         // Expect an exception to be thrown
-        $this->expectException(\Exception::class);
+        $this->expectException(ItkOpenIdConnectBundleException::class);
 
         // Testing it works with one adapter
         $cache = new ArrayAdapter();
@@ -79,7 +78,7 @@ class CliLoginHelperTest extends TestCase
         $username = $cliHelper->getUsername($token);
 
         // Expect an exception to be thrown the second time we call getUsername
-        $this->expectException(\Exception::class);
+        $this->expectException(ItkOpenIdConnectBundleException::class);
 
         //Try again, to ensure its gone
         $username = $cliHelper->getUsername($token);

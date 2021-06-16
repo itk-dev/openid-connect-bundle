@@ -2,6 +2,9 @@
 
 namespace ItkDev\OpenIdConnectBundle\Security;
 
+use ItkDev\OpenIdConnectBundle\Exception\ItkOpenIdConnectBundleException;
+use ItkDev\OpenIdConnectBundle\Exception\UserDoesNotExistException;
+use ItkDev\OpenIdConnectBundle\Exception\UsernameDoesNotExistException;
 use ItkDev\OpenIdConnectBundle\Util\CliLoginHelper;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -47,6 +50,9 @@ class LoginTokenAuthenticator extends AbstractGuardAuthenticator
         return $request->query->get('loginToken');
     }
 
+    /**
+     * @throws ItkOpenIdConnectBundleException
+     */
     public function getUser($credentials, UserProviderInterface $userProvider)
     {
         if (null === $credentials) {
@@ -56,12 +62,20 @@ class LoginTokenAuthenticator extends AbstractGuardAuthenticator
         }
 
         // Get username from CliHelperLogin
-        $username = $this->cliLoginHelper->getUsername($credentials);
+        try {
+            $username = $this->cliLoginHelper->getUsername($credentials);
+        } catch (ItkOpenIdConnectBundleException $exception) {
+            throw new UsernameDoesNotExistException($exception->getMessage());
+        }
+
+        if (null === $username) {
+            throw new UsernameDoesNotExistException('null is not a valid Username.');
+        }
 
         try {
             $user = $userProvider->loadUserByUsername($username);
         } catch (UsernameNotFoundException $e) {
-            throw new \Exception('Token correct but user not found');
+            throw new UserDoesNotExistException('Token correct but user not found');
         }
 
         return $user;

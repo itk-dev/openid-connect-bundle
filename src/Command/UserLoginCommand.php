@@ -2,6 +2,9 @@
 
 namespace ItkDev\OpenIdConnectBundle\Command;
 
+use ItkDev\OpenIdConnectBundle\Exception\ItkOpenIdConnectBundleException;
+use ItkDev\OpenIdConnectBundle\Exception\UserDoesNotExistException;
+use ItkDev\OpenIdConnectBundle\Exception\UsernameDoesNotExistException;
 use ItkDev\OpenIdConnectBundle\Util\CliLoginHelper;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
@@ -16,6 +19,7 @@ class UserLoginCommand extends Command
 {
     protected static $defaultName = 'itk-dev:openid-connect:login';
     protected static $defaultDescription = 'Get login url for user';
+
     /**
      * @var UrlGeneratorInterface
      */
@@ -26,8 +30,14 @@ class UserLoginCommand extends Command
      */
     private $cliLoginHelper;
 
+    /**
+     * @var UserProviderInterface
+     */
     private $userProvider;
 
+    /**
+     * @var string
+     */
     private $cliLoginRedirectRoute;
 
     public function __construct(CliLoginHelper $cliLoginHelper, string $cliLoginRedirectRoute, UrlGeneratorInterface $urlGenerator, UserProviderInterface $userProvider)
@@ -47,24 +57,26 @@ class UserLoginCommand extends Command
             ->addArgument('username', InputArgument::REQUIRED, 'Username');
     }
 
+    /**
+     * @throws ItkOpenIdConnectBundleException
+     */
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $io = new SymfonyStyle($input, $output);
         $username = $input->getArgument('username');
 
+        if (!is_string($username)) {
+            throw new UsernameDoesNotExistException('Username is not type string.');
+        }
+
         // Check if username is registered in User database
         try {
             $this->userProvider->loadUserByUsername($username);
         } catch (UsernameNotFoundException $e) {
-            throw new \Exception('User does not exist');
+            throw new UserDoesNotExistException('User does not exist.');
         }
 
         // Create token via CliLoginHelper
-
-        if (!is_string($username)) {
-            throw new \Exception('Username is not string type');
-        }
-
         $token = $this->cliLoginHelper->createToken($username);
 
         //Generate absolute url for login
