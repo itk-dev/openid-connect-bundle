@@ -72,7 +72,7 @@ class CliLoginHelper
     public function encodeKey(string $key): string
     {
         // Add namespace to key before encoding
-        return base64_encode($this->itkNamespace.$key);
+        return base64_encode($this->itkNamespace . $key);
     }
 
     public function decodeKey(string $encodedKey): string

@@ -39,7 +39,7 @@ class Configuration implements ConfigurationInterface
                             ->info('URL to OpenId Discovery Document')
                             ->validate()
                                 ->ifTrue(
-                                    function ($value) {
+                                    function (string $value) {
                                         return !filter_var($value, FILTER_VALIDATE_URL);
                                     }
                                 )
@@ -60,7 +60,7 @@ class Configuration implements ConfigurationInterface
                             ->info('Callback URI registered at identity provider')
                             ->validate()
                                 ->ifTrue(
-                                    function ($value) {
+                                    function (string $value) {
                                         return !filter_var($value, FILTER_VALIDATE_URL);
                                     }
                                 )
