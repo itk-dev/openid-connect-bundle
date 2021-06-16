@@ -99,7 +99,7 @@ security:
     main:
       guard:
         authenticators:
-          - App\Security\TestAuthenticator
+          - App\Security\ExampleAuthenticator
 ```
 
 #### Example authenticator functions
@@ -125,7 +125,7 @@ use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
 use Symfony\Component\Security\Core\Exception\AuthenticationException;
 use Symfony\Component\Security\Core\User\UserProviderInterface;
 
-class TestAuthenticator extends OpenIdLoginAuthenticator
+class ExampleAuthenticator extends OpenIdLoginAuthenticator
 {
     /**
      * @var UrlGeneratorInterface
@@ -136,16 +136,16 @@ class TestAuthenticator extends OpenIdLoginAuthenticator
      */
     private $entityManager;
 
-    public function __construct(EntityManagerInterface $entityManager, SessionInterface $session, UrlGeneratorInterface $router, OpenIdConfigurationProvider $provider)
+    public function __construct(EntityManagerInterface $entityManager, int $leeway, SessionInterface $session, UrlGeneratorInterface $router, OpenIdConfigurationProvider $provider)
     {
         $this->router = $router;
         $this->entityManager = $entityManager;
-        // Set leeway directly or configure via .env (must be positive)
         parent::__construct($provider, $session, $leeway);
     }
 
     public function getUser($credentials, UserProviderInterface $userProvider)
     {
+        // Extract properties from credentials
         $name = $credentials['name'];
         $email = $credentials['upn'];
 
@@ -153,16 +153,14 @@ class TestAuthenticator extends OpenIdLoginAuthenticator
         $user = $this->entityManager->getRepository(User::class)
             ->findOneBy(['email'=> $email]);
         if (null === $user) {
-            // Create the new user
+            // Create the new user and persist it
             $user = new User();
+            $this->entityManager->persist($user);
         }
         // Update/set user properties
         $user->setName($name);
         $user->setEmail($email);
 
-        // Persist and flush user to database
-        // If no change, persist will recognize this
-        $this->entityManager->persist($user);
         $this->entityManager->flush();
 
         return $user;
@@ -178,6 +176,22 @@ class TestAuthenticator extends OpenIdLoginAuthenticator
         return new RedirectResponse($this->router->generate('itkdev_openid_connect_login'));
     }
 }
+```
+
+For this example we have bound `$leeway` via `.env`
+and `services.yaml`:
+
+```text
+###> itk-dev/openid-connect-bundle ###
+ITK_DEV_LEEWAY=10
+###< itk-dev/openid-connect-bundle ###
+```
+
+```yaml
+services:
+    _defaults:
+        bind:
+            $leeway: '%env(ITK_DEV_LEEWAY)%'
 ```
 
 ## Changes for Symfony 6.0
