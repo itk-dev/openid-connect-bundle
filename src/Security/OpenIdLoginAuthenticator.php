@@ -46,8 +46,10 @@ abstract class OpenIdLoginAuthenticator extends AbstractGuardAuthenticator
     public function getCredentials(Request $request)
     {
         // Make sure state and oauth2state are the same
-        if ($request->query->get('state') !== $this->session->get('oauth2state')) {
-            $this->session->remove('oauth2state');
+        $oauth2state = $this->session->get('oauth2state');
+        $this->session->remove('oauth2state');
+
+        if ($request->query->get('state') !== $oauth2state) {
             throw new ValidationException('Invalid state');
         }
 
