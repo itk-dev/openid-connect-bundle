@@ -27,12 +27,12 @@ the bundle authenticator, `OpenIdLoginAuthenticator`.
 
 ### Variable configuration
 
-In `/config/packages/` you need the following `itk_dev_openid_connect.yaml`
+In `/config/packages/` you need the following `itkdev_openid_connect.yaml`
 file for configuring OpenId Connect variables
 
 ```yaml
-itk_dev_open_id_connect:
-  open_id_provider_options:
+itkdev_openid_connect:
+  openid_provider_options:
     configuration_url: 'https://.../openid-configuration..' # url to OpenId Discovery document
     client_id: 'client_id' # Client id assigned by authorizer
     client_secret: 'client_secret' # Client password assigned by authorizer
@@ -41,11 +41,11 @@ itk_dev_open_id_connect:
 ```
 
 In `/config/routes/` you need a similar
-`itk_dev_openid_connect.yaml` file for configuring the routing
+`itkdev_openid_connect.yaml` file for configuring the routing
 
 ```yaml
-itk_dev_openid_connect:
-  resource: "@ItkDevOpenIdConnectBundle/config/routes.yaml"
+itkdev_openid_connect:
+  resource: "@ItkDevOpenIdConnectBundle/src/Resources/config/routes.yaml"
   prefix: "/openidconnect" # Prefix for bundle routes  
 ```
 
@@ -99,7 +99,7 @@ security:
     main:
       guard:
         authenticators:
-          - App\Security\TestAuthenticator
+          - App\Security\ExampleAuthenticator
 ```
 
 #### Example authenticator functions
@@ -125,7 +125,7 @@ use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
 use Symfony\Component\Security\Core\Exception\AuthenticationException;
 use Symfony\Component\Security\Core\User\UserProviderInterface;
 
-class TestAuthenticator extends OpenIdLoginAuthenticator
+class ExampleAuthenticator extends OpenIdLoginAuthenticator
 {
     /**
      * @var UrlGeneratorInterface
@@ -136,32 +136,31 @@ class TestAuthenticator extends OpenIdLoginAuthenticator
      */
     private $entityManager;
 
-    public function __construct(EntityManagerInterface $entityManager, SessionInterface $session, UrlGeneratorInterface $router)
+    public function __construct(EntityManagerInterface $entityManager, int $leeway, SessionInterface $session, UrlGeneratorInterface $router, OpenIdConfigurationProvider $provider)
     {
         $this->router = $router;
         $this->entityManager = $entityManager;
-        parent::__construct($session);
+        parent::__construct($provider, $session, $leeway);
     }
 
     public function getUser($credentials, UserProviderInterface $userProvider)
     {
+        // Extract properties from credentials
         $name = $credentials['name'];
         $email = $credentials['upn'];
 
-        //Check if user exists already - if not create a user
+        // Check if user exists already - if not create a user
         $user = $this->entityManager->getRepository(User::class)
             ->findOneBy(['email'=> $email]);
         if (null === $user) {
-            // Create the new user
+            // Create the new user and persist it
             $user = new User();
+            $this->entityManager->persist($user);
         }
-        // Update/set names here
+        // Update/set user properties
         $user->setName($name);
         $user->setEmail($email);
 
-        // persist and flush user to database
-        // If no change persist will recognize this
-        $this->entityManager->persist($user);
         $this->entityManager->flush();
 
         return $user;
@@ -174,9 +173,25 @@ class TestAuthenticator extends OpenIdLoginAuthenticator
 
     public function start(Request $request, AuthenticationException $authException = null)
     {
-        return new RedirectResponse($this->router->generate('itk_dev_openid_connect_login'));
+        return new RedirectResponse($this->router->generate('itkdev_openid_connect_login'));
     }
 }
+```
+
+For this example we have bound `$leeway` via `.env`
+and `services.yaml`:
+
+```text
+###> itk-dev/openid-connect-bundle ###
+ITK_DEV_LEEWAY=10
+###< itk-dev/openid-connect-bundle ###
+```
+
+```yaml
+services:
+    _defaults:
+        bind:
+            $leeway: '%env(ITK_DEV_LEEWAY)%'
 ```
 
 ## Changes for Symfony 6.0
@@ -207,7 +222,7 @@ docker compose exec phpfpm ./vendor/bin/phpunit
 
 ### Psalm static analysis
 
-Where using [Psalm](https://psalm.dev/) for static analysis. To run 
+Where using [Psalm](https://psalm.dev/) for static analysis. To run
 psalm do
 
 ```shell
@@ -230,7 +245,7 @@ the coding standard for the project.
 
     ```shell
     docker run -v ${PWD}:/app itkdev/yarn:latest install
-    docker run -v ${PWD}:/app itkdev/yarn:latest check-coding-standards
+    docker run -v ${PWD}:/app itkdev/yarn:latest coding-standards-check
     ```
 
 ### Apply Coding Standards
@@ -247,7 +262,7 @@ To attempt to automatically fix coding style
 
     ```shell
     docker run -v ${PWD}:/app itkdev/yarn:latest install
-    docker run -v ${PWD}:/app itkdev/yarn:latest check-coding-standards
+    docker run -v ${PWD}:/app itkdev/yarn:latest coding-standards-apply
     ```
 
 ## CI

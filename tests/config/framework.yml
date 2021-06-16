@@ -1,0 +1,20 @@
+framework:
+  cache:
+    pools:
+      cache.array:
+        default_lifetime: 0
+        adapters:
+          - cache.adapter.array
+  test: true
+  session:
+    storage_id: session.storage.mock_file
+  form: false
+  csrf_protection: false
+  validation:
+    enabled: false
+  esi:
+    enabled: false
+  workflows:
+    enabled: false
+  translator:
+    enabled: false

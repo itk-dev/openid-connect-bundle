@@ -12,7 +12,7 @@ class Configuration implements ConfigurationInterface
      */
     public function getConfigTreeBuilder(): TreeBuilder
     {
-        $treeBuilder = new TreeBuilder('itk_dev_open_id_connect');
+        $treeBuilder = new TreeBuilder('itkdev_openid_connect');
 
         // Specify which variables must be configured in itk_dev_openid_connect file
         // That is client_id, client_secret, discovery url and cache path
@@ -20,7 +20,7 @@ class Configuration implements ConfigurationInterface
 
         $treeBuilder->getRootNode()
             ->children()
-                ->arrayNode('open_id_provider_options')
+                ->arrayNode('openid_provider_options')
                     ->isRequired()
                     ->children()
                         ->scalarNode('configuration_url')

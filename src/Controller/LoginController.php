@@ -2,6 +2,7 @@
 
 namespace ItkDev\OpenIdConnectBundle\Controller;
 
+use ItkDev\OpenIdConnect\Exception\ItkOpenIdConnectException;
 use ItkDev\OpenIdConnect\Security\OpenIdConfigurationProvider;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\RedirectResponse;
@@ -10,29 +11,29 @@ use Symfony\Component\HttpFoundation\Session\SessionInterface;
 
 class LoginController extends AbstractController
 {
-
     /**
-     * @var array
+     * @var OpenIdConfigurationProvider
      */
-    private $openIdProviderOptions;
+    private $provider;
 
-    public function __construct(array $openIdProviderOptions)
+    public function __construct(OpenIdConfigurationProvider $provider)
     {
-        $this->openIdProviderOptions = $openIdProviderOptions;
+        $this->provider = $provider;
     }
 
     /**
-     * @param SessionInterface $session
-     * @return Response
+     * @throws ItkOpenIdConnectException
      */
     public function login(SessionInterface $session): Response
     {
-        $provider = new OpenIdConfigurationProvider($this->openIdProviderOptions);
+        $nonce = $this->provider->generateNonce();
+        $state = $this->provider->generateState();
 
-        $authUrl = $provider->getAuthorizationUrl();
+        // Save to session
+        $session->set('oauth2state', $state);
+        $session->set('oauth2nonce', $nonce);
 
-        // Set a oauth2state to avoid CSRF check it in authenticator
-        $session->set('oauth2state', $provider->getState());
+        $authUrl = $this->provider->getAuthorizationUrl(['state' => $state, 'nonce' => $nonce]);
 
         return new RedirectResponse($authUrl);
     }
