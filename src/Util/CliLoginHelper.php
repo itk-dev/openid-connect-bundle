@@ -2,8 +2,9 @@
 
 namespace ItkDev\OpenIdConnectBundle\Util;
 
+use ItkDev\OpenIdConnectBundle\Exception\ItkOpenIdConnectBundleException;
+use ItkDev\OpenIdConnectBundle\Exception\TokenNotFoundException;
 use Symfony\Component\Uid\Uuid;
-use Symfony\Contracts\Cache\CacheInterface;
 use Psr\Cache\CacheItemPoolInterface;
 
 class CliLoginHelper
@@ -44,14 +45,19 @@ class CliLoginHelper
 
         return $token;
     }
-    
+
+
+    /**
+     * @throws ItkOpenIdConnectBundleException
+     */
     public function getUsername(string $token): ?string
     {
         // check if token exists in cache
         $usernameItem = $this->cache->getItem($token);
+
         if (!$usernameItem->isHit()) {
             // username does not exist in the cache
-            throw new \Exception('Token does not exist');
+            throw new TokenNotFoundException('Token does not exist');
         }
 
         $username = $usernameItem->get();
