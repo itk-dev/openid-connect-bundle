@@ -49,6 +49,4 @@ class LoginControllerTest extends TestCase
         $this->assertInstanceOf(RedirectResponse::class, $response);
         $this->assertSame('https://test.com', $response->getTargetUrl());
     }
-
-
 }

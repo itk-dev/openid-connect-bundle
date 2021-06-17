@@ -54,7 +54,7 @@ class OpenIdLoginAuthenticatorTest extends TestCase
         $this->authenticator->onAuthenticationFailure($stubRequest, $exception);
     }
 
-    public function testSupportsRememberMe():void
+    public function testSupportsRememberMe(): void
     {
         $this->assertFalse($this->authenticator->supportsRememberMe());
     }
