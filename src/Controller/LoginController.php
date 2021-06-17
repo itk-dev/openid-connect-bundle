@@ -6,7 +6,6 @@ use ItkDev\OpenIdConnect\Exception\ItkOpenIdConnectException;
 use ItkDev\OpenIdConnect\Security\OpenIdConfigurationProvider;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\RedirectResponse;
-use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\Session\SessionInterface;
 
 class LoginController extends AbstractController
@@ -24,7 +23,7 @@ class LoginController extends AbstractController
     /**
      * @throws ItkOpenIdConnectException
      */
-    public function login(SessionInterface $session): Response
+    public function login(SessionInterface $session): RedirectResponse
     {
         $nonce = $this->provider->generateNonce();
         $state = $this->provider->generateState();
