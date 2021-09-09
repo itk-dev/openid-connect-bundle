@@ -32,9 +32,17 @@ services:
     arguments:
       $cliLoginHelper: '@ItkDev\OpenIdConnectBundle\Util\CliLoginHelper'
       $cliLoginRedirectRoute: ~
+      $urlGenerator: '@Symfony\Component\Routing\Generator\UrlGeneratorInterface'
+      $userProvider: '@Symfony\Component\Security\Core\User\UserProviderInterface'
 
   ItkDev\OpenIdConnectBundle\Security\LoginTokenAuthenticator:
     public: true
     arguments:
       $cliLoginHelper: '@ItkDev\OpenIdConnectBundle\Util\CliLoginHelper'
       $cliLoginRedirectRoute: ~
+
+  Symfony\Component\Routing\Generator\UrlGeneratorInterface:
+    public: true
+
+  Symfony\Component\Security\Core\User\UserProviderInterface:
+    public: true
