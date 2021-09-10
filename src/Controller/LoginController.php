@@ -8,6 +8,9 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Session\SessionInterface;
 
+/**
+ * Login Controller class.
+ */
 class LoginController extends AbstractController
 {
     /**
@@ -21,6 +24,10 @@ class LoginController extends AbstractController
     }
 
     /**
+     * Login method redirecting to authorizer.
+     *
+     * @param SessionInterface $session
+     * @return RedirectResponse
      * @throws ItkOpenIdConnectException
      */
     public function login(SessionInterface $session): RedirectResponse

@@ -2,10 +2,10 @@
 
 namespace ItkDev\OpenIdConnectBundle\Command;
 
-use ItkDev\OpenIdConnectBundle\Exception\ItkOpenIdConnectBundleException;
 use ItkDev\OpenIdConnectBundle\Exception\UserDoesNotExistException;
 use ItkDev\OpenIdConnectBundle\Exception\UsernameDoesNotExistException;
 use ItkDev\OpenIdConnectBundle\Util\CliLoginHelper;
+use Psr\Cache\InvalidArgumentException;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
@@ -40,6 +40,15 @@ class UserLoginCommand extends Command
      */
     private $cliLoginRedirectRoute;
 
+    /**
+     * UserLoginCommand constructor.
+     *
+     * @param CliLoginHelper $cliLoginHelper
+     * @param string $cliLoginRedirectRoute
+     * @param UrlGeneratorInterface $urlGenerator
+     * @param UserProviderInterface $userProvider
+     */
+
     public function __construct(CliLoginHelper $cliLoginHelper, string $cliLoginRedirectRoute, UrlGeneratorInterface $urlGenerator, UserProviderInterface $userProvider)
     {
         $this->cliLoginHelper = $cliLoginHelper;
@@ -58,7 +67,15 @@ class UserLoginCommand extends Command
     }
 
     /**
-     * @throws ItkOpenIdConnectBundleException
+     * Executes the CLI login url generation.
+     *
+     * @param InputInterface $input
+     * @param OutputInterface $output
+     *
+     * @return int
+     * @throws InvalidArgumentException
+     * @throws UserDoesNotExistException
+     * @throws UsernameDoesNotExistException
      */
     protected function execute(InputInterface $input, OutputInterface $output): int
     {

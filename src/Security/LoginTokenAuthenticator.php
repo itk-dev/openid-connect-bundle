@@ -16,6 +16,9 @@ use Symfony\Component\Security\Core\User\UserInterface;
 use Symfony\Component\Security\Core\User\UserProviderInterface;
 use Symfony\Component\Security\Guard\AbstractGuardAuthenticator;
 
+/**
+ * Authenticator class for CLI login.
+ */
 class LoginTokenAuthenticator extends AbstractGuardAuthenticator
 {
     /**
@@ -89,7 +92,6 @@ class LoginTokenAuthenticator extends AbstractGuardAuthenticator
 
     public function onAuthenticationFailure(Request $request, AuthenticationException $exception)
     {
-        // Throw (telling) error
         throw new AuthenticationException('Error occurred validating login token');
     }
 

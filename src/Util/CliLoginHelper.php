@@ -2,11 +2,14 @@
 
 namespace ItkDev\OpenIdConnectBundle\Util;
 
-use ItkDev\OpenIdConnectBundle\Exception\ItkOpenIdConnectBundleException;
 use ItkDev\OpenIdConnectBundle\Exception\TokenNotFoundException;
+use Psr\Cache\InvalidArgumentException;
 use Symfony\Component\Uid\Uuid;
 use Psr\Cache\CacheItemPoolInterface;
 
+/**
+ * Helper class for CLI login.
+ */
 class CliLoginHelper
 {
     /**
@@ -25,6 +28,13 @@ class CliLoginHelper
         $this->itkNamespace = 'itk-dev-cli-login';
     }
 
+    /**
+     * Creates login token for CLI login.
+     *
+     * @param string $username
+     * @return string
+     * @throws InvalidArgumentException
+     */
     public function createToken(string $username): string
     {
         $encodedUsername = $this->encodeKey($username);
@@ -48,36 +58,46 @@ class CliLoginHelper
 
 
     /**
-     * @throws ItkOpenIdConnectBundleException
+     * Gets username from login token.
+     *
+     * @param string $token
+     * @return string|null
+     * @throws InvalidArgumentException
+     * @throws TokenNotFoundException
      */
     public function getUsername(string $token): ?string
     {
-        // check if token exists in cache
         $usernameItem = $this->cache->getItem($token);
 
         if (!$usernameItem->isHit()) {
-            // username does not exist in the cache
             throw new TokenNotFoundException('Token does not exist');
         }
 
         $username = $usernameItem->get();
 
-        // delete both entries from cache
+        // Delete both entries from cache
         $this->cache->deleteItem($token);
         $this->cache->deleteItem($username);
 
         return $this->decodeKey($username);
     }
 
+    /**
+     * @param string $key
+     * @return string
+     */
     public function encodeKey(string $key): string
     {
         // Add namespace to key before encoding
         return base64_encode($this->itkNamespace . $key);
     }
 
+    /**
+     * @param string $encodedKey
+     * @return string
+     */
     public function decodeKey(string $encodedKey): string
     {
-        // Decode encoded key
         $decodedKeyWithNamespace = base64_decode($encodedKey);
 
         // Remove namespace
