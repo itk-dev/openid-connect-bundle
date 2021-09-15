@@ -2,6 +2,7 @@
 
 namespace ItkDev\OpenIdConnectBundle\DependencyInjection;
 
+use Exception;
 use ItkDev\OpenIdConnect\Security\OpenIdConfigurationProvider;
 use ItkDev\OpenIdConnectBundle\Command\UserLoginCommand;
 use ItkDev\OpenIdConnectBundle\Security\LoginTokenAuthenticator;
@@ -16,6 +17,7 @@ class ItkDevOpenIdConnectExtension extends Extension
 {
     /**
      * {@inheritdoc}
+     * @throws Exception
      */
     public function load(array $configs, ContainerBuilder $container): void
     {
@@ -50,7 +52,7 @@ class ItkDevOpenIdConnectExtension extends Extension
     /**
      * {@inheritdoc}
      */
-    public function getAlias()
+    public function getAlias(): string
     {
         return 'itkdev_openid_connect';
     }

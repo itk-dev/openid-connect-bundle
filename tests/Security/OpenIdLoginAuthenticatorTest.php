@@ -3,7 +3,6 @@
 namespace ItkDev\OpenIdConnectBundle\Tests\Security;
 
 use ItkDev\OpenIdConnect\Security\OpenIdConfigurationProvider;
-use ItkDev\OpenIdConnectBundle\Security\OpenIdLoginAuthenticator;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpFoundation\InputBag;
 use Symfony\Component\HttpFoundation\Request;

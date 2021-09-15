@@ -2,7 +2,9 @@
 
 namespace ItkDev\OpenIdConnectBundle\Exception;
 
-abstract class ItkOpenIdConnectBundleException extends \Exception
+use Exception;
+
+abstract class ItkOpenIdConnectBundleException extends Exception
 {
 
 }

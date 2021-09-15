@@ -3,7 +3,6 @@
 namespace ItkDev\OpenIdConnectBundle\Util;
 
 use ItkDev\OpenIdConnectBundle\Exception\TokenNotFoundException;
-use Psr\Cache\InvalidArgumentException;
 use Symfony\Component\Uid\Uuid;
 use Psr\Cache\CacheItemPoolInterface;
 
