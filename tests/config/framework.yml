@@ -18,3 +18,5 @@ framework:
     enabled: false
   translator:
     enabled: false
+  router:
+    resource: ~

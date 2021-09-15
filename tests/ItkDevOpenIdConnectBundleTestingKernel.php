@@ -9,6 +9,7 @@ namespace ItkDev\OpenIdConnectBundle\Tests;
 
 use ItkDev\OpenIdConnectBundle\ItkDevOpenIdConnectBundle;
 use Symfony\Bundle\FrameworkBundle\FrameworkBundle;
+use Symfony\Bundle\SecurityBundle\SecurityBundle;
 use Symfony\Component\Config\Loader\LoaderInterface;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\HttpClient\CurlHttpClient;
@@ -35,6 +36,7 @@ class ItkDevOpenIdConnectBundleTestingKernel extends Kernel
     {
         return [
             new ItkDevOpenIdConnectBundle(),
+            new SecurityBundle(),
             new FrameworkBundle(),
         ];
     }
