@@ -5,7 +5,6 @@ namespace ItkDev\OpenIdConnectBundle\Command;
 use ItkDev\OpenIdConnectBundle\Exception\UserDoesNotExistException;
 use ItkDev\OpenIdConnectBundle\Exception\UsernameDoesNotExistException;
 use ItkDev\OpenIdConnectBundle\Util\CliLoginHelper;
-use Psr\Cache\InvalidArgumentException;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
@@ -73,7 +72,6 @@ class UserLoginCommand extends Command
      * @param OutputInterface $output
      *
      * @return int
-     * @throws InvalidArgumentException
      * @throws UserDoesNotExistException
      * @throws UsernameDoesNotExistException
      */
@@ -85,7 +83,6 @@ class UserLoginCommand extends Command
         if (!is_string($username)) {
             throw new UsernameDoesNotExistException('Username is not type string.');
         }
-
         // Check if username is registered in User database
         try {
             $this->userProvider->loadUserByUsername($username);

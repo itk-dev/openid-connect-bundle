@@ -33,7 +33,6 @@ class CliLoginHelper
      *
      * @param string $username
      * @return string
-     * @throws InvalidArgumentException
      */
     public function createToken(string $username): string
     {
@@ -62,7 +61,6 @@ class CliLoginHelper
      *
      * @param string $token
      * @return string|null
-     * @throws InvalidArgumentException
      * @throws TokenNotFoundException
      */
     public function getUsername(string $token): ?string
