@@ -95,7 +95,6 @@ class UserLoginCommand extends Command
             'loginToken' => $token,
         ], UrlGeneratorInterface::ABSOLUTE_URL);
 
-        //$io->success($loginPage);
         $io->writeln($loginPage);
 
         return Command::SUCCESS;
