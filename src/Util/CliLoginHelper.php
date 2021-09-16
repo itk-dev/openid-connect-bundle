@@ -11,20 +11,16 @@ use Psr\Cache\CacheItemPoolInterface;
  */
 class CliLoginHelper
 {
+    private const ITK_NAMESPACE = 'itk-dev-cli-login';
+
     /**
      * @var CacheItemPoolInterface
      */
     private $cache;
 
-    /**
-     * @var string
-     */
-    private $itkNamespace;
-
     public function __construct(CacheItemPoolInterface $cache)
     {
         $this->cache = $cache;
-        $this->itkNamespace = 'itk-dev-cli-login';
     }
 
     /**
@@ -86,7 +82,7 @@ class CliLoginHelper
     public function encodeKey(string $key): string
     {
         // Add namespace to key before encoding
-        return base64_encode($this->itkNamespace . $key);
+        return base64_encode(self::ITK_NAMESPACE . $key);
     }
 
     /**
@@ -98,7 +94,7 @@ class CliLoginHelper
         $decodedKeyWithNamespace = base64_decode($encodedKey);
 
         // Remove namespace
-        $key = str_replace($this->itkNamespace, '', $decodedKeyWithNamespace);
+        $key = str_replace(self::ITK_NAMESPACE, '', $decodedKeyWithNamespace);
 
         return $key;
     }
