@@ -2,8 +2,6 @@
 
 namespace ItkDev\OpenIdConnectBundle\Command;
 
-use ItkDev\OpenIdConnectBundle\Exception\UserDoesNotExistException;
-use ItkDev\OpenIdConnectBundle\Exception\UsernameDoesNotExistException;
 use ItkDev\OpenIdConnectBundle\Util\CliLoginHelper;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
@@ -47,7 +45,6 @@ class UserLoginCommand extends Command
      * @param UrlGeneratorInterface $urlGenerator
      * @param UserProviderInterface $userProvider
      */
-
     public function __construct(CliLoginHelper $cliLoginHelper, string $cliLoginRedirectRoute, UrlGeneratorInterface $urlGenerator, UserProviderInterface $userProvider)
     {
         $this->cliLoginHelper = $cliLoginHelper;
@@ -72,8 +69,6 @@ class UserLoginCommand extends Command
      * @param OutputInterface $output
      *
      * @return int
-     * @throws UserDoesNotExistException
-     * @throws UsernameDoesNotExistException
      */
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
@@ -81,13 +76,15 @@ class UserLoginCommand extends Command
         $username = $input->getArgument('username');
 
         if (!is_string($username)) {
-            throw new UsernameDoesNotExistException('Username is not type string.');
+            $io->error('Username is not type string');
+            return Command::FAILURE;
         }
         // Check if username is registered in User database
         try {
             $this->userProvider->loadUserByUsername($username);
         } catch (UsernameNotFoundException $e) {
-            throw new UserDoesNotExistException('User does not exist.');
+            $io->error('User does not exist');
+            return Command::FAILURE;
         }
 
         // Create token via CliLoginHelper
@@ -98,6 +95,7 @@ class UserLoginCommand extends Command
             'loginToken' => $token,
         ], UrlGeneratorInterface::ABSOLUTE_URL);
 
+        //$io->success($loginPage);
         $io->writeln($loginPage);
 
         return Command::SUCCESS;
