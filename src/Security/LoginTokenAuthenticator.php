@@ -2,7 +2,8 @@
 
 namespace ItkDev\OpenIdConnectBundle\Security;
 
-use ItkDev\OpenIdConnectBundle\Exception\ItkOpenIdConnectBundleException;
+use ItkDev\OpenIdConnectBundle\Exception\CacheException;
+use ItkDev\OpenIdConnectBundle\Exception\TokenNotFoundException;
 use ItkDev\OpenIdConnectBundle\Exception\UserDoesNotExistException;
 use ItkDev\OpenIdConnectBundle\Exception\UsernameDoesNotExistException;
 use ItkDev\OpenIdConnectBundle\Util\CliLoginHelper;
@@ -54,7 +55,10 @@ class LoginTokenAuthenticator extends AbstractGuardAuthenticator
     }
 
     /**
-     * @throws ItkOpenIdConnectBundleException
+     * @throws UserDoesNotExistException
+     * @throws UsernameDoesNotExistException
+     * @throws CacheException
+     * @throws TokenNotFoundException
      */
     public function getUser($credentials, UserProviderInterface $userProvider)
     {
@@ -67,8 +71,8 @@ class LoginTokenAuthenticator extends AbstractGuardAuthenticator
         // Get username from CliHelperLogin
         try {
             $username = $this->cliLoginHelper->getUsername($credentials);
-        } catch (ItkOpenIdConnectBundleException $exception) {
-            throw new UsernameDoesNotExistException($exception->getMessage());
+        } catch (CacheException | TokenNotFoundException $e) {
+            throw $e;
         }
 
         if (null === $username) {

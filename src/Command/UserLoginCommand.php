@@ -2,6 +2,7 @@
 
 namespace ItkDev\OpenIdConnectBundle\Command;
 
+use ItkDev\OpenIdConnectBundle\Exception\CacheException;
 use ItkDev\OpenIdConnectBundle\Util\CliLoginHelper;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
@@ -69,6 +70,7 @@ class UserLoginCommand extends Command
      * @param OutputInterface $output
      *
      * @return int
+     * @throws CacheException
      */
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
