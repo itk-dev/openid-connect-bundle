@@ -2,7 +2,9 @@
 
 namespace ItkDev\OpenIdConnectBundle\Util;
 
+use ItkDev\OpenIdConnectBundle\Exception\CacheException;
 use ItkDev\OpenIdConnectBundle\Exception\TokenNotFoundException;
+use Psr\Cache\InvalidArgumentException;
 use Symfony\Component\Uid\Uuid;
 use Psr\Cache\CacheItemPoolInterface;
 
@@ -28,6 +30,7 @@ class CliLoginHelper
      *
      * @param string $username
      * @return string
+     * @throws CacheException
      */
     public function createToken(string $username): string
     {
@@ -35,7 +38,12 @@ class CliLoginHelper
         $token = Uuid::v4()->toBase32();
 
         // Add username => token to make sure no username has more than one token
-        $revCacheItem = $this->cache->getItem($encodedUsername);
+        try {
+            $revCacheItem = $this->cache->getItem($encodedUsername);
+        } catch (InvalidArgumentException $e) {
+            throw new CacheException($e->getMessage());
+        }
+
         if ($revCacheItem->isHit()) {
             return $revCacheItem->get();
         }
@@ -43,7 +51,12 @@ class CliLoginHelper
         $this->cache->save($revCacheItem);
 
         // Add token => username
-        $cacheItem = $this->cache->getItem($token);
+        try {
+            $cacheItem = $this->cache->getItem($token);
+        } catch (InvalidArgumentException $e) {
+            throw new CacheException($e->getMessage());
+        }
+
         $cacheItem->set($encodedUsername);
         $this->cache->save($cacheItem);
 
@@ -57,10 +70,15 @@ class CliLoginHelper
      * @param string $token
      * @return string|null
      * @throws TokenNotFoundException
+     * @throws CacheException
      */
     public function getUsername(string $token): ?string
     {
-        $usernameItem = $this->cache->getItem($token);
+        try {
+            $usernameItem = $this->cache->getItem($token);
+        } catch (InvalidArgumentException $e) {
+            throw new CacheException($e->getMessage());
+        }
 
         if (!$usernameItem->isHit()) {
             throw new TokenNotFoundException('Token does not exist');
@@ -69,8 +87,12 @@ class CliLoginHelper
         $username = $usernameItem->get();
 
         // Delete both entries from cache
-        $this->cache->deleteItem($token);
-        $this->cache->deleteItem($username);
+        try {
+            $this->cache->deleteItem($token);
+            $this->cache->deleteItem($username);
+        } catch (InvalidArgumentException $e) {
+            throw new CacheException($e->getMessage());
+        }
 
         return $this->decodeKey($username);
     }
