@@ -2,20 +2,24 @@
 
 namespace ItkDev\OpenIdConnectBundle\DependencyInjection;
 
-use ItkDev\OpenIdConnectBundle\Controller\LoginController;
+use Exception;
+use ItkDev\OpenIdConnect\Security\OpenIdConfigurationProvider;
+use ItkDev\OpenIdConnectBundle\Command\UserLoginCommand;
+use ItkDev\OpenIdConnectBundle\Security\LoginTokenAuthenticator;
+use ItkDev\OpenIdConnectBundle\Util\CliLoginHelper;
 use Symfony\Component\Config\FileLocator;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Extension\Extension;
-use Symfony\Component\DependencyInjection\Loader\FileLoader;
-use Symfony\Component\DependencyInjection\Loader\XmlFileLoader;
 use Symfony\Component\DependencyInjection\Loader\YamlFileLoader;
+use Symfony\Component\DependencyInjection\Reference;
 
 class ItkDevOpenIdConnectExtension extends Extension
 {
     /**
      * {@inheritdoc}
+     * @throws Exception
      */
-    public function load(array $configs, ContainerBuilder $container)
+    public function load(array $configs, ContainerBuilder $container): void
     {
         $loader = new YamlFileLoader($container, new FileLocator(__DIR__ . '/../Resources/config'));
         $loader->load('services.yaml');
@@ -23,22 +27,32 @@ class ItkDevOpenIdConnectExtension extends Extension
         $configuration = new Configuration();
         $config = $this->processConfiguration($configuration, $configs);
 
-        $newConfig = [
-            'urlConfiguration' => $config['open_id_provider_options']['configuration_url'],
-            'clientId' => $config['open_id_provider_options']['client_id'],
-            'clientSecret' => $config['open_id_provider_options']['client_secret'],
-            'cachePath' => $config['open_id_provider_options']['cache_path'],
-            'redirectUri' => $config['open_id_provider_options']['callback_uri'],
+        $providerConfig = [
+            'openIDConnectMetadataUrl' => $config['openid_provider_options']['configuration_url'],
+            'clientId' => $config['openid_provider_options']['client_id'],
+            'clientSecret' => $config['openid_provider_options']['client_secret'],
+            'cacheItemPool' => new Reference($config['openid_provider_options']['cache_path']),
+            'redirectUri' => $config['openid_provider_options']['callback_uri'],
         ];
 
-        $definition = $container->getDefinition(LoginController::class);
-        $definition->replaceArgument('$openIdProviderOptions', $newConfig);
+        $definition = $container->getDefinition(OpenIdConfigurationProvider::class);
+        $definition->replaceArgument('$options', $providerConfig);
+        $definition->replaceArgument('$collaborators', []);
+
+        $definition = $container->getDefinition(CliLoginHelper::class);
+        $definition->replaceArgument('$cache', new Reference($config['cli_login_options']['cache_pool']));
+
+        $definition = $container->getDefinition(UserLoginCommand::class);
+        $definition->replaceArgument('$cliLoginRedirectRoute', $config['cli_login_options']['cli_redirect']);
+
+        $definition = $container->getDefinition(LoginTokenAuthenticator::class);
+        $definition->replaceArgument('$cliLoginRedirectRoute', $config['cli_login_options']['cli_redirect']);
     }
 
     /**
      * {@inheritdoc}
      */
-    public function getAlias()
+    public function getAlias(): string
     {
         return 'itkdev_openid_connect';
     }

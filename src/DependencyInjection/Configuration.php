@@ -12,7 +12,7 @@ class Configuration implements ConfigurationInterface
      */
     public function getConfigTreeBuilder(): TreeBuilder
     {
-        $treeBuilder = new TreeBuilder('itk_dev_open_id_connect');
+        $treeBuilder = new TreeBuilder('itkdev_openid_connect');
 
         // Specify which variables must be configured in itk_dev_openid_connect file
         // That is client_id, client_secret, discovery url and cache path
@@ -20,14 +20,26 @@ class Configuration implements ConfigurationInterface
 
         $treeBuilder->getRootNode()
             ->children()
-                ->arrayNode('open_id_provider_options')
+                ->arrayNode('cli_login_options')
+                    ->isRequired()
+                    ->children()
+                        ->scalarNode('cli_redirect')
+                            ->info('Return route for CLI login')
+                            ->cannotBeEmpty()->end()
+                        ->scalarNode('cache_pool')
+                            ->info('Method for caching')
+                            ->defaultValue('cache.app')
+                            ->cannotBeEmpty()->end()
+                    ->end()
+                ->end()
+                ->arrayNode('openid_provider_options')
                     ->isRequired()
                     ->children()
                         ->scalarNode('configuration_url')
                             ->info('URL to OpenId Discovery Document')
                             ->validate()
                                 ->ifTrue(
-                                    function ($value) {
+                                    function (string $value) {
                                         return !filter_var($value, FILTER_VALIDATE_URL);
                                     }
                                 )
@@ -48,7 +60,7 @@ class Configuration implements ConfigurationInterface
                             ->info('Callback URI registered at identity provider')
                             ->validate()
                                 ->ifTrue(
-                                    function ($value) {
+                                    function (string $value) {
                                         return !filter_var($value, FILTER_VALIDATE_URL);
                                     }
                                 )

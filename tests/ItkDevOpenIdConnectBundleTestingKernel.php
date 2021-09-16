@@ -7,24 +7,23 @@
 
 namespace ItkDev\OpenIdConnectBundle\Tests;
 
+use Exception;
 use ItkDev\OpenIdConnectBundle\ItkDevOpenIdConnectBundle;
+use Symfony\Bundle\FrameworkBundle\FrameworkBundle;
+use Symfony\Bundle\SecurityBundle\SecurityBundle;
 use Symfony\Component\Config\Loader\LoaderInterface;
-use Symfony\Component\DependencyInjection\ContainerBuilder;
-use Symfony\Component\HttpClient\CurlHttpClient;
 use Symfony\Component\HttpKernel\Kernel;
-use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 /**
  * Class ItkDevOpenIdConnectBundleTestingKernel.
  */
 class ItkDevOpenIdConnectBundleTestingKernel extends Kernel
 {
-    private $config;
+    private $pathToConfigs;
 
-    public function __construct(array $config)
+    public function __construct(array $pathToConfigs)
     {
-        $this->config = $config;
-
+        $this->pathToConfigs = $pathToConfigs;
         parent::__construct('test', true);
     }
 
@@ -35,16 +34,21 @@ class ItkDevOpenIdConnectBundleTestingKernel extends Kernel
     {
         return [
             new ItkDevOpenIdConnectBundle(),
+            new SecurityBundle(),
+            new FrameworkBundle(),
         ];
     }
 
     /**
      * {@inheritdoc}
+     * @throws Exception
      */
     public function registerContainerConfiguration(LoaderInterface $loader)
     {
-        $loader->load(function (ContainerBuilder $containerBuilder) {
-            $containerBuilder->loadFromExtension('itkdev_openid_connect', $this->config);
-        });
+        foreach ($this->pathToConfigs as $path) {
+            if (file_exists($path)) {
+                $loader->load($path);
+            }
+        }
     }
 }
