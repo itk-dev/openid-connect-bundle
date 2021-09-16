@@ -1,0 +1,13 @@
+security:
+  providers:
+    test_users:
+      memory:
+        users:
+          admin: { password: 'test', roles: ['ROLE_ADMIN'] }
+  firewalls:
+    dev:
+      pattern: ^/(_(profiler|wdt)|css|images|js)/
+      security: false
+    main:
+      anonymous: true
+      lazy: true

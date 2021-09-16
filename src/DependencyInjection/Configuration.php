@@ -20,6 +20,18 @@ class Configuration implements ConfigurationInterface
 
         $treeBuilder->getRootNode()
             ->children()
+                ->arrayNode('cli_login_options')
+                    ->isRequired()
+                    ->children()
+                        ->scalarNode('cli_redirect')
+                            ->info('Return route for CLI login')
+                            ->cannotBeEmpty()->end()
+                        ->scalarNode('cache_pool')
+                            ->info('Method for caching')
+                            ->defaultValue('cache.app')
+                            ->cannotBeEmpty()->end()
+                    ->end()
+                ->end()
                 ->arrayNode('openid_provider_options')
                     ->isRequired()
                     ->children()
@@ -27,7 +39,7 @@ class Configuration implements ConfigurationInterface
                             ->info('URL to OpenId Discovery Document')
                             ->validate()
                                 ->ifTrue(
-                                    function ($value) {
+                                    function (string $value) {
                                         return !filter_var($value, FILTER_VALIDATE_URL);
                                     }
                                 )
@@ -48,7 +60,7 @@ class Configuration implements ConfigurationInterface
                             ->info('Callback URI registered at identity provider')
                             ->validate()
                                 ->ifTrue(
-                                    function ($value) {
+                                    function (string $value) {
                                         return !filter_var($value, FILTER_VALIDATE_URL);
                                     }
                                 )

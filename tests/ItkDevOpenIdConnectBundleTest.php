@@ -6,7 +6,6 @@ use ItkDev\OpenIdConnect\Security\OpenIdConfigurationProvider;
 use ItkDev\OpenIdConnectBundle\Controller\LoginController;
 use ItkDev\OpenIdConnectBundle\Security\OpenIdLoginAuthenticator;
 use PHPUnit\Framework\TestCase;
-use Symfony\Component\Cache\Adapter\ArrayAdapter;
 
 /**
  * Class ItkDevOpenIdConnectBundleTest
@@ -20,6 +19,7 @@ class ItkDevOpenIdConnectBundleTest extends TestCase
     {
         $kernel = new ItkDevOpenIdConnectBundleTestingKernel([
             __DIR__ . '/config/framework.yml',
+            __DIR__ . '/config/security.yml',
             __DIR__ . '/config/itkdev_openid_connect.yml',
         ]);
         $kernel->boot();

@@ -53,6 +53,19 @@ It is not necessary to add a prefix to the bundle routes,
 but in case you want i.e. another `/login` route,
 it makes distinguishing between them easier.
 
+
+### CLI login
+
+In order to use the CLI login feature the following
+environment variable must be set:
+
+```shell
+DEFAULT_URI=
+```
+
+See [Symfony documentation](https://symfony.com/doc/current/routing.html#generating-urls-in-commands)
+for more information.
+
 ### Creating the Authenticator
 
 The bundle handles the extraction of credentials received from the authorizer -
@@ -193,6 +206,28 @@ services:
         bind:
             $leeway: '%env(ITK_DEV_LEEWAY)%'
 ```
+
+## Sign in from command line
+
+Rather than signing in via OpenId Connect, you can get
+a sign in url from the command line by providing a username.
+Make sure to configure `DEFAULT_URI`. Run
+
+```shell
+bin/console itk-dev:openid-connect:login <username>
+```
+
+Or
+
+```shell
+bin/console itk-dev:openid-connect:login --help
+```
+
+for details.
+
+Be aware that a login token only can be used once
+before it is removed, and if you used email as your user provider property
+the email goes into the `username` argument.
 
 ## Changes for Symfony 6.0
 

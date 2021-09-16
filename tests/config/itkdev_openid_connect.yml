@@ -1,4 +1,7 @@
 itkdev_openid_connect:
+  cli_login_options:
+    cli_redirect: 'cli_redirect_test'
+    cache_pool: 'cache.array'
   openid_provider_options:
     configuration_url: 'https://provider.com/openid-configuration'
     client_id: 'test_id'

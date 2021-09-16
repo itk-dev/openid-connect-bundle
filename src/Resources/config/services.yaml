@@ -21,3 +21,20 @@ services:
     arguments:
       $provider: '@ItkDev\OpenIdConnect\Security\OpenIdConfigurationProvider'
       $session: ~
+
+  ItkDev\OpenIdConnectBundle\Util\CliLoginHelper:
+    public: true
+    arguments:
+      $cache: ~
+
+  ItkDev\OpenIdConnectBundle\Command\UserLoginCommand:
+    public: true
+    arguments:
+      $cliLoginHelper: '@ItkDev\OpenIdConnectBundle\Util\CliLoginHelper'
+      $cliLoginRedirectRoute: ~
+
+  ItkDev\OpenIdConnectBundle\Security\LoginTokenAuthenticator:
+    public: true
+    arguments:
+      $cliLoginHelper: '@ItkDev\OpenIdConnectBundle\Util\CliLoginHelper'
+      $cliLoginRedirectRoute: ~

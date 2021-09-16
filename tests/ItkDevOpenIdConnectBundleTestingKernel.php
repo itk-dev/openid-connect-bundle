@@ -7,13 +7,12 @@
 
 namespace ItkDev\OpenIdConnectBundle\Tests;
 
+use Exception;
 use ItkDev\OpenIdConnectBundle\ItkDevOpenIdConnectBundle;
 use Symfony\Bundle\FrameworkBundle\FrameworkBundle;
+use Symfony\Bundle\SecurityBundle\SecurityBundle;
 use Symfony\Component\Config\Loader\LoaderInterface;
-use Symfony\Component\DependencyInjection\ContainerBuilder;
-use Symfony\Component\HttpClient\CurlHttpClient;
 use Symfony\Component\HttpKernel\Kernel;
-use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 /**
  * Class ItkDevOpenIdConnectBundleTestingKernel.
@@ -35,12 +34,14 @@ class ItkDevOpenIdConnectBundleTestingKernel extends Kernel
     {
         return [
             new ItkDevOpenIdConnectBundle(),
+            new SecurityBundle(),
             new FrameworkBundle(),
         ];
     }
 
     /**
      * {@inheritdoc}
+     * @throws Exception
      */
     public function registerContainerConfiguration(LoaderInterface $loader)
     {
