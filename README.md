@@ -32,12 +32,24 @@ itkdev_openid_connect:
   cache_options: 
     cache_pool: 'cache.app' # Cache item pool for caching discovery document and CLI login tokens
   openid_provider_options:
-    configuration_url: 'https://test.com/.well-known/openid-configuration' # url to OpenId Discovery document
-    client_id: 'client_id' # Client id assigned by authorizer
-    client_secret: 'client_secret' # Client password assigned by authorizer
-    callback_uri: 'absolute_uri_here' # Callback URI registered at identity provider
+    configuration_url: '%env(CONFIGURATION_URL)' # url to OpenId Discovery document
+    client_id: '%env(CLIENT_ID)' # Client id assigned by authorizer
+    client_secret: '%env(CLIENT_SECRET)' # Client password assigned by authorizer
+    callback_uri: '%env(CALLBACK_URI)' # Callback URI registered at identity provider
   cli_login_options:
-    cli_redirect: 'homepage_authenticated' # Redirect route for CLI login
+    cli_redirect: '%env(CLI_REDIRECT)' # Redirect route for CLI login
+```
+
+With the following `.env` environment variables
+
+```text
+###> itk-dev/openid-connect-bundle ###
+CONFIGURATION_URL=APP_CONFIGURATION_URL
+CLIENT_ID=APP_CLIENT_ID
+CLIENT_SECRET=APP_CLIENT_SECRET
+CALLBACK_URI=APP_CALLBACK_URI
+CLI_REDIRECT=APP_CLI_REDIRECT_URI
+###< itk-dev/openid-connect-bundle ###
 ```
 
 In `/config/routes/` you need a similar
@@ -210,7 +222,7 @@ and `services.yaml`:
 
 ```text
 ###> itk-dev/openid-connect-bundle ###
-ITK_DEV_LEEWAY=10
+LEEWAY=10
 ###< itk-dev/openid-connect-bundle ###
 ```
 
@@ -218,7 +230,7 @@ ITK_DEV_LEEWAY=10
 services:
     _defaults:
         bind:
-            $leeway: '%env(ITK_DEV_LEEWAY)%'
+            $leeway: '%env(LEEWAY)%'
 ```
 
 ## Sign in from command line
