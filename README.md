@@ -10,14 +10,25 @@ To install run
 composer require itk-dev/openid-connect-bundle
 ```
 
+And add 
+```
+ItkDev\OpenIdConnectBundle\ItkDevOpenIdConnectBundle::class => ['all' => true],
+```
+
+to `config/bundles.php`
+
+
 ## Usage
 
 Before being able to use the bundle,
 you must have your own User entity and database setup.
 
-Once you have this, you need to configure variables for
-OpenId Connect and create an Authenticator class that extends
-the bundle authenticator, `OpenIdLoginAuthenticator`.
+Once you have this, you need to 
+
+* Configure variables for OpenId Connect
+* Configure `LoginTokenAuthenticator` if you wish to use CLI login.
+* Create an Authenticator class that extends
+the bundle authenticator, `OpenIdLoginAuthenticator`
 
 ### Variable configuration
 
@@ -27,11 +38,14 @@ file for configuring OpenId Connect variables
 ```yaml
 itkdev_openid_connect:
   openid_provider_options:
-    configuration_url: 'https://.../openid-configuration..' # url to OpenId Discovery document
+    configuration_url: 'https://test.com/.well-known/openid-configuration' # url to OpenId Discovery document
     client_id: 'client_id' # Client id assigned by authorizer
     client_secret: 'client_secret' # Client password assigned by authorizer
-    cache_path: '' # Path for caching discovery document
+    cache_path: 'cache.app' # Path for caching discovery document
     callback_uri: 'absolute_uri_here' # Callback URI registered at identity provider
+  cli_login_options:
+    cli_redirect: 'homepage_authenticated'
+    cache_pool: 'cache.app'
 ```
 
 In `/config/routes/` you need a similar
@@ -47,7 +61,6 @@ It is not necessary to add a prefix to the bundle routes,
 but in case you want i.e. another `/login` route,
 it makes distinguishing between them easier.
 
-
 ### CLI login
 
 In order to use the CLI login feature the following
@@ -59,6 +72,18 @@ DEFAULT_URI=
 
 See [Symfony documentation](https://symfony.com/doc/current/routing.html#generating-urls-in-commands)
 for more information.
+
+You must also add the Bundle `LoginTokenAuthenticator`
+to the `security.yaml` file:
+
+```yaml
+security:
+  firewalls:
+    main:
+      guard:
+        authenticators:
+          - ItkDev\OpenIdConnectBundle\Security\LoginTokenAuthenticator
+```
 
 ### Creating the Authenticator
 
@@ -107,6 +132,8 @@ security:
       guard:
         authenticators:
           - App\Security\ExampleAuthenticator
+          - ItkDev\OpenIdConnectBundle\Security\LoginTokenAuthenticator
+        entry_point: App\Security\ExampleAuthenticator
 ```
 
 #### Example authenticator functions
