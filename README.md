@@ -10,14 +10,6 @@ To install run
 composer require itk-dev/openid-connect-bundle
 ```
 
-And add 
-```
-ItkDev\OpenIdConnectBundle\ItkDevOpenIdConnectBundle::class => ['all' => true],
-```
-
-to `config/bundles.php`
-
-
 ## Usage
 
 Before being able to use the bundle,
