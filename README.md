@@ -29,15 +29,15 @@ file for configuring OpenId Connect variables
 
 ```yaml
 itkdev_openid_connect:
+  cache_options: 
+    cache_pool: 'cache.app' # Cache item pool for caching discovery document and CLI login tokens
   openid_provider_options:
     configuration_url: 'https://test.com/.well-known/openid-configuration' # url to OpenId Discovery document
     client_id: 'client_id' # Client id assigned by authorizer
     client_secret: 'client_secret' # Client password assigned by authorizer
-    cache_path: 'cache.app' # Path for caching discovery document
     callback_uri: 'absolute_uri_here' # Callback URI registered at identity provider
   cli_login_options:
-    cli_redirect: 'homepage_authenticated'
-    cache_pool: 'cache.app'
+    cli_redirect: 'homepage_authenticated' # Redirect route for CLI login
 ```
 
 In `/config/routes/` you need a similar
