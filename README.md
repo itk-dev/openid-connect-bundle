@@ -10,12 +10,6 @@ To install run
 composer require itk-dev/openid-connect-bundle
 ```
 
-If you wish to run the coding standard tests for Markdown files
-
-```sh
-yarn install
-```
-
 ## Usage
 
 Before being able to use the bundle,
