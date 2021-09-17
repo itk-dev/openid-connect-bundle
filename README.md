@@ -15,7 +15,7 @@ composer require itk-dev/openid-connect-bundle
 Before being able to use the bundle,
 you must have your own User entity and database setup.
 
-Once you have this, you need to 
+Once you have this, you need to
 
 * Configure variables for OpenId Connect
 * Configure `LoginTokenAuthenticator` if you wish to use CLI login.
@@ -142,6 +142,7 @@ namespace App\Security;
 
 use App\Entity\User;
 use Doctrine\ORM\EntityManagerInterface;
+use ItkDev\OpenIdConnect\Security\OpenIdConfigurationProvider;
 use ItkDev\OpenIdConnectBundle\Security\OpenIdLoginAuthenticator;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
