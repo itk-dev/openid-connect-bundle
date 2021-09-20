@@ -26,7 +26,8 @@ class Configuration implements ConfigurationInterface
                         ->scalarNode('cache_pool')
                             ->info('Method for caching')
                             ->defaultValue('cache.app')
-                            ->cannotBeEmpty()->end()
+                            ->isRequired()->cannotBeEmpty()
+                        ->end()
                     ->end()
                 ->end()
                 ->arrayNode('cli_login_options')
@@ -34,7 +35,8 @@ class Configuration implements ConfigurationInterface
                     ->children()
                         ->scalarNode('cli_redirect')
                             ->info('Return route for CLI login')
-                            ->cannotBeEmpty()->end()
+                            ->isRequired()->cannotBeEmpty()
+                        ->end()
                     ->end()
                 ->end()
                 ->arrayNode('openid_provider_options')
@@ -42,32 +44,20 @@ class Configuration implements ConfigurationInterface
                     ->children()
                         ->scalarNode('configuration_url')
                             ->info('URL to OpenId Discovery Document')
-                            ->validate()
-                                ->ifTrue(
-                                    function (string $value) {
-                                        return !filter_var($value, FILTER_VALIDATE_URL);
-                                    }
-                                )
-                                ->thenInvalid('Invalid URL given.')
-                            ->end()
-                            ->isRequired()->cannotBeEmpty()->end()
+                            ->isRequired()
+                        ->end()
                         ->scalarNode('client_id')
                             ->info('Client ID assigned by authorizer')
-                            ->isRequired()->cannotBeEmpty()->end()
+                            ->isRequired()->cannotBeEmpty()
+                        ->end()
                         ->scalarNode('client_secret')
                             ->info('Client secret/password assigned by authorizer')
-                            ->isRequired()->cannotBeEmpty()->end()
+                            ->isRequired()->cannotBeEmpty()
+                        ->end()
                         ->scalarNode('callback_uri')
                             ->info('Callback URI registered at identity provider')
-                            ->validate()
-                                ->ifTrue(
-                                    function (string $value) {
-                                        return !filter_var($value, FILTER_VALIDATE_URL);
-                                    }
-                                )
-                                ->thenInvalid('Invalid URL given.')
-                            ->end()
-                            ->isRequired()->cannotBeEmpty()->end()
+                            ->isRequired()->cannotBeEmpty()
+                        ->end()
                     ->end()
                 ->end()
             ->end();

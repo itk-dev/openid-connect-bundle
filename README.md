@@ -18,9 +18,9 @@ you must have your own User entity and database setup.
 Once you have this, you need to
 
 * Configure variables for OpenId Connect
-* Configure `LoginTokenAuthenticator` if you wish to use CLI login.
 * Create an Authenticator class that extends
 the bundle authenticator, `OpenIdLoginAuthenticator`
+* Configure `LoginTokenAuthenticator` in order to use CLI login.
 
 ### Variable configuration
 
@@ -32,12 +32,12 @@ itkdev_openid_connect:
   cache_options: 
     cache_pool: 'cache.app' # Cache item pool for caching discovery document and CLI login tokens
   openid_provider_options:
-    configuration_url: '%env(CONFIGURATION_URL)' # url to OpenId Discovery document
-    client_id: '%env(CLIENT_ID)' # Client id assigned by authorizer
-    client_secret: '%env(CLIENT_SECRET)' # Client password assigned by authorizer
-    callback_uri: '%env(CALLBACK_URI)' # Callback URI registered at identity provider
+    configuration_url: '%env(CONFIGURATION_URL)%' # url to OpenId Discovery document
+    client_id: '%env(CLIENT_ID)%' # Client id assigned by authorizer
+    client_secret: '%env(CLIENT_SECRET)%' # Client password assigned by authorizer
+    callback_uri: '%env(CALLBACK_URI)%' # Callback URI registered at identity provider
   cli_login_options:
-    cli_redirect: '%env(CLI_REDIRECT)' # Redirect route for CLI login
+    cli_redirect: '%env(CLI_REDIRECT)%' # Redirect route for CLI login
 ```
 
 With the following `.env` environment variables
