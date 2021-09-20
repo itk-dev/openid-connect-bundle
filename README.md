@@ -10,20 +10,17 @@ To install run
 composer require itk-dev/openid-connect-bundle
 ```
 
-If you wish to run the coding standard tests for Markdown files
-
-```sh
-yarn install
-```
-
 ## Usage
 
 Before being able to use the bundle,
 you must have your own User entity and database setup.
 
-Once you have this, you need to configure variables for
-OpenId Connect and create an Authenticator class that extends
-the bundle authenticator, `OpenIdLoginAuthenticator`.
+Once you have this, you need to
+
+* Configure variables for OpenId Connect
+* Create an Authenticator class that extends
+the bundle authenticator, `OpenIdLoginAuthenticator`
+* Configure `LoginTokenAuthenticator` in order to use CLI login.
 
 ### Variable configuration
 
@@ -32,12 +29,27 @@ file for configuring OpenId Connect variables
 
 ```yaml
 itkdev_openid_connect:
+  cache_options: 
+    cache_pool: 'cache.app' # Cache item pool for caching discovery document and CLI login tokens
   openid_provider_options:
-    configuration_url: 'https://.../openid-configuration..' # url to OpenId Discovery document
-    client_id: 'client_id' # Client id assigned by authorizer
-    client_secret: 'client_secret' # Client password assigned by authorizer
-    cache_path: '' # Path for caching discovery document
-    callback_uri: 'absolute_uri_here' # Callback URI registered at identity provider
+    configuration_url: '%env(CONFIGURATION_URL)%' # url to OpenId Discovery document
+    client_id: '%env(CLIENT_ID)%' # Client id assigned by authorizer
+    client_secret: '%env(CLIENT_SECRET)%' # Client password assigned by authorizer
+    callback_uri: '%env(CALLBACK_URI)%' # Callback URI registered at identity provider
+  cli_login_options:
+    cli_redirect: '%env(CLI_REDIRECT)%' # Redirect route for CLI login
+```
+
+With the following `.env` environment variables
+
+```text
+###> itk-dev/openid-connect-bundle ###
+CONFIGURATION_URL=APP_CONFIGURATION_URL
+CLIENT_ID=APP_CLIENT_ID
+CLIENT_SECRET=APP_CLIENT_SECRET
+CALLBACK_URI=APP_CALLBACK_URI
+CLI_REDIRECT=APP_CLI_REDIRECT_URI
+###< itk-dev/openid-connect-bundle ###
 ```
 
 In `/config/routes/` you need a similar
@@ -53,7 +65,6 @@ It is not necessary to add a prefix to the bundle routes,
 but in case you want i.e. another `/login` route,
 it makes distinguishing between them easier.
 
-
 ### CLI login
 
 In order to use the CLI login feature the following
@@ -65,6 +76,18 @@ DEFAULT_URI=
 
 See [Symfony documentation](https://symfony.com/doc/current/routing.html#generating-urls-in-commands)
 for more information.
+
+You must also add the Bundle `LoginTokenAuthenticator`
+to the `security.yaml` file:
+
+```yaml
+security:
+  firewalls:
+    main:
+      guard:
+        authenticators:
+          - ItkDev\OpenIdConnectBundle\Security\LoginTokenAuthenticator
+```
 
 ### Creating the Authenticator
 
@@ -113,6 +136,8 @@ security:
       guard:
         authenticators:
           - App\Security\ExampleAuthenticator
+          - ItkDev\OpenIdConnectBundle\Security\LoginTokenAuthenticator
+        entry_point: App\Security\ExampleAuthenticator
 ```
 
 #### Example authenticator functions
@@ -129,6 +154,7 @@ namespace App\Security;
 
 use App\Entity\User;
 use Doctrine\ORM\EntityManagerInterface;
+use ItkDev\OpenIdConnect\Security\OpenIdConfigurationProvider;
 use ItkDev\OpenIdConnectBundle\Security\OpenIdLoginAuthenticator;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -196,7 +222,7 @@ and `services.yaml`:
 
 ```text
 ###> itk-dev/openid-connect-bundle ###
-ITK_DEV_LEEWAY=10
+LEEWAY=10
 ###< itk-dev/openid-connect-bundle ###
 ```
 
@@ -204,7 +230,7 @@ ITK_DEV_LEEWAY=10
 services:
     _defaults:
         bind:
-            $leeway: '%env(ITK_DEV_LEEWAY)%'
+            $leeway: '%env(LEEWAY)%'
 ```
 
 ## Sign in from command line

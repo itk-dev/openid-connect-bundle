@@ -31,7 +31,7 @@ class ItkDevOpenIdConnectExtension extends Extension
             'openIDConnectMetadataUrl' => $config['openid_provider_options']['configuration_url'],
             'clientId' => $config['openid_provider_options']['client_id'],
             'clientSecret' => $config['openid_provider_options']['client_secret'],
-            'cacheItemPool' => new Reference($config['openid_provider_options']['cache_path']),
+            'cacheItemPool' => new Reference($config['cache_options']['cache_pool']),
             'redirectUri' => $config['openid_provider_options']['callback_uri'],
         ];
 
@@ -40,7 +40,7 @@ class ItkDevOpenIdConnectExtension extends Extension
         $definition->replaceArgument('$collaborators', []);
 
         $definition = $container->getDefinition(CliLoginHelper::class);
-        $definition->replaceArgument('$cache', new Reference($config['cli_login_options']['cache_pool']));
+        $definition->replaceArgument('$cache', new Reference($config['cache_options']['cache_pool']));
 
         $definition = $container->getDefinition(UserLoginCommand::class);
         $definition->replaceArgument('$cliLoginRedirectRoute', $config['cli_login_options']['cli_redirect']);
