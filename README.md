@@ -29,27 +29,40 @@ file for configuring OpenId Connect variables
 
 ```yaml
 itkdev_openid_connect:
-  cache_options: 
+  cache_options:
     cache_pool: 'cache.app' # Cache item pool for caching discovery document and CLI login tokens
-  openid_provider_options:
-    configuration_url: '%env(CONFIGURATION_URL)%' # url to OpenId Discovery document
-    client_id: '%env(CLIENT_ID)%' # Client id assigned by authorizer
-    client_secret: '%env(CLIENT_SECRET)%' # Client password assigned by authorizer
-    callback_uri: '%env(CALLBACK_URI)%' # Callback URI registered at identity provider
   cli_login_options:
     cli_redirect: '%env(CLI_REDIRECT)%' # Redirect route for CLI login
 ```
 
-With the following `.env` environment variables
+Your OpenID Connect (configuration) providers must be defined as services that
+are instances of
+[`ItkDev\OpenIdConnect\Security\OpenIdConfigurationProvider`](https://github.com/itk-dev/openid-connect/blob/develop/src/Security/OpenIdConfigurationProvider.php)
+and tagged with `name: 'open_id_connect.login_provider'`, e.g.
 
-```text
-###> itk-dev/openid-connect-bundle ###
-CONFIGURATION_URL=APP_CONFIGURATION_URL
-CLIENT_ID=APP_CLIENT_ID
-CLIENT_SECRET=APP_CLIENT_SECRET
-CALLBACK_URI=APP_CALLBACK_URI
-CLI_REDIRECT=APP_CLI_REDIRECT_URI
-###< itk-dev/openid-connect-bundle ###
+```yaml
+services:
+    open_id_connect.provider.admin:
+        class: ItkDev\OpenIdConnect\Security\OpenIdConfigurationProvider
+        arguments:
+            $options:
+                openIDConnectMetadataUrl: '%env(ADMIN_OIDC_METADATA_URL)%'
+                clientId: '%env(ADMIN_OIDC_CLIENT_ID)%'
+                clientSecret: '%env(ADMIN_OIDC_CLIENT_SECRET)%'
+                redirectUri: '%env(ADMIN_OIDC_REDIRECT_URI)%'
+                cacheItemPool: '@cache.app'
+        tags: { name: 'open_id_connect.login_provider' }
+
+    open_id_connect.provider.user:
+        class: ItkDev\OpenIdConnect\Security\OpenIdConfigurationProvider
+        arguments:
+            $options:
+                openIDConnectMetadataUrl: '%env(USER_OIDC_METADATA_URL)%'
+                clientId: '%env(USER_OIDC_CLIENT_ID)%'
+                clientSecret: '%env(USER_OIDC_CLIENT_SECRET)%'
+                redirectUri: '%env(USER_OIDC_REDIRECT_URI)%'
+                cacheItemPool: '@cache.app'
+        tags: { name: 'open_id_connect.login_provider' }
 ```
 
 In `/config/routes/` you need a similar
@@ -58,7 +71,7 @@ In `/config/routes/` you need a similar
 ```yaml
 itkdev_openid_connect:
   resource: "@ItkDevOpenIdConnectBundle/src/Resources/config/routes.yaml"
-  prefix: "/openidconnect" # Prefix for bundle routes  
+  prefix: "/openidconnect" # Prefix for bundle routes
 ```
 
 It is not necessary to add a prefix to the bundle routes,

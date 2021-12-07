@@ -16,10 +16,12 @@ class OpenIdLoginAuthenticatorTest extends TestCase
 
     public function setup(): void
     {
-        $mockProvider = $this->createMock(OpenIdConfigurationProvider::class);
+        $mockProviders = new \ArrayIterator([
+            'test' => $this->createMock(OpenIdConfigurationProvider::class),
+        ]);
         $mockSession = $this->createMock(SessionInterface::class);
 
-        $this->authenticator = new TestAuthenticator($mockProvider, $mockSession);
+        $this->authenticator = new TestAuthenticator($mockProviders, $mockSession);
     }
 
     public function testSupports(): void

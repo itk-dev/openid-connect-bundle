@@ -30,7 +30,7 @@ class ItkDevOpenIdConnectBundleTestingKernel extends Kernel
     /**
      * {@inheritdoc}
      */
-    public function registerBundles()
+    public function registerBundles(): iterable
     {
         return [
             new ItkDevOpenIdConnectBundle(),

@@ -3,6 +3,7 @@
 namespace ItkDev\OpenIdConnectBundle;
 
 use ItkDev\OpenIdConnectBundle\DependencyInjection\ItkDevOpenIdConnectExtension;
+use Symfony\Component\DependencyInjection\Extension\ExtensionInterface;
 use Symfony\Component\HttpKernel\Bundle\Bundle;
 
 /**
@@ -15,7 +16,7 @@ class ItkDevOpenIdConnectBundle extends Bundle
      *
      * Overridden to allow for the custom extension alias.
      */
-    public function getContainerExtension()
+    public function getContainerExtension(): ?ExtensionInterface
     {
         if (null === $this->extension) {
             $this->extension = new ItkDevOpenIdConnectExtension();
