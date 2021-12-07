@@ -4,6 +4,7 @@ namespace ItkDev\OpenIdConnectBundle\Tests\Controller;
 
 use ItkDev\OpenIdConnect\Security\OpenIdConfigurationProvider;
 use ItkDev\OpenIdConnectBundle\Controller\LoginController;
+use ItkDev\OpenIdConnectBundle\Security\OpenIdConfigurationProviderManager;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpFoundation\InputBag;
 use Symfony\Component\HttpFoundation\RedirectResponse;
@@ -33,24 +34,31 @@ class LoginControllerTest extends TestCase
             ->with(['state' => 'abcd', 'nonce' => '1234'])
             ->willReturn('https://test.com');
 
-        $this->loginController = new LoginController(new \ArrayIterator(['open_id_connect.provider.test' => $mockProvider]));
+        $mockProviderManager = $this->createMock(OpenIdConfigurationProviderManager::class);
+        $mockProviderManager
+            ->expects($this->once())
+            ->method('getProvider')
+            ->with('test')
+            ->willReturn($mockProvider);
+
+        $this->loginController = new LoginController($mockProviderManager);
     }
 
     public function testLogin(): void
     {
         $mockRequest = $this->createMock(Request::class);
-        $mockRequest->query = new InputBag(['provider' => 'open_id_connect.provider.test']);
+        $mockRequest->query = new InputBag(['provider' => 'test']);
         $mockSession = $this->createMock(SessionInterface::class);
         $mockSession
             ->expects($this->exactly(3))
             ->method('set')
             ->withConsecutive(
-                [$this->equalTo('oauth2provider'), $this->equalTo('open_id_connect.provider.test')],
+                [$this->equalTo('oauth2provider'), $this->equalTo('test')],
                 [$this->equalTo('oauth2state'), $this->equalTo('abcd')],
                 [$this->equalTo('oauth2nonce'), $this->equalTo('1234')]
             );
 
-        $response = $this->loginController->login($mockRequest, $mockSession);
+        $response = $this->loginController->login($mockRequest, $mockSession, 'test');
         $this->assertInstanceOf(RedirectResponse::class, $response);
         $this->assertSame('https://test.com', $response->getTargetUrl());
     }

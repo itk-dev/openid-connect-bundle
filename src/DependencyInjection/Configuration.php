@@ -39,7 +39,57 @@ class Configuration implements ConfigurationInterface
                         ->end()
                     ->end()
                 ->end()
-            ->end();
+                ->arrayNode('openid_providers')
+                    ->isRequired()
+                    ->requiresAtLeastOneElement()
+                    ->normalizeKeys(false)
+                    ->arrayPrototype()
+                        ->children()
+                            ->arrayNode('options')
+                                ->isRequired()
+                                ->children()
+                                    ->scalarNode('metadata_url')
+                                        ->info('URL to OpenId Discovery Document')
+                                        ->isRequired()
+                                    ->end()
+                                    ->scalarNode('client_id')
+                                        ->info('Client ID assigned by authorizer')
+                                        ->isRequired()->cannotBeEmpty()
+                                    ->end()
+                                    ->scalarNode('client_secret')
+                                        ->info('Client secret/password assigned by authorizer')
+                                        ->isRequired()->cannotBeEmpty()
+                                    ->end()
+                                    ->scalarNode('redirect_uri')
+                                        ->info('Redirect URI registered at identity provider')
+                                        ->cannotBeEmpty()
+                                    ->end()
+                                    ->scalarNode('redirect_route')
+                                        ->info('Redirect route registered at identity provider (must not be set if redirect_uri is set)')
+                                        ->cannotBeEmpty()
+                                    ->end()
+                                    ->arrayNode('redirect_route_parameters')
+                                        ->info('Redirect route parameters')
+                                    ->end()
+                                ->end()
+                                ->validate()
+                                    ->always()
+                                    ->then(
+                                        static function (array $value) {
+                                            // Complain if both redirect_uri and redirect_route are set.
+                                            if (isset($value['redirect_uri'], $value['redirect_route'])) {
+                                                throw new \InvalidArgumentException('Only one of redirect_uri or redirect_route must be set.');
+                                            }
+
+                                            return $value;
+                                        }
+                                    )
+                            ->end()
+                        ->end()
+                    ->end()
+                ->end()
+            ->end()
+        ->end();
 
         return $treeBuilder;
     }

@@ -25,15 +25,15 @@ abstract class OpenIdLoginAuthenticator extends AbstractGuardAuthenticator
     private $session;
 
     /**
-     * @var iterable
+     * @var OpenIdConfigurationProviderManager
      */
-    private $providers;
+    private $providerManager;
 
     private $leeway;
 
-    public function __construct(iterable $providers, SessionInterface $session, int $leeway = 0)
+    public function __construct(OpenIdConfigurationProviderManager $providerManager, SessionInterface $session, int $leeway = 0)
     {
-        $this->providers = $providers;
+        $this->providerManager = $providerManager;
         $this->session = $session;
         $this->leeway = $leeway;
     }
@@ -49,7 +49,9 @@ abstract class OpenIdLoginAuthenticator extends AbstractGuardAuthenticator
      */
     public function getCredentials(Request $request)
     {
-        [$providerKey, $provider] = $this->getProvider();
+        $providerKey = (string)$this->session->remove('oauth2provider');
+        $provider = $this->providerManager->getProvider($providerKey);
+
         // Make sure state and oauth2state are the same
         $oauth2state = $this->session->get('oauth2state');
         $this->session->remove('oauth2state');
@@ -100,17 +102,5 @@ abstract class OpenIdLoginAuthenticator extends AbstractGuardAuthenticator
     public function supportsRememberMe()
     {
         return false;
-    }
-
-    private function getProvider(): array
-    {
-        $providerKey = (string)$this->session->remove('oauth2provider');
-        // @see https://symfony.com/index.php/doc/current/service_container/tags.html#tagged-services-with-index
-        $providers = $this->providers instanceof \Traversable ? iterator_to_array($this->providers) : $this->providers;
-        if (isset($providers[$providerKey])) {
-            return [$providerKey, $providers[$providerKey]];
-        }
-
-        throw new InvalidProviderException($providerKey);
     }
 }

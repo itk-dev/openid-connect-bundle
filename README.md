@@ -33,40 +33,28 @@ itkdev_openid_connect:
     cache_pool: 'cache.app' # Cache item pool for caching discovery document and CLI login tokens
   cli_login_options:
     cli_redirect: '%env(CLI_REDIRECT)%' # Redirect route for CLI login
+  openid_providers:
+    # Define one or more providers
+    admin:
+      options:
+        metadata_url: '%env(ADMIN_OIDC_METADATA_URL)%'
+        client_id: '%env(ADMIN_OIDC_CLIENT_ID)%'
+        client_secret: '%env(ADMIN_OIDC_CLIENT_SECRET)%'
+        # Specify redirect URI
+        redirect_uri: '%env(ADMIN_OIDC_REDIRECT_URI)%'
+    user:
+      options:
+        metadata_url: '%env(ADMIN_OIDC_METADATA_URL)%'
+        client_id: '%env(ADMIN_OIDC_CLIENT_ID)%'
+        client_secret: '%env(ADMIN_OIDC_CLIENT_SECRET)%'
+        # Use route as redirect URI
+        redirect_route: 'default'
+        # Define any params for the redirect_route
+        # redirect_route_params: { type: user }
 ```
 
-Your OpenID Connect (configuration) providers must be defined as services that
-are instances of
-[`ItkDev\OpenIdConnect\Security\OpenIdConfigurationProvider`](https://github.com/itk-dev/openid-connect/blob/develop/src/Security/OpenIdConfigurationProvider.php)
-and tagged with `name: 'open_id_connect.login_provider'`, e.g.
-
-```yaml
-services:
-    open_id_connect.login_provider.admin:
-        class: ItkDev\OpenIdConnect\Security\OpenIdConfigurationProvider
-        arguments:
-            $options:
-                openIDConnectMetadataUrl: '%env(ADMIN_OIDC_METADATA_URL)%'
-                clientId: '%env(ADMIN_OIDC_CLIENT_ID)%'
-                clientSecret: '%env(ADMIN_OIDC_CLIENT_SECRET)%'
-                redirectUri: '%env(ADMIN_OIDC_REDIRECT_URI)%'
-                cacheItemPool: '@cache.app'
-        tags: { name: 'open_id_connect.login_provider' }
-
-    open_id_connect.login_provider.user:
-        class: ItkDev\OpenIdConnect\Security\OpenIdConfigurationProvider
-        arguments:
-            $options:
-                openIDConnectMetadataUrl: '%env(USER_OIDC_METADATA_URL)%'
-                clientId: '%env(USER_OIDC_CLIENT_ID)%'
-                clientSecret: '%env(USER_OIDC_CLIENT_SECRET)%'
-                redirectUri: '%env(USER_OIDC_REDIRECT_URI)%'
-                cacheItemPool: '@cache.app'
-        tags: { name: 'open_id_connect.login_provider' }
-```
-
-In `/config/routes/` you need a similar
-`itkdev_openid_connect.yaml` file for configuring the routing
+In `/config/routes/` you need a similar `itkdev_openid_connect.yaml` file for
+configuring the routing
 
 ```yaml
 itkdev_openid_connect:
@@ -74,9 +62,30 @@ itkdev_openid_connect:
   prefix: "/openidconnect" # Prefix for bundle routes
 ```
 
-It is not necessary to add a prefix to the bundle routes,
-but in case you want i.e. another `/login` route,
-it makes distinguishing between them easier.
+It is not necessary to add a prefix to the bundle routes, but in case you want
+i.e. another `/login` route, it makes distinguishing between them easier.
+
+When invoking the login controller action (route `itkdev_openid_connect_login`)
+the key of a provider must be set in the `provider` parameter, e.g.
+
+```twig
+  <a href="{{ path('itkdev_openid_connect_login', {provider: 'user'}) }}">{{ 'Sign in'|trans }}</a>
+```
+
+```php
+  $router->generate('itkdev_openid_connect_login', ['provider => 'user']);
+```
+
+Make sure to allow anonymous access to the login controller route, i.e. something along the lines of
+
+```yaml
+# config/packages/security.yaml
+security:
+  …
+  access_control:
+    …
+    - { path: ^/openidconnect/login(/.+)?$, role: IS_AUTHENTICATED_ANONYMOUSLY }
+```
 
 ### CLI login
 
@@ -225,7 +234,9 @@ class ExampleAuthenticator extends OpenIdLoginAuthenticator
 
     public function start(Request $request, AuthenticationException $authException = null)
     {
-        return new RedirectResponse($this->router->generate('itkdev_openid_connect_login'));
+        return new RedirectResponse($this->router->generate('itkdev_openid_connect_login', [
+            'provider' => 'user',
+        ]));
     }
 }
 ```
