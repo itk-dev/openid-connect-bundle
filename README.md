@@ -42,7 +42,7 @@ and tagged with `name: 'open_id_connect.login_provider'`, e.g.
 
 ```yaml
 services:
-    open_id_connect.provider.admin:
+    open_id_connect.login_provider.admin:
         class: ItkDev\OpenIdConnect\Security\OpenIdConfigurationProvider
         arguments:
             $options:
@@ -53,7 +53,7 @@ services:
                 cacheItemPool: '@cache.app'
         tags: { name: 'open_id_connect.login_provider' }
 
-    open_id_connect.provider.user:
+    open_id_connect.login_provider.user:
         class: ItkDev\OpenIdConnect\Security\OpenIdConfigurationProvider
         arguments:
             $options:
