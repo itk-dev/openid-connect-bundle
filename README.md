@@ -35,6 +35,10 @@ itkdev_openid_connect:
     cli_redirect: '%env(CLI_REDIRECT)%' # Redirect route for CLI login
   openid_providers:
     # Define one or more providers
+    # [providerKey]:
+    #   options:
+    #     metadata_url: …
+    #     …
     admin:
       options:
         metadata_url: '%env(ADMIN_OIDC_METADATA_URL)%'
@@ -44,13 +48,33 @@ itkdev_openid_connect:
         redirect_uri: '%env(ADMIN_OIDC_REDIRECT_URI)%'
     user:
       options:
-        metadata_url: '%env(ADMIN_OIDC_METADATA_URL)%'
-        client_id: '%env(ADMIN_OIDC_CLIENT_ID)%'
-        client_secret: '%env(ADMIN_OIDC_CLIENT_SECRET)%'
-        # Use route as redirect URI
+        metadata_url: '%env(USER_OIDC_METADATA_URL)%'
+        client_id: '%env(USER_OIDC_CLIENT_ID)%'
+        client_secret: '%env(USER_OIDC_CLIENT_SECRET)%'
+        # As an alternative to using (a more or less) hardcoded redirect uri,
+        # a Symfony route can be used as redirect URI
         redirect_route: 'default'
         # Define any params for the redirect_route
-        # redirect_route_params: { type: user }
+        # redirect_route_parameters: { type: user }
+```
+
+With the following `.env` environment variables
+
+```text
+###> itk-dev/openid-connect-bundle ###
+# "admin" open id connect configuration variables (values provided by the OIDC IdP)
+ADMIN_OIDC_METADATA_URL=ADMIN_APP_METADATA_URL
+ADMIN_OIDC_CLIENT_ID=ADMIN_APP_CLIENT_ID
+ADMIN_OIDC_CLIENT_SECRET=ADMIN_APP_CLIENT_SECRET
+ADMIN_OIDC_REDIRECT_URI=ADMIN_APP_REDIRECT_URI
+
+# "user" open id connect configuration variables
+USER_OIDC_METADATA_URL=USER_APP_METADATA_URL
+USER_OIDC_CLIENT_ID=USER_APP_CLIENT_ID
+USER_OIDC_CLIENT_SECRET=USER_APP_CLIENT_SECRET
+
+CLI_REDIRECT=APP_CLI_REDIRECT_URI
+###< itk-dev/openid-connect-bundle ###
 ```
 
 In `/config/routes/` you need a similar `itkdev_openid_connect.yaml` file for

@@ -34,19 +34,19 @@ class LoginController extends AbstractController
      * @return RedirectResponse
      * @throws ItkOpenIdConnectException
      */
-    public function login(Request $request, SessionInterface $session, string $provider): RedirectResponse
+    public function login(Request $request, SessionInterface $session, string $providerKey): RedirectResponse
     {
-        $theProvider = $this->providerManager->getProvider($provider);
+        $provider = $this->providerManager->getProvider($providerKey);
 
-        $nonce = $theProvider->generateNonce();
-        $state = $theProvider->generateState();
+        $nonce = $provider->generateNonce();
+        $state = $provider->generateState();
 
         // Save to session
-        $session->set('oauth2provider', $provider);
+        $session->set('oauth2provider', $providerKey);
         $session->set('oauth2state', $state);
         $session->set('oauth2nonce', $nonce);
 
-        $authUrl = $theProvider->getAuthorizationUrl(['state' => $state, 'nonce' => $nonce]);
+        $authUrl = $provider->getAuthorizationUrl(['state' => $state, 'nonce' => $nonce]);
 
         return new RedirectResponse($authUrl);
     }
