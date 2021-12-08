@@ -3,6 +3,7 @@
 namespace ItkDev\OpenIdConnectBundle\Tests\Security;
 
 use ItkDev\OpenIdConnect\Security\OpenIdConfigurationProvider;
+use ItkDev\OpenIdConnectBundle\Security\OpenIdConfigurationProviderManager;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpFoundation\InputBag;
 use Symfony\Component\HttpFoundation\Request;
@@ -16,10 +17,10 @@ class OpenIdLoginAuthenticatorTest extends TestCase
 
     public function setup(): void
     {
-        $mockProvider = $this->createMock(OpenIdConfigurationProvider::class);
+        $mockProviderManager = $this->createMock(OpenIdConfigurationProviderManager::class);
         $mockSession = $this->createMock(SessionInterface::class);
 
-        $this->authenticator = new TestAuthenticator($mockProvider, $mockSession);
+        $this->authenticator = new TestAuthenticator($mockProviderManager, $mockSession);
     }
 
     public function testSupports(): void

@@ -3,8 +3,10 @@ itkdev_openid_connect:
     cache_pool: 'cache.array'
   cli_login_options:
     cli_redirect: 'cli_redirect_test'
-  openid_provider_options:
-    configuration_url: 'https://provider.com/openid-configuration'
-    client_id: 'test_id'
-    client_secret: 'test_secret'
-    callback_uri: 'https://app.com/callback_uri'
+  openid_providers:
+    test:
+      options:
+        metadata_url: 'https://provider.com/openid-configuration'
+        client_id: 'test_id'
+        client_secret: 'test_secret'
+        redirect_uri: 'https://app.com/callback_uri'

@@ -5,6 +5,7 @@ namespace ItkDev\OpenIdConnectBundle\Security;
 use ItkDev\OpenIdConnect\Exception\ItkOpenIdConnectException;
 use ItkDev\OpenIdConnect\Exception\ValidationException;
 use ItkDev\OpenIdConnect\Security\OpenIdConfigurationProvider;
+use ItkDev\OpenIdConnectBundle\Exception\InvalidProviderException;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Session\SessionInterface;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
@@ -24,15 +25,15 @@ abstract class OpenIdLoginAuthenticator extends AbstractGuardAuthenticator
     private $session;
 
     /**
-     * @var OpenIdConfigurationProvider
+     * @var OpenIdConfigurationProviderManager
      */
-    private $provider;
+    private $providerManager;
 
     private $leeway;
 
-    public function __construct(OpenIdConfigurationProvider $provider, SessionInterface $session, int $leeway = 0)
+    public function __construct(OpenIdConfigurationProviderManager $providerManager, SessionInterface $session, int $leeway = 0)
     {
-        $this->provider = $provider;
+        $this->providerManager = $providerManager;
         $this->session = $session;
         $this->leeway = $leeway;
     }
@@ -48,6 +49,9 @@ abstract class OpenIdLoginAuthenticator extends AbstractGuardAuthenticator
      */
     public function getCredentials(Request $request)
     {
+        $providerKey = (string)$this->session->remove('oauth2provider');
+        $provider = $this->providerManager->getProvider($providerKey);
+
         // Make sure state and oauth2state are the same
         $oauth2state = $this->session->get('oauth2state');
         $this->session->remove('oauth2state');
@@ -67,7 +71,7 @@ abstract class OpenIdLoginAuthenticator extends AbstractGuardAuthenticator
                 throw new ValidationException('Id token not type string');
             }
 
-            $claims = $this->provider->validateIdToken($idToken, $this->session->get('oauth2nonce'), $this->leeway);
+            $claims = $provider->validateIdToken($idToken, $this->session->get('oauth2nonce'), $this->leeway);
             // Authentication successful
         } catch (ItkOpenIdConnectException $exception) {
             // Handle failed authentication
@@ -76,7 +80,7 @@ abstract class OpenIdLoginAuthenticator extends AbstractGuardAuthenticator
             $this->session->remove('oauth2nonce');
         }
 
-        return (array) $claims;
+        return (array) $claims + ['open_id_connect_provider' => $providerKey];
     }
 
     abstract public function getUser($credentials, UserProviderInterface $userProvider);

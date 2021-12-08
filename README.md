@@ -29,41 +29,87 @@ file for configuring OpenId Connect variables
 
 ```yaml
 itkdev_openid_connect:
-  cache_options: 
+  cache_options:
     cache_pool: 'cache.app' # Cache item pool for caching discovery document and CLI login tokens
-  openid_provider_options:
-    configuration_url: '%env(CONFIGURATION_URL)%' # url to OpenId Discovery document
-    client_id: '%env(CLIENT_ID)%' # Client id assigned by authorizer
-    client_secret: '%env(CLIENT_SECRET)%' # Client password assigned by authorizer
-    callback_uri: '%env(CALLBACK_URI)%' # Callback URI registered at identity provider
   cli_login_options:
     cli_redirect: '%env(CLI_REDIRECT)%' # Redirect route for CLI login
+  openid_providers:
+    # Define one or more providers
+    # [providerKey]:
+    #   options:
+    #     metadata_url: …
+    #     …
+    admin:
+      options:
+        metadata_url: '%env(ADMIN_OIDC_METADATA_URL)%'
+        client_id: '%env(ADMIN_OIDC_CLIENT_ID)%'
+        client_secret: '%env(ADMIN_OIDC_CLIENT_SECRET)%'
+        # Specify redirect URI
+        redirect_uri: '%env(ADMIN_OIDC_REDIRECT_URI)%'
+    user:
+      options:
+        metadata_url: '%env(USER_OIDC_METADATA_URL)%'
+        client_id: '%env(USER_OIDC_CLIENT_ID)%'
+        client_secret: '%env(USER_OIDC_CLIENT_SECRET)%'
+        # As an alternative to using (a more or less) hardcoded redirect uri,
+        # a Symfony route can be used as redirect URI
+        redirect_route: 'default'
+        # Define any params for the redirect_route
+        # redirect_route_parameters: { type: user }
 ```
 
 With the following `.env` environment variables
 
 ```text
 ###> itk-dev/openid-connect-bundle ###
-CONFIGURATION_URL=APP_CONFIGURATION_URL
-CLIENT_ID=APP_CLIENT_ID
-CLIENT_SECRET=APP_CLIENT_SECRET
-CALLBACK_URI=APP_CALLBACK_URI
+# "admin" open id connect configuration variables (values provided by the OIDC IdP)
+ADMIN_OIDC_METADATA_URL=ADMIN_APP_METADATA_URL
+ADMIN_OIDC_CLIENT_ID=ADMIN_APP_CLIENT_ID
+ADMIN_OIDC_CLIENT_SECRET=ADMIN_APP_CLIENT_SECRET
+ADMIN_OIDC_REDIRECT_URI=ADMIN_APP_REDIRECT_URI
+
+# "user" open id connect configuration variables
+USER_OIDC_METADATA_URL=USER_APP_METADATA_URL
+USER_OIDC_CLIENT_ID=USER_APP_CLIENT_ID
+USER_OIDC_CLIENT_SECRET=USER_APP_CLIENT_SECRET
+
 CLI_REDIRECT=APP_CLI_REDIRECT_URI
 ###< itk-dev/openid-connect-bundle ###
 ```
 
-In `/config/routes/` you need a similar
-`itkdev_openid_connect.yaml` file for configuring the routing
+In `/config/routes/` you need a similar `itkdev_openid_connect.yaml` file for
+configuring the routing
 
 ```yaml
 itkdev_openid_connect:
   resource: "@ItkDevOpenIdConnectBundle/src/Resources/config/routes.yaml"
-  prefix: "/openidconnect" # Prefix for bundle routes  
+  prefix: "/openidconnect" # Prefix for bundle routes
 ```
 
-It is not necessary to add a prefix to the bundle routes,
-but in case you want i.e. another `/login` route,
-it makes distinguishing between them easier.
+It is not necessary to add a prefix to the bundle routes, but in case you want
+i.e. another `/login` route, it makes distinguishing between them easier.
+
+When invoking the login controller action (route `itkdev_openid_connect_login`)
+the key of a provider must be set in the `provider` parameter, e.g.
+
+```twig
+  <a href="{{ path('itkdev_openid_connect_login', {provider: 'user'}) }}">{{ 'Sign in'|trans }}</a>
+```
+
+```php
+  $router->generate('itkdev_openid_connect_login', ['provider => 'user']);
+```
+
+Make sure to allow anonymous access to the login controller route, i.e. something along the lines of
+
+```yaml
+# config/packages/security.yaml
+security:
+  …
+  access_control:
+    …
+    - { path: ^/openidconnect/login(/.+)?$, role: IS_AUTHENTICATED_ANONYMOUSLY }
+```
 
 ### CLI login
 
@@ -212,7 +258,9 @@ class ExampleAuthenticator extends OpenIdLoginAuthenticator
 
     public function start(Request $request, AuthenticationException $authException = null)
     {
-        return new RedirectResponse($this->router->generate('itkdev_openid_connect_login'));
+        return new RedirectResponse($this->router->generate('itkdev_openid_connect_login', [
+            'provider' => 'user',
+        ]));
     }
 }
 ```
