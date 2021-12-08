@@ -5,22 +5,16 @@ services:
     autowire: true      # Automatically injects dependencies in your services.
     autoconfigure: true # Automatically registers your services as commands, event subscribers, etc.
 
-  ItkDev\OpenIdConnect\Security\OpenIdConfigurationProvider:
-    public: true
-    arguments:
-      $options: ~
-      $collaborators: ~
+  ItkDev\OpenIdConnectBundle\Security\OpenIdConfigurationProviderManager:
+      public: true
+      arguments:
+          $config: ~
 
   ItkDev\OpenIdConnectBundle\Controller\LoginController:
     public: true
-    arguments:
-      $provider: '@ItkDev\OpenIdConnect\Security\OpenIdConfigurationProvider'
 
   ItkDev\OpenIdConnectBundle\Security\OpenIdLoginAuthenticator:
     public: true
-    arguments:
-      $provider: '@ItkDev\OpenIdConnect\Security\OpenIdConfigurationProvider'
-      $session: ~
 
   ItkDev\OpenIdConnectBundle\Util\CliLoginHelper:
     public: true

@@ -31,12 +31,6 @@ class ItkDevOpenIdConnectBundleTest extends TestCase
         $controller = $container->get(LoginController::class);
         $this->assertInstanceOf(LoginController::class, $controller);
 
-        // OpenIdConfigurationProvider service
-        $this->assertTrue($container->has(OpenIdConfigurationProvider::class));
-
-        $provider = $container->get(OpenIdConfigurationProvider::class);
-        $this->assertInstanceOf(OpenIdConfigurationProvider::class, $provider);
-
         // OpenIdLoginAuthenticator service
         $this->assertTrue($container->has(OpenIdLoginAuthenticator::class));
     }

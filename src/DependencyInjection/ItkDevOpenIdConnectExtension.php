@@ -3,9 +3,9 @@
 namespace ItkDev\OpenIdConnectBundle\DependencyInjection;
 
 use Exception;
-use ItkDev\OpenIdConnect\Security\OpenIdConfigurationProvider;
 use ItkDev\OpenIdConnectBundle\Command\UserLoginCommand;
 use ItkDev\OpenIdConnectBundle\Security\LoginTokenAuthenticator;
+use ItkDev\OpenIdConnectBundle\Security\OpenIdConfigurationProviderManager;
 use ItkDev\OpenIdConnectBundle\Util\CliLoginHelper;
 use Symfony\Component\Config\FileLocator;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
@@ -27,17 +27,17 @@ class ItkDevOpenIdConnectExtension extends Extension
         $configuration = new Configuration();
         $config = $this->processConfiguration($configuration, $configs);
 
-        $providerConfig = [
-            'openIDConnectMetadataUrl' => $config['openid_provider_options']['configuration_url'],
-            'clientId' => $config['openid_provider_options']['client_id'],
-            'clientSecret' => $config['openid_provider_options']['client_secret'],
-            'cacheItemPool' => new Reference($config['cache_options']['cache_pool']),
-            'redirectUri' => $config['openid_provider_options']['callback_uri'],
-        ];
+        $definition = $container->getDefinition(OpenIdConfigurationProviderManager::class);
 
-        $definition = $container->getDefinition(OpenIdConfigurationProvider::class);
-        $definition->replaceArgument('$options', $providerConfig);
-        $definition->replaceArgument('$collaborators', []);
+        $providersConfig = [
+            'default_providers_options' => [
+                'cacheItemPool' => new Reference($config['cache_options']['cache_pool']),
+            ],
+            'providers' => array_map(static function (array $options) use ($config) {
+                return $options['options'];
+            }, $config['openid_providers']),
+        ];
+        $definition->replaceArgument('$config', $providersConfig);
 
         $definition = $container->getDefinition(CliLoginHelper::class);
         $definition->replaceArgument('$cache', new Reference($config['cache_options']['cache_pool']));
