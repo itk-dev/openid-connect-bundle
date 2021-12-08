@@ -54,37 +54,14 @@ class OpenIdConfigurationProviderManager
     }
 
     /**
-     * Get all providers.
+     * Get all provider keys.
      *
      * @return array|OpenIdConfigurationProvider[]
      * @throws ItkOpenIdConnectException
      */
-    public function getProviders(): array
+    public function getProviderKeys(): array
     {
-        if (null === $this->providers) {
-            $this->providers = [];
-            foreach ($this->config['providers'] as $key => $options) {
-                $providerOptions = [
-                        'openIDConnectMetadataUrl' => $options['metadata_url'],
-                        'clientId' => $options['client_id'],
-                        'clientSecret' => $options['client_secret'],
-                    ] + $this->config['default_providers_options'];
-
-                if (isset($options['redirect_uri'])) {
-                    $providerOptions['redirectUri'] = $options['redirect_uri'];
-                } elseif (isset($options['redirect_route'])) {
-                    $providerOptions['redirectUri'] = $this->router->generate(
-                        $options['redirect_route'],
-                        $options['redirect_route_parameters'] ?? [],
-                        RouterInterface::ABSOLUTE_URL
-                    );
-                }
-
-                $this->providers[$key] = new OpenIdConfigurationProvider($providerOptions);
-            }
-        }
-
-        return $this->providers;
+        return array_keys($this->config['providers']);
     }
 
     /**
@@ -96,10 +73,29 @@ class OpenIdConfigurationProviderManager
      */
     public function getProvider(string $key): OpenIdConfigurationProvider
     {
-        $providers = $this->getProviders();
+        if (!isset($this->providers[$key]) && isset($this->config['providers'][$key])) {
+            $options = $this->config['providers'][$key];
+            $providerOptions = [
+                    'openIDConnectMetadataUrl' => $options['metadata_url'],
+                    'clientId' => $options['client_id'],
+                    'clientSecret' => $options['client_secret'],
+                ] + $this->config['default_providers_options'];
 
-        if (isset($providers[$key])) {
-            return $providers[$key];
+            if (isset($options['redirect_uri'])) {
+                $providerOptions['redirectUri'] = $options['redirect_uri'];
+            } elseif (isset($options['redirect_route'])) {
+                $providerOptions['redirectUri'] = $this->router->generate(
+                    $options['redirect_route'],
+                    $options['redirect_route_parameters'] ?? [],
+                    RouterInterface::ABSOLUTE_URL
+                );
+            }
+
+            $this->providers[$key] = new OpenIdConfigurationProvider($providerOptions);
+        }
+
+        if (isset($this->providers[$key])) {
+            return $this->providers[$key];
         }
 
         throw new InvalidProviderException(sprintf('Invalid provider: %s', $key));
