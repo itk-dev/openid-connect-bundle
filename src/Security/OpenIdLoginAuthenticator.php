@@ -47,7 +47,7 @@ abstract class OpenIdLoginAuthenticator extends AbstractAuthenticator implements
     /**
      * @throws ValidationException
      */
-    protected function getCredentials(Request $request)
+    protected function getClaims(Request $request)
     {
         $providerKey = (string)$this->session->remove('oauth2provider');
         $provider = $this->providerManager->getProvider($providerKey);

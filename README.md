@@ -138,8 +138,8 @@ security:
 
 ### Creating the Authenticator
 
-The bundle can help you get the credentials received from the authorizer – the
-only functions that need to be implemented are `authenticate()`,
+The bundle can help you get the claims received from the authorizer – the only
+functions that need to be implemented are `authenticate()`,
 `onAuthenticationSuccess()` and `start()`.
 
 ```php
@@ -159,8 +159,8 @@ class SomeAuthenticator extends OpenIdLoginAuthenticator
 
     public function authenticate(Request $request): Passport
     {
-        // Get the OIDC credentials.
-        $credentials = $this->getCredentials($request);
+        // Get the OIDC claims.
+        $claims = $this->getClaims($request);
 
         // TODO: Implement authenticate() method.
     }
@@ -195,8 +195,8 @@ security:
 #### Example authenticator functions
 
 Here is an example using a `User` with a name and email property. First we
-extract data from the credentials, then check if this user already exists and
-finally update/create it based on whether it existed or not.
+extract data from the claims, then check if this user already exists and finally
+update/create it based on whether it existed or not.
 
 ```php
 <?php
@@ -238,11 +238,11 @@ class ExampleAuthenticator extends OpenIdLoginAuthenticator
 
     public function authenticate(Request $request): Passport
     {
-        $credentials = $this->getCredentials($request);
+        $claims = $this->getClaims($request);
 
-        // Extract properties from credentials
-        $name = $credentials['name'];
-        $email = $credentials['upn'];
+        // Extract properties from claims
+        $name = $claims['name'];
+        $email = $claims['upn'];
 
         // Check if user exists already - if not create a user
         $user = $this->entityManager->getRepository(User::class)
