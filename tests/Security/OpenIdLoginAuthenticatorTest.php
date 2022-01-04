@@ -4,16 +4,18 @@ namespace ItkDev\OpenIdConnectBundle\Tests\Security;
 
 use ItkDev\OpenIdConnect\Security\OpenIdConfigurationProvider;
 use ItkDev\OpenIdConnectBundle\Security\OpenIdConfigurationProviderManager;
+use ItkDev\OpenIdConnectBundle\Security\OpenIdLoginAuthenticator;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpFoundation\InputBag;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Session\SessionInterface;
 use Symfony\Component\Security\Core\Exception\AuthenticationException;
 use Symfony\Component\Security\Core\User\UserInterface;
+use Symfony\Component\Security\Http\Authenticator\AuthenticatorInterface;
 
 class OpenIdLoginAuthenticatorTest extends TestCase
 {
-    private $authenticator;
+    private OpenIdLoginAuthenticator $authenticator;
 
     public function setup(): void
     {
@@ -37,13 +39,6 @@ class OpenIdLoginAuthenticatorTest extends TestCase
         $this->assertTrue($this->authenticator->supports($mockRequest));
     }
 
-    public function testCheckCredentials(): void
-    {
-        $stubUser = $this->createStub(UserInterface::class);
-
-        $this->assertTrue($this->authenticator->checkCredentials(null, $stubUser));
-    }
-
     public function testOnAuthenticationFailure(): void
     {
         $this->expectException(AuthenticationException::class);
@@ -52,10 +47,5 @@ class OpenIdLoginAuthenticatorTest extends TestCase
         $exception = new AuthenticationException();
 
         $this->authenticator->onAuthenticationFailure($stubRequest, $exception);
-    }
-
-    public function testSupportsRememberMe(): void
-    {
-        $this->assertFalse($this->authenticator->supportsRememberMe());
     }
 }
