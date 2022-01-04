@@ -121,8 +121,7 @@ set:
 DEFAULT_URI=
 ```
 
-See [Symfony
-documentation](https://symfony.com/doc/current/routing.html#generating-urls-in-commands)
+See [Symfony documentation](https://symfony.com/doc/current/routing.html#generating-urls-in-commands)
 for more information.
 
 You must also add the Bundle `LoginTokenAuthenticator` to the `security.yaml`
