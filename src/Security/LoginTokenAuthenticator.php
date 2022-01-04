@@ -4,28 +4,34 @@ namespace ItkDev\OpenIdConnectBundle\Security;
 
 use ItkDev\OpenIdConnectBundle\Exception\CacheException;
 use ItkDev\OpenIdConnectBundle\Exception\TokenNotFoundException;
-use ItkDev\OpenIdConnectBundle\Exception\UserDoesNotExistException;
 use ItkDev\OpenIdConnectBundle\Exception\UsernameDoesNotExistException;
 use ItkDev\OpenIdConnectBundle\Util\CliLoginHelper;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
 use Symfony\Component\Security\Core\Exception\AuthenticationException;
-use Symfony\Component\Security\Core\Exception\UsernameNotFoundException;
-use Symfony\Component\Security\Core\User\UserInterface;
+use Symfony\Component\Security\Core\Exception\CustomUserMessageAuthenticationException;
 use Symfony\Component\Security\Core\User\UserProviderInterface;
-use Symfony\Component\Security\Guard\AbstractGuardAuthenticator;
+use Symfony\Component\Security\Http\Authenticator\AbstractAuthenticator;
+use Symfony\Component\Security\Http\Authenticator\Passport\Badge\UserBadge;
+use Symfony\Component\Security\Http\Authenticator\Passport\SelfValidatingPassport;
 
 /**
  * Authenticator class for CLI login.
  */
-class LoginTokenAuthenticator extends AbstractGuardAuthenticator
+class LoginTokenAuthenticator extends AbstractAuthenticator
 {
     /**
      * @var CliLoginHelper
      */
     private $cliLoginHelper;
+
+    /**
+     * @var UserProviderInterface
+     */
+    private $userProvider;
 
     /**
      * @var UrlGeneratorInterface
@@ -37,81 +43,48 @@ class LoginTokenAuthenticator extends AbstractGuardAuthenticator
      */
     private $cliLoginRedirectRoute;
 
-    public function __construct(CliLoginHelper $cliLoginHelper, string $cliLoginRedirectRoute, UrlGeneratorInterface $router)
+    public function __construct(CliLoginHelper $cliLoginHelper, UserProviderInterface $userProvider, string $cliLoginRedirectRoute, UrlGeneratorInterface $router)
     {
         $this->cliLoginHelper = $cliLoginHelper;
+        $this->userProvider = $userProvider;
         $this->cliLoginRedirectRoute = $cliLoginRedirectRoute;
         $this->router = $router;
     }
 
-    public function supports(Request $request)
+    public function supports(Request $request): ?bool
     {
         return $request->query->has('loginToken');
     }
 
-    public function getCredentials(Request $request)
+    public function authenticate(Request $request)
     {
-        return $request->query->get('loginToken');
-    }
-
-    /**
-     * @throws UserDoesNotExistException
-     * @throws UsernameDoesNotExistException
-     * @throws CacheException
-     * @throws TokenNotFoundException
-     */
-    public function getUser($credentials, UserProviderInterface $userProvider)
-    {
-        if (null === $credentials) {
+        $token = (string)$request->query->get('loginToken');
+        if (empty($token)) {
             // The token header was empty, authentication fails with HTTP Status
             // Code 401 "Unauthorized"
-            return null;
+            throw new CustomUserMessageAuthenticationException('No login token provided');
         }
 
-        // Get username from CliHelperLogin
         try {
-            $username = $this->cliLoginHelper->getUsername($credentials);
+            $username = $this->cliLoginHelper->getUsername($token);
         } catch (CacheException | TokenNotFoundException $e) {
-            throw $e;
+            throw new CustomUserMessageAuthenticationException('Cannot get username');
         }
 
         if (null === $username) {
-            throw new UsernameDoesNotExistException('null is not a valid Username.');
+            throw new UsernameDoesNotExistException('null is not a valid username.');
         }
 
-        try {
-            $user = $userProvider->loadUserByUsername($username);
-        } catch (UsernameNotFoundException $e) {
-            throw new UserDoesNotExistException('Token correct but user not found');
-        }
-
-        return $user;
+        return new SelfValidatingPassport(new UserBadge($username));
     }
 
-    public function checkCredentials($credentials, UserInterface $user)
-    {
-        // No credentials to check since loginToken login
-        return true;
-    }
-
-    public function onAuthenticationFailure(Request $request, AuthenticationException $exception)
-    {
-        throw new AuthenticationException('Error occurred validating login token');
-    }
-
-    public function onAuthenticationSuccess(Request $request, TokenInterface $token, string $providerKey)
+    public function onAuthenticationSuccess(Request $request, TokenInterface $token, string $firewallName): ?Response
     {
         return new RedirectResponse($this->router->generate($this->cliLoginRedirectRoute));
     }
 
-    public function start(Request $request, AuthenticationException $authException = null)
+    public function onAuthenticationFailure(Request $request, AuthenticationException $exception): ?Response
     {
-        // Only way to start the CLI login flow should be via CMD and URL
-        throw new AuthenticationException('Authentication needed to access this URI/resource.');
-    }
-
-    public function supportsRememberMe()
-    {
-        return false;
+        throw new AuthenticationException('Error occurred validating login token');
     }
 }

@@ -10,7 +10,7 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
-use Symfony\Component\Security\Core\Exception\UsernameNotFoundException;
+use Symfony\Component\Security\Core\Exception\UserNotFoundException;
 use Symfony\Component\Security\Core\User\UserProviderInterface;
 
 class UserLoginCommand extends Command
@@ -83,8 +83,8 @@ class UserLoginCommand extends Command
         }
         // Check if username is registered in User database
         try {
-            $this->userProvider->loadUserByUsername($username);
-        } catch (UsernameNotFoundException $e) {
+            $this->userProvider->loadUserByIdentifier($username);
+        } catch (UserNotFoundException $e) {
             $io->error('User does not exist');
             return Command::FAILURE;
         }

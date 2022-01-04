@@ -27,13 +27,13 @@
         "php": "^7.3|^8.0",
         "ext-json": "*",
         "ext-openssl": "*",
-        "symfony/framework-bundle": "^5.2",
+        "symfony/framework-bundle": "^5.4",
         "doctrine/orm": "^2.8",
-        "symfony/security-bundle": "^5.2",
+        "symfony/security-bundle": "^5.4",
         "itk-dev/openid-connect": "^2.3",
-        "symfony/yaml": "^5.2",
-        "symfony/uid": "^5.2",
-        "symfony/cache": "^5.2"
+        "symfony/yaml": "^5.4",
+        "symfony/uid": "^5.4",
+        "symfony/cache": "^5.4"
     },
     "require-dev": {
         "phpunit/phpunit": "^9.5",
