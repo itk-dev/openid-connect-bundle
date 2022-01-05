@@ -15,8 +15,6 @@ services:
 
   ItkDev\OpenIdConnectBundle\Security\OpenIdLoginAuthenticator:
     public: true
-    arguments:
-      $leeway: ¨
 
   ItkDev\OpenIdConnectBundle\Util\CliLoginHelper:
     public: true
@@ -29,7 +27,7 @@ services:
       $cliLoginHelper: '@ItkDev\OpenIdConnectBundle\Util\CliLoginHelper'
       $cliLoginRedirectRoute: ~
 
-  ItkDev\OpenIdConnectBundle\Security\LoginTokenAuthenticator:
+  ItkDev\OpenIdConnectBundle\Security\CliLoginTokenAuthenticator:
     public: true
     arguments:
       $cliLoginHelper: '@ItkDev\OpenIdConnectBundle\Util\CliLoginHelper'
