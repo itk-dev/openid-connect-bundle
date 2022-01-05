@@ -22,7 +22,7 @@ abstract class OpenIdLoginAuthenticator extends AbstractAuthenticator implements
 
     public function __construct(
         OpenIdConfigurationProviderManager $providerManager,
-        SessionInterface $session,
+        SessionInterface $session
     ) {
         $this->providerManager = $providerManager;
         $this->session = $session;
