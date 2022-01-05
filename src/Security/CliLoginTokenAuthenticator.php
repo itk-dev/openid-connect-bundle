@@ -21,27 +21,13 @@ use Symfony\Component\Security\Http\Authenticator\Passport\SelfValidatingPasspor
 /**
  * Authenticator class for CLI login.
  */
-class LoginTokenAuthenticator extends AbstractAuthenticator
+class CliLoginTokenAuthenticator extends AbstractAuthenticator
 {
-    /**
-     * @var CliLoginHelper
-     */
-    private $cliLoginHelper;
+    private CliLoginHelper $cliLoginHelper;
+    private UserProviderInterface $userProvider;
+    private UrlGeneratorInterface $router;
 
-    /**
-     * @var UserProviderInterface
-     */
-    private $userProvider;
-
-    /**
-     * @var UrlGeneratorInterface
-     */
-    private $router;
-
-    /**
-     * @var string
-     */
-    private $cliLoginRedirectRoute;
+    private string $cliLoginRedirectRoute;
 
     public function __construct(CliLoginHelper $cliLoginHelper, UserProviderInterface $userProvider, string $cliLoginRedirectRoute, UrlGeneratorInterface $router)
     {
@@ -58,7 +44,7 @@ class LoginTokenAuthenticator extends AbstractAuthenticator
 
     public function authenticate(Request $request)
     {
-        $token = (string)$request->query->get('loginToken');
+        $token = (string) $request->query->get('loginToken');
         if (empty($token)) {
             // The token header was empty, authentication fails with HTTP Status
             // Code 401 "Unauthorized"

@@ -4,7 +4,7 @@ namespace ItkDev\OpenIdConnectBundle\DependencyInjection;
 
 use Exception;
 use ItkDev\OpenIdConnectBundle\Command\UserLoginCommand;
-use ItkDev\OpenIdConnectBundle\Security\LoginTokenAuthenticator;
+use ItkDev\OpenIdConnectBundle\Security\CliLoginTokenAuthenticator;
 use ItkDev\OpenIdConnectBundle\Security\OpenIdConfigurationProviderManager;
 use ItkDev\OpenIdConnectBundle\Util\CliLoginHelper;
 use Symfony\Component\Config\FileLocator;
@@ -17,11 +17,12 @@ class ItkDevOpenIdConnectExtension extends Extension
 {
     /**
      * {@inheritdoc}
+     *
      * @throws Exception
      */
     public function load(array $configs, ContainerBuilder $container): void
     {
-        $loader = new YamlFileLoader($container, new FileLocator(__DIR__ . '/../Resources/config'));
+        $loader = new YamlFileLoader($container, new FileLocator(__DIR__.'/../Resources/config'));
         $loader->load('services.yaml');
 
         $configuration = new Configuration();
@@ -45,7 +46,7 @@ class ItkDevOpenIdConnectExtension extends Extension
         $definition = $container->getDefinition(UserLoginCommand::class);
         $definition->replaceArgument('$cliLoginRedirectRoute', $config['cli_login_options']['cli_redirect']);
 
-        $definition = $container->getDefinition(LoginTokenAuthenticator::class);
+        $definition = $container->getDefinition(CliLoginTokenAuthenticator::class);
         $definition->replaceArgument('$cliLoginRedirectRoute', $config['cli_login_options']['cli_redirect']);
     }
 

@@ -46,6 +46,9 @@ itkdev_openid_connect:
         client_secret: '%env(ADMIN_OIDC_CLIENT_SECRET)%'
         # Specify redirect URI
         redirect_uri: '%env(ADMIN_OIDC_REDIRECT_URI)%'
+        # Optional: Specify leeway (seconds) to account for clock skew between provider and hosting
+        #           Defaults to 10
+        leeway: '%env(ADMIN_OIDC_LEEWAY)%'
     user:
       options:
         metadata_url: '%env(USER_OIDC_METADATA_URL)%'
@@ -67,6 +70,7 @@ ADMIN_OIDC_METADATA_URL=ADMIN_APP_METADATA_URL
 ADMIN_OIDC_CLIENT_ID=ADMIN_APP_CLIENT_ID
 ADMIN_OIDC_CLIENT_SECRET=ADMIN_APP_CLIENT_SECRET
 ADMIN_OIDC_REDIRECT_URI=ADMIN_APP_REDIRECT_URI
+ADMIN_OIDC_LEEWAY=30
 
 # "user" open id connect configuration variables
 USER_OIDC_METADATA_URL=USER_APP_METADATA_URL
@@ -146,6 +150,7 @@ functions that need to be implemented are `authenticate()`,
 
 namespace App\Security;
 
+use ItkDev\OpenIdConnect\Exception\ItkOpenIdConnectException;
 use ItkDev\OpenIdConnectBundle\Security\OpenIdLoginAuthenticator;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
@@ -159,9 +164,17 @@ class SomeAuthenticator extends OpenIdLoginAuthenticator
     public function authenticate(Request $request): Passport
     {
         // Get the OIDC claims.
-        $claims = $this->getClaims($request);
-
-        // TODO: Implement authenticate() method.
+        try {
+            $claims = $this->validateClaims($request);
+            
+            // Authentication success
+            
+            // TODO: Implement authenticate() method.
+            
+        } catch (ItkOpenIdConnectException $exception) {
+            // Authentication failed
+            throw new CustomUserMessageAuthenticationException($exception->getMessage());
+        }
     }
 
     public function onAuthenticationSuccess(Request $request, TokenInterface $token, string $firewallName): ?Response
@@ -204,14 +217,16 @@ namespace App\Security;
 
 use App\Entity\User;
 use Doctrine\ORM\EntityManagerInterface;
-use ItkDev\OpenIdConnectBundle\Security\OpenIdLoginAuthenticator;
+use ItkDev\OpenIdConnect\Exception\ItkOpenIdConnectException;
 use ItkDev\OpenIdConnect\Security\OpenIdConfigurationProvider;
+use ItkDev\OpenIdConnectBundle\Security\OpenIdLoginAuthenticator;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Session\SessionInterface;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
 use Symfony\Component\Security\Core\Exception\AuthenticationException;
+use Symfony\Component\Security\Core\Exception\CustomUserMessageAuthenticationException;
 use Symfony\Component\Security\Core\User\UserProviderInterface;
 use Symfony\Component\Security\Http\Authenticator\Passport\Passport;
 use Symfony\Component\Security\Http\Authenticator\Passport\SelfValidatingPassport;
@@ -227,7 +242,7 @@ class ExampleAuthenticator extends OpenIdLoginAuthenticator
      */
     private $entityManager;
 
-    public function __construct(EntityManagerInterface $entityManager, int $leeway, SessionInterface $session, UrlGeneratorInterface $router, OpenIdConfigurationProvider $provider)
+    public function __construct(EntityManagerInterface $entityManager, SessionInterface $session, UrlGeneratorInterface $router, OpenIdConfigurationProvider $provider)
     {
         $this->router = $router;
         $this->entityManager = $entityManager;
@@ -237,27 +252,34 @@ class ExampleAuthenticator extends OpenIdLoginAuthenticator
 
     public function authenticate(Request $request): Passport
     {
-        $claims = $this->getClaims($request);
-
-        // Extract properties from claims
-        $name = $claims['name'];
-        $email = $claims['upn'];
-
-        // Check if user exists already - if not create a user
-        $user = $this->entityManager->getRepository(User::class)
-            ->findOneBy(['email'=> $email]);
-        if (null === $user) {
-            // Create the new user and persist it
-            $user = new User();
-            $this->entityManager->persist($user);
+        try {
+            // Validate claims
+            $claims = $this->validateClaims($request);
+            
+            // Extract properties from claims
+            $name = $claims['name'];
+            $email = $claims['upn'];
+    
+            // Check if user exists already - if not create a user
+            $user = $this->entityManager->getRepository(User::class)
+                ->findOneBy(['email'=> $email]);
+            if (null === $user) {
+                // Create the new user and persist it
+                $user = new User();
+                $this->entityManager->persist($user);
+            }
+            // Update/set user properties
+            $user->setName($name);
+            $user->setEmail($email);
+    
+            $this->entityManager->flush();
+    
+            return new SelfValidatingPassport(new UserBadge($user->getUserIdentifier()));
+        } catch (ItkOpenIdConnectException $exception) {
+            throw new CustomUserMessageAuthenticationException($exception->getMessage());
         }
-        // Update/set user properties
-        $user->setName($name);
-        $user->setEmail($email);
 
-        $this->entityManager->flush();
 
-        return new SelfValidatingPassport(new UserBadge($user->getUserIdentifier()));
     }
 
     public function onAuthenticationSuccess(Request $request, TokenInterface $token, string $firewallName): ?Response
@@ -272,21 +294,6 @@ class ExampleAuthenticator extends OpenIdLoginAuthenticator
         ]));
     }
 }
-```
-
-For this example we have bound `$leeway` via `.env` and `services.yaml`:
-
-```text
-###> itk-dev/openid-connect-bundle ###
-LEEWAY=10
-###< itk-dev/openid-connect-bundle ###
-```
-
-```yaml
-services:
-    _defaults:
-        bind:
-            $leeway: '%env(LEEWAY)%'
 ```
 
 ## Sign in from command line

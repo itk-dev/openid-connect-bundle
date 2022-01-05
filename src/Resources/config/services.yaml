@@ -15,6 +15,8 @@ services:
 
   ItkDev\OpenIdConnectBundle\Security\OpenIdLoginAuthenticator:
     public: true
+    arguments:
+      $leeway: ¨
 
   ItkDev\OpenIdConnectBundle\Util\CliLoginHelper:
     public: true
