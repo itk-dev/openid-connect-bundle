@@ -32,20 +32,10 @@ use Symfony\Component\Routing\RouterInterface;
 
 class OpenIdConfigurationProviderManager
 {
-    /**
-     * @var array
-     */
-    private $config;
+    private array $config;
+    private ?array $providers;
 
-    /**
-     * @var array
-     */
-    private $providers;
-
-    /**
-     * @var RouterInterface
-     */
-    private $router;
+    private RouterInterface $router;
 
     public function __construct(RouterInterface $router, array $config)
     {
@@ -57,7 +47,6 @@ class OpenIdConfigurationProviderManager
      * Get all provider keys.
      *
      * @return array|OpenIdConfigurationProvider[]
-     * @throws ItkOpenIdConnectException
      */
     public function getProviderKeys(): array
     {
@@ -68,8 +57,11 @@ class OpenIdConfigurationProviderManager
      * Get a provider by key.
      *
      * @param string $key
+     *
      * @return OpenIdConfigurationProvider
+     *
      * @throws InvalidProviderException
+     * @throws ItkOpenIdConnectException
      */
     public function getProvider(string $key): OpenIdConfigurationProvider
     {
@@ -89,6 +81,10 @@ class OpenIdConfigurationProviderManager
                     $options['redirect_route_parameters'] ?? [],
                     RouterInterface::ABSOLUTE_URL
                 );
+            }
+
+            if (isset($options['leeway'])) {
+                $providerOptions['leeway'] = $options['leeway'];
             }
 
             $this->providers[$key] = new OpenIdConfigurationProvider($providerOptions);

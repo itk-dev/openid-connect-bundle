@@ -4,6 +4,7 @@ namespace ItkDev\OpenIdConnectBundle\Security;
 
 use ItkDev\OpenIdConnect\Exception\ItkOpenIdConnectException;
 use ItkDev\OpenIdConnect\Exception\ValidationException;
+use ItkDev\OpenIdConnectBundle\Exception\InvalidProviderException;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\Session\SessionInterface;
@@ -16,26 +17,15 @@ use Symfony\Component\Security\Http\EntryPoint\AuthenticationEntryPointInterface
  */
 abstract class OpenIdLoginAuthenticator extends AbstractAuthenticator implements AuthenticationEntryPointInterface
 {
-    /**
-     * @var SessionInterface
-     */
-    private $session;
-
-    /**
-     * @var OpenIdConfigurationProviderManager
-     */
-    private $providerManager;
-
-    private $leeway;
+    private SessionInterface $session;
+    private OpenIdConfigurationProviderManager $providerManager;
 
     public function __construct(
         OpenIdConfigurationProviderManager $providerManager,
-        SessionInterface $session,
-        int $leeway = 0
+        SessionInterface $session
     ) {
         $this->providerManager = $providerManager;
         $this->session = $session;
-        $this->leeway = $leeway;
     }
 
     public function supports(Request $request): ?bool
@@ -45,11 +35,17 @@ abstract class OpenIdLoginAuthenticator extends AbstractAuthenticator implements
     }
 
     /**
+     * @param Request $request
+     *
+     * @return array|string[]
+     *
+     * @throws ItkOpenIdConnectException
      * @throws ValidationException
+     * @throws InvalidProviderException
      */
-    protected function getClaims(Request $request)
+    protected function validateClaims(Request $request)
     {
-        $providerKey = (string)$this->session->remove('oauth2provider');
+        $providerKey = (string) $this->session->remove('oauth2provider');
         $provider = $this->providerManager->getProvider($providerKey);
 
         // Make sure state and oauth2state are the same
@@ -71,7 +67,7 @@ abstract class OpenIdLoginAuthenticator extends AbstractAuthenticator implements
                 throw new ValidationException('Id token not type string');
             }
 
-            $claims = $provider->validateIdToken($idToken, $this->session->get('oauth2nonce'), $this->leeway);
+            $claims = $provider->validateIdToken($idToken, $this->session->get('oauth2nonce'));
             // Authentication successful
         } catch (ItkOpenIdConnectException $exception) {
             // Handle failed authentication
@@ -80,7 +76,7 @@ abstract class OpenIdLoginAuthenticator extends AbstractAuthenticator implements
             $this->session->remove('oauth2nonce');
         }
 
-        return (array)$claims + ['open_id_connect_provider' => $providerKey];
+        return (array) $claims + ['open_id_connect_provider' => $providerKey];
     }
 
     public function onAuthenticationFailure(Request $request, AuthenticationException $exception): ?Response

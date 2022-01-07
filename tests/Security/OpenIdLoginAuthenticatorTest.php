@@ -22,7 +22,7 @@ class OpenIdLoginAuthenticatorTest extends TestCase
         $mockProviderManager = $this->createMock(OpenIdConfigurationProviderManager::class);
         $mockSession = $this->createMock(SessionInterface::class);
 
-        $this->authenticator = new TestAuthenticator($mockProviderManager, $mockSession);
+        $this->authenticator = new TestAuthenticator($mockProviderManager, $mockSession, 10);
     }
 
     public function testSupports(): void

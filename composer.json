@@ -30,7 +30,7 @@
         "symfony/framework-bundle": "^5.4",
         "doctrine/orm": "^2.8",
         "symfony/security-bundle": "^5.4",
-        "itk-dev/openid-connect": "^2.3",
+        "itk-dev/openid-connect": "^3.0",
         "symfony/yaml": "^5.4",
         "symfony/uid": "^5.4",
         "symfony/cache": "^5.4"
