@@ -34,9 +34,7 @@ class ItkDevOpenIdConnectExtension extends Extension
             'default_providers_options' => [
                 'cacheItemPool' => new Reference($config['cache_options']['cache_pool']),
             ],
-            'providers' => array_map(static function (array $options) use ($config) {
-                return $options['options'];
-            }, $config['openid_providers']),
+            'providers' => array_map(static fn(array $options) => $options['options'], $config['openid_providers']),
         ];
         $definition->replaceArgument('$config', $providersConfig);
 

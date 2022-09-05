@@ -24,18 +24,8 @@ use Symfony\Component\Security\Http\Authenticator\Passport\SelfValidatingPasspor
  */
 class CliLoginTokenAuthenticator extends AbstractAuthenticator
 {
-    private CliLoginHelper $cliLoginHelper;
-    private UserProviderInterface $userProvider;
-    private UrlGeneratorInterface $router;
-
-    private string $cliLoginRedirectRoute;
-
-    public function __construct(CliLoginHelper $cliLoginHelper, UserProviderInterface $userProvider, string $cliLoginRedirectRoute, UrlGeneratorInterface $router)
+    public function __construct(private readonly CliLoginHelper $cliLoginHelper, private readonly UserProviderInterface $userProvider, private readonly string $cliLoginRedirectRoute, private readonly UrlGeneratorInterface $router)
     {
-        $this->cliLoginHelper = $cliLoginHelper;
-        $this->userProvider = $userProvider;
-        $this->cliLoginRedirectRoute = $cliLoginRedirectRoute;
-        $this->router = $router;
     }
 
     public function supports(Request $request): ?bool
@@ -43,6 +33,9 @@ class CliLoginTokenAuthenticator extends AbstractAuthenticator
         return $request->query->has('loginToken');
     }
 
+    /**
+     * @throws UsernameDoesNotExistException
+     */
     public function authenticate(Request $request): Passport
     {
         $token = (string) $request->query->get('loginToken');
@@ -54,7 +47,7 @@ class CliLoginTokenAuthenticator extends AbstractAuthenticator
 
         try {
             $username = $this->cliLoginHelper->getUsername($token);
-        } catch (CacheException | TokenNotFoundException $e) {
+        } catch (CacheException | TokenNotFoundException) {
             throw new CustomUserMessageAuthenticationException('Cannot get username');
         }
 

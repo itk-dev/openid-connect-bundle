@@ -19,26 +19,6 @@ class UserLoginCommand extends Command
     protected static $defaultDescription = 'Get login url for user';
 
     /**
-     * @var UrlGeneratorInterface
-     */
-    private $urlGenerator;
-
-    /**
-     * @var CliLoginHelper
-     */
-    private $cliLoginHelper;
-
-    /**
-     * @var UserProviderInterface
-     */
-    private $userProvider;
-
-    /**
-     * @var string
-     */
-    private $cliLoginRedirectRoute;
-
-    /**
      * UserLoginCommand constructor.
      *
      * @param CliLoginHelper $cliLoginHelper
@@ -46,13 +26,8 @@ class UserLoginCommand extends Command
      * @param UrlGeneratorInterface $urlGenerator
      * @param UserProviderInterface $userProvider
      */
-    public function __construct(CliLoginHelper $cliLoginHelper, string $cliLoginRedirectRoute, UrlGeneratorInterface $urlGenerator, UserProviderInterface $userProvider)
+    public function __construct(private readonly CliLoginHelper $cliLoginHelper, private readonly string $cliLoginRedirectRoute, private readonly UrlGeneratorInterface $urlGenerator, private readonly UserProviderInterface $userProvider)
     {
-        $this->cliLoginHelper = $cliLoginHelper;
-        $this->cliLoginRedirectRoute = $cliLoginRedirectRoute;
-        $this->urlGenerator = $urlGenerator;
-        $this->userProvider = $userProvider;
-
         parent::__construct();
     }
 
@@ -66,10 +41,7 @@ class UserLoginCommand extends Command
     /**
      * Executes the CLI login url generation.
      *
-     * @param InputInterface $input
-     * @param OutputInterface $output
      *
-     * @return int
      * @throws CacheException
      */
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -84,7 +56,7 @@ class UserLoginCommand extends Command
         // Check if username is registered in User database
         try {
             $this->userProvider->loadUserByIdentifier($username);
-        } catch (UserNotFoundException $e) {
+        } catch (UserNotFoundException) {
             $io->error('User does not exist');
             return Command::FAILURE;
         }

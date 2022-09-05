@@ -8,7 +8,6 @@ use ItkDev\OpenIdConnectBundle\Exception\InvalidProviderException;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\HttpFoundation\Session\SessionInterface;
 use Symfony\Component\Security\Core\Exception\AuthenticationException;
 use Symfony\Component\Security\Http\Authenticator\AbstractAuthenticator;
 use Symfony\Component\Security\Http\EntryPoint\AuthenticationEntryPointInterface;
@@ -18,15 +17,8 @@ use Symfony\Component\Security\Http\EntryPoint\AuthenticationEntryPointInterface
  */
 abstract class OpenIdLoginAuthenticator extends AbstractAuthenticator implements AuthenticationEntryPointInterface
 {
-    private OpenIdConfigurationProviderManager $providerManager;
-    private RequestStack $requestStack;
-
-    public function __construct(
-        OpenIdConfigurationProviderManager $providerManager,
-        RequestStack $requestStack
-    ) {
-        $this->providerManager = $providerManager;
-        $this->requestStack = $requestStack;
+    public function __construct(private readonly OpenIdConfigurationProviderManager $providerManager, private readonly RequestStack $requestStack)
+    {
     }
 
     public function supports(Request $request): ?bool
@@ -36,7 +28,6 @@ abstract class OpenIdLoginAuthenticator extends AbstractAuthenticator implements
     }
 
     /**
-     * @param Request $request
      *
      * @return array|string[]
      *
