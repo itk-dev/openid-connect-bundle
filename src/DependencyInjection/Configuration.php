@@ -27,9 +27,9 @@ class Configuration implements ConfigurationInterface
                             ->info('Method for caching')
                             ->defaultValue('cache.app')
                             ->isRequired()->cannotBeEmpty()
-                        ->end()
+                        ->end() // cache_pool
                     ->end()
-                ->end()
+                ->end() // cache_options
                 ->arrayNode('cli_login_options')
                     ->isRequired()
                     ->children()

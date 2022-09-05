@@ -24,8 +24,12 @@ use Symfony\Component\Security\Http\Authenticator\Passport\SelfValidatingPasspor
  */
 class CliLoginTokenAuthenticator extends AbstractAuthenticator
 {
-    public function __construct(private readonly CliLoginHelper $cliLoginHelper, private readonly UserProviderInterface $userProvider, private readonly string $cliLoginRedirectRoute, private readonly UrlGeneratorInterface $router)
-    {
+    public function __construct(
+        private readonly CliLoginHelper $cliLoginHelper,
+        private readonly UserProviderInterface $userProvider,
+        private readonly string $cliLoginRedirectRoute,
+        private readonly UrlGeneratorInterface $router
+    ) {
     }
 
     public function supports(Request $request): ?bool
@@ -47,7 +51,7 @@ class CliLoginTokenAuthenticator extends AbstractAuthenticator
 
         try {
             $username = $this->cliLoginHelper->getUsername($token);
-        } catch (CacheException | TokenNotFoundException) {
+        } catch (CacheException|TokenNotFoundException) {
             throw new CustomUserMessageAuthenticationException('Cannot get username');
         }
 

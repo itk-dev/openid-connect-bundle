@@ -41,6 +41,7 @@ class ItkDevOpenIdConnectBundleTestingKernel extends Kernel
 
     /**
      * {@inheritdoc}
+     *
      * @throws Exception
      */
     public function registerContainerConfiguration(LoaderInterface $loader)

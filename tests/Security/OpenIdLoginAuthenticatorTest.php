@@ -2,7 +2,6 @@
 
 namespace ItkDev\OpenIdConnectBundle\Tests\Security;
 
-use ItkDev\OpenIdConnect\Security\OpenIdConfigurationProvider;
 use ItkDev\OpenIdConnectBundle\Security\OpenIdConfigurationProviderManager;
 use ItkDev\OpenIdConnectBundle\Security\OpenIdLoginAuthenticator;
 use PHPUnit\Framework\TestCase;
@@ -11,8 +10,6 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpFoundation\Session\SessionInterface;
 use Symfony\Component\Security\Core\Exception\AuthenticationException;
-use Symfony\Component\Security\Core\User\UserInterface;
-use Symfony\Component\Security\Http\Authenticator\AuthenticatorInterface;
 
 class OpenIdLoginAuthenticatorTest extends TestCase
 {
@@ -25,7 +22,7 @@ class OpenIdLoginAuthenticatorTest extends TestCase
         $mockRequestStack = $this->createMock(RequestStack::class);
         $mockRequestStack->method('getSession')->willReturn($mockSession);
 
-        $this->authenticator = new TestAuthenticator($mockProviderManager, $mockRequestStack, 10);
+        $this->authenticator = new TestAuthenticator($mockProviderManager, $mockRequestStack);
     }
 
     public function testSupports(): void

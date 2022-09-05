@@ -26,8 +26,12 @@ class UserLoginCommand extends Command
      * @param UrlGeneratorInterface $urlGenerator
      * @param UserProviderInterface $userProvider
      */
-    public function __construct(private readonly CliLoginHelper $cliLoginHelper, private readonly string $cliLoginRedirectRoute, private readonly UrlGeneratorInterface $urlGenerator, private readonly UserProviderInterface $userProvider)
-    {
+    public function __construct(
+        private readonly CliLoginHelper $cliLoginHelper,
+        private readonly string $cliLoginRedirectRoute,
+        private readonly UrlGeneratorInterface $urlGenerator,
+        private readonly UserProviderInterface $userProvider
+    ) {
         parent::__construct();
     }
 
@@ -41,7 +45,6 @@ class UserLoginCommand extends Command
     /**
      * Executes the CLI login url generation.
      *
-     *
      * @throws CacheException
      */
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -49,22 +52,19 @@ class UserLoginCommand extends Command
         $io = new SymfonyStyle($input, $output);
         $username = $input->getArgument('username');
 
-        if (!is_string($username)) {
-            $io->error('Username is not type string');
-            return Command::FAILURE;
-        }
         // Check if username is registered in User database
         try {
             $this->userProvider->loadUserByIdentifier($username);
         } catch (UserNotFoundException) {
             $io->error('User does not exist');
+
             return Command::FAILURE;
         }
 
         // Create token via CliLoginHelper
         $token = $this->cliLoginHelper->createToken($username);
 
-        //Generate absolute url for login
+        // Generate absolute url for login
         $loginPage = $this->urlGenerator->generate($this->cliLoginRedirectRoute, [
             'loginToken' => $token,
         ], UrlGeneratorInterface::ABSOLUTE_URL);

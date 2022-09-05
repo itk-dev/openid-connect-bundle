@@ -1,8 +1,8 @@
 {
     "name": "itk-dev/openid-connect-bundle",
     "description": "Symfony bundle for openid-connect",
-    "type": "symfony-bundle",
     "license": "MIT",
+    "type": "symfony-bundle",
     "authors": [
         {
             "name": "Jeppe Kuhlmann Andersen",
@@ -13,6 +13,28 @@
             "email": "tug@aarhus.dk"
         }
     ],
+    "require": {
+        "php": "^8.1",
+        "ext-json": "*",
+        "ext-openssl": "*",
+        "doctrine/orm": "^2.8",
+        "itk-dev/openid-connect": "^3.0",
+        "symfony/cache": "^6.0",
+        "symfony/framework-bundle": "^6.0",
+        "symfony/security-bundle": "^6.0",
+        "symfony/uid": "^6.0",
+        "symfony/yaml": "^6.0"
+    },
+    "require-dev": {
+        "ergebnis/composer-normalize": "^2.28",
+        "escapestudios/symfony2-coding-standard": "^3.12",
+        "friendsofphp/php-cs-fixer": "^3.11",
+        "kubawerlos/php-cs-fixer-custom-fixers": "^3.11",
+        "phpunit/phpunit": "^9.5",
+        "psalm/plugin-symfony": "^3.1",
+        "rector/rector": "^0.14.2",
+        "vimeo/psalm": "^4.7"
+    },
     "autoload": {
         "psr-4": {
             "ItkDev\\OpenIdConnectBundle\\": "src/"
@@ -23,43 +45,19 @@
             "ItkDev\\OpenIdConnectBundle\\Tests\\": "tests/"
         }
     },
-    "require": {
-        "php": "^8.1",
-        "ext-json": "*",
-        "ext-openssl": "*",
-        "symfony/framework-bundle": "^6.0",
-        "doctrine/orm": "^2.8",
-        "symfony/security-bundle": "^6.0",
-        "itk-dev/openid-connect": "^3.0",
-        "symfony/yaml": "^6.0",
-        "symfony/uid": "^6.0",
-        "symfony/cache": "^6.0"
-    },
-    "require-dev": {
-        "phpunit/phpunit": "^9.5",
-        "dealerdirect/phpcodesniffer-composer-installer": "^0.7.1",
-        "escapestudios/symfony2-coding-standard": "^3.12",
-        "vimeo/psalm": "^4.7",
-        "rector/rector": "^0.14.2"
-    },
-    "scripts": {
-        "test": "./vendor/bin/phpunit",
-        "apply-coding-standards": [
-            "phpcbf --standard=phpcs.xml.dist"
-        ],
-        "check-coding-standards": [
-            "phpcs --standard=phpcs.xml.dist"
-        ],
-        "install-codestandards": [
-            "Dealerdirect\\Composer\\Plugin\\Installers\\PHPCodeSniffer\\Plugin::run"
-        ],
-        "post-install-cmd": [
-            "@install-codestandards"
-        ]
-    },
     "config": {
         "allow-plugins": {
-            "dealerdirect/phpcodesniffer-composer-installer": true
-        }
+            "ergebnis/composer-normalize": true
+        },
+        "sort-packages": true
+    },
+    "scripts": {
+        "coding-standards-apply": [
+            "./vendor/bin/php-cs-fixer fix"
+        ],
+        "coding-standards-check": [
+            "./vendor/bin/php-cs-fixer fix --dry-run --format=checkstyle"
+        ],
+        "test": "./vendor/bin/phpunit"
     }
 }

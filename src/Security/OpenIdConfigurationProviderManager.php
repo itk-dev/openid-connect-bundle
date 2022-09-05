@@ -12,8 +12,10 @@ class OpenIdConfigurationProviderManager
 {
     private ?array $providers;
 
-    public function __construct(private readonly RouterInterface $router, private readonly array $config)
-    {
+    public function __construct(
+        private readonly RouterInterface $router,
+        private readonly array $config
+    ) {
     }
 
     /**
@@ -28,8 +30,6 @@ class OpenIdConfigurationProviderManager
 
     /**
      * Get a provider by key.
-     *
-     *
      *
      * @throws InvalidProviderException
      * @throws ItkOpenIdConnectException

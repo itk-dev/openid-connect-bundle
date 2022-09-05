@@ -17,8 +17,10 @@ use Symfony\Component\Security\Http\EntryPoint\AuthenticationEntryPointInterface
  */
 abstract class OpenIdLoginAuthenticator extends AbstractAuthenticator implements AuthenticationEntryPointInterface
 {
-    public function __construct(private readonly OpenIdConfigurationProviderManager $providerManager, private readonly RequestStack $requestStack)
-    {
+    public function __construct(
+        private readonly OpenIdConfigurationProviderManager $providerManager,
+        private readonly RequestStack $requestStack
+    ) {
     }
 
     public function supports(Request $request): ?bool
@@ -28,20 +30,19 @@ abstract class OpenIdLoginAuthenticator extends AbstractAuthenticator implements
     }
 
     /**
-     *
      * @return array|string[]
      *
      * @throws ItkOpenIdConnectException
      * @throws ValidationException
      * @throws InvalidProviderException
      */
-    protected function validateClaims(Request $request)
+    protected function validateClaims(Request $request): array
     {
-        $providerKey = (string) $this->session->remove('oauth2provider');
+        $providerKey = (string) $this->requestStack->getSession()->remove('oauth2provider');
         $provider = $this->providerManager->getProvider($providerKey);
 
         // Make sure state and oauth2state are the same
-        $oauth2state = $this->session->get('oauth2state');
+        $oauth2state = $this->requestStack->getSession()->get('oauth2state');
         $this->requestStack->getSession()->remove('oauth2state');
 
         if ($request->query->get('state') !== $oauth2state) {

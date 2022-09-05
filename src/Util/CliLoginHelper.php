@@ -4,9 +4,9 @@ namespace ItkDev\OpenIdConnectBundle\Util;
 
 use ItkDev\OpenIdConnectBundle\Exception\CacheException;
 use ItkDev\OpenIdConnectBundle\Exception\TokenNotFoundException;
+use Psr\Cache\CacheItemPoolInterface;
 use Psr\Cache\InvalidArgumentException;
 use Symfony\Component\Uid\Uuid;
-use Psr\Cache\CacheItemPoolInterface;
 
 /**
  * Helper class for CLI login.
@@ -15,8 +15,9 @@ class CliLoginHelper
 {
     private const ITK_NAMESPACE = 'itk-dev-cli-login';
 
-    public function __construct(private readonly CacheItemPoolInterface $cache)
-    {
+    public function __construct(
+        private readonly CacheItemPoolInterface $cache
+    ) {
     }
 
     /**
@@ -55,7 +56,6 @@ class CliLoginHelper
         return $token;
     }
 
-
     /**
      * Gets username from login token.
      *
@@ -90,7 +90,7 @@ class CliLoginHelper
     public function encodeKey(string $key): string
     {
         // Add namespace to key before encoding
-        return base64_encode(self::ITK_NAMESPACE . $key);
+        return base64_encode(self::ITK_NAMESPACE.$key);
     }
 
     public function decodeKey(string $encodedKey): string

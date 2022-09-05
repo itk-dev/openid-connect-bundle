@@ -22,7 +22,7 @@ class ItkDevOpenIdConnectExtension extends Extension
      */
     public function load(array $configs, ContainerBuilder $container): void
     {
-        $loader = new YamlFileLoader($container, new FileLocator(__DIR__ . '/../Resources/config'));
+        $loader = new YamlFileLoader($container, new FileLocator(__DIR__.'/../Resources/config'));
         $loader->load('services.yaml');
 
         $configuration = new Configuration();
@@ -34,7 +34,7 @@ class ItkDevOpenIdConnectExtension extends Extension
             'default_providers_options' => [
                 'cacheItemPool' => new Reference($config['cache_options']['cache_pool']),
             ],
-            'providers' => array_map(static fn(array $options) => $options['options'], $config['openid_providers']),
+            'providers' => array_map(static fn (array $options) => $options['options'], $config['openid_providers']),
         ];
         $definition->replaceArgument('$config', $providersConfig);
 
