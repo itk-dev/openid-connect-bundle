@@ -27,13 +27,13 @@
         "php": "^7.4|^8.0",
         "ext-json": "*",
         "ext-openssl": "*",
-        "symfony/framework-bundle": "^5.4",
+        "symfony/framework-bundle": "^5.4 | ^6.0",
         "doctrine/orm": "^2.8",
-        "symfony/security-bundle": "^5.4",
+        "symfony/security-bundle": "^5.4 | ^6.0",
         "itk-dev/openid-connect": "^3.0",
-        "symfony/yaml": "^5.4",
-        "symfony/uid": "^5.4",
-        "symfony/cache": "^5.4"
+        "symfony/yaml": "^5.4 | ^6.0",
+        "symfony/uid": "^5.4 | ^6.0",
+        "symfony/cache": "^5.4 | ^6.0"
     },
     "require-dev": {
         "phpunit/phpunit": "^9.5",
@@ -55,5 +55,10 @@
         "post-install-cmd": [
             "@install-codestandards"
         ]
+    },
+    "config": {
+        "allow-plugins": {
+            "dealerdirect/phpcodesniffer-composer-installer": true
+        }
     }
 }
