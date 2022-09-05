@@ -16,6 +16,7 @@ use Symfony\Component\Security\Core\Exception\CustomUserMessageAuthenticationExc
 use Symfony\Component\Security\Core\User\UserProviderInterface;
 use Symfony\Component\Security\Http\Authenticator\AbstractAuthenticator;
 use Symfony\Component\Security\Http\Authenticator\Passport\Badge\UserBadge;
+use Symfony\Component\Security\Http\Authenticator\Passport\Passport;
 use Symfony\Component\Security\Http\Authenticator\Passport\SelfValidatingPassport;
 
 /**
@@ -42,7 +43,7 @@ class CliLoginTokenAuthenticator extends AbstractAuthenticator
         return $request->query->has('loginToken');
     }
 
-    public function authenticate(Request $request)
+    public function authenticate(Request $request): Passport
     {
         $token = (string) $request->query->get('loginToken');
         if (empty($token)) {

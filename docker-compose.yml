@@ -4,7 +4,7 @@ version: "3"
 
 services:
   phpfpm:
-    image: itkdev/php7.4-fpm:latest
+    image: itkdev/php8.1-fpm:latest
     environment:
       - XDEBUG_MODE=${XDEBUG_MODE:-off}
       - XDEBUG_SESSION=${XDEBUG_SESSION:-0}
