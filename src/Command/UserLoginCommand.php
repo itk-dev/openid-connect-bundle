@@ -22,13 +22,13 @@ class UserLoginCommand extends Command
      * UserLoginCommand constructor.
      *
      * @param CliLoginHelper $cliLoginHelper
-     * @param string $cliLoginRedirectRoute
+     * @param string $cliLoginRoute
      * @param UrlGeneratorInterface $urlGenerator
      * @param UserProviderInterface $userProvider
      */
     public function __construct(
         private readonly CliLoginHelper $cliLoginHelper,
-        private readonly string $cliLoginRedirectRoute,
+        private readonly string $cliLoginRoute,
         private readonly UrlGeneratorInterface $urlGenerator,
         private readonly UserProviderInterface $userProvider
     ) {
@@ -65,7 +65,7 @@ class UserLoginCommand extends Command
         $token = $this->cliLoginHelper->createToken($username);
 
         // Generate absolute url for login
-        $loginPage = $this->urlGenerator->generate($this->cliLoginRedirectRoute, [
+        $loginPage = $this->urlGenerator->generate($this->cliLoginRoute, [
             'loginToken' => $token,
         ], UrlGeneratorInterface::ABSOLUTE_URL);
 

@@ -42,10 +42,16 @@ class ItkDevOpenIdConnectExtension extends Extension
         $definition->replaceArgument('$cache', new Reference($config['cache_options']['cache_pool']));
 
         $definition = $container->getDefinition(UserLoginCommand::class);
-        $definition->replaceArgument('$cliLoginRedirectRoute', $config['cli_login_options']['cli_redirect']);
+        $definition->replaceArgument('$cliLoginRoute', $config['cli_login_options']['route']);
+        if (null !== $config['user_provider']) {
+            $definition->setArgument('$userProvider', $config['user_provider']);
+        }
 
         $definition = $container->getDefinition(CliLoginTokenAuthenticator::class);
-        $definition->replaceArgument('$cliLoginRedirectRoute', $config['cli_login_options']['cli_redirect']);
+        $definition->replaceArgument('$cliLoginRoute', $config['cli_login_options']['route']);
+        if (null !== $config['user_provider']) {
+            $definition->setArgument('$userProvider', $config['user_provider']);
+        }
     }
 
     /**

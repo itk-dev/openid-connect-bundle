@@ -27,7 +27,7 @@ class CliLoginTokenAuthenticator extends AbstractAuthenticator
     public function __construct(
         private readonly CliLoginHelper $cliLoginHelper,
         private readonly UserProviderInterface $userProvider,
-        private readonly string $cliLoginRedirectRoute,
+        private readonly string $cliLoginRoute,
         private readonly UrlGeneratorInterface $router
     ) {
     }
@@ -64,7 +64,7 @@ class CliLoginTokenAuthenticator extends AbstractAuthenticator
 
     public function onAuthenticationSuccess(Request $request, TokenInterface $token, string $firewallName): ?Response
     {
-        return new RedirectResponse($this->router->generate($this->cliLoginRedirectRoute));
+        return new RedirectResponse($this->router->generate($this->cliLoginRoute));
     }
 
     public function onAuthenticationFailure(Request $request, AuthenticationException $exception): ?Response

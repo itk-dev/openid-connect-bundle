@@ -2,7 +2,8 @@ itkdev_openid_connect:
   cache_options:
     cache_pool: 'cache.array'
   cli_login_options:
-    cli_redirect: 'cli_redirect_test'
+    route: 'route_test'
+  user_provider: 'security.user.provider.concrete.test_users_1'
   openid_providers:
     test:
       options:
