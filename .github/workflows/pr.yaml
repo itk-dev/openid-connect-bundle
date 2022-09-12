@@ -83,7 +83,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        php: [ '8.1', '8.2' ]
+        php: [ '8.1' ]
     name: Coding style (${{ matrix.php }})
     steps:
       - uses: actions/checkout@master
@@ -110,10 +110,7 @@ jobs:
         run: composer install -q --no-ansi --no-interaction --no-scripts --no-suggest --no-progress --prefer-dist
 
       - name: PHP CS Fixer
-        run: composer check-coding-standards/php-cs-fixer
-
-      - name: Twig CS
-        run: composer check-coding-standards/twigcs
+        run: composer coding-standards-check
 
   psalm:
     runs-on: ubuntu-latest
