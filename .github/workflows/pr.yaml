@@ -72,11 +72,15 @@ jobs:
       - name: Unit tests
         run: ./vendor/bin/phpunit --coverage-clover=coverage/unit.xml
 
-      - name: Report coverage to Codecov
-        env:
-          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-        run: |
-          bash <(curl -s https://codecov.io/bash) -F Unit -f coverage/unit.xml
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          directory: ./coverage/
+          env_vars: ${{ matrix.php}},${{ matrix.dependency-version}}
+          fail_ci_if_error: true
+          files: ./unit.xml
+          flags: unittests
 
   phpcsfixer:
     runs-on: ubuntu-latest
