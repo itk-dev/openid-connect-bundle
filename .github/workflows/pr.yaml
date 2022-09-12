@@ -79,7 +79,6 @@ jobs:
           directory: ./coverage/
           env_vars: ${{ matrix.php}},${{ matrix.dependency-version}}
           fail_ci_if_error: true
-          files: ./unit.xml
           flags: unittests
 
   phpcsfixer:
