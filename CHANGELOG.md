@@ -14,7 +14,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - php-cs-fixer tooling 
 
 ### Removed
-- Symfony 5.x support
 - PHP 7.4 and 8.0 support
 - phpcodesniffer
 

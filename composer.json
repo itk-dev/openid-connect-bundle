@@ -19,11 +19,11 @@
         "ext-openssl": "*",
         "doctrine/orm": "^2.8",
         "itk-dev/openid-connect": "^3.0",
-        "symfony/cache": "^6.0",
-        "symfony/framework-bundle": "^6.0",
-        "symfony/security-bundle": "^6.0",
-        "symfony/uid": "^6.0",
-        "symfony/yaml": "^6.0"
+        "symfony/cache": "^5.4|^6.0",
+        "symfony/framework-bundle": "^5.4|^6.0",
+        "symfony/security-bundle": "^5.4|^6.0",
+        "symfony/uid": "^5.4|^6.0",
+        "symfony/yaml": "^5.4|^6.0"
     },
     "require-dev": {
         "ergebnis/composer-normalize": "^2.28",
