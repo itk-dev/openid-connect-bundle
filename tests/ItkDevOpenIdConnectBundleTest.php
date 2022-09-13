@@ -56,7 +56,5 @@ class ItkDevOpenIdConnectBundleTest extends TestCase
         $this->assertTrue($container->has(CliLoginTokenAuthenticator::class));
         $authenticator = $container->get(CliLoginTokenAuthenticator::class);
         $this->assertInstanceOf(CliLoginTokenAuthenticator::class, $authenticator);
-
-
     }
 }

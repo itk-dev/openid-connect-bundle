@@ -18,7 +18,7 @@ use Symfony\Component\Security\Http\EntryPoint\AuthenticationEntryPointInterface
 abstract class OpenIdLoginAuthenticator extends AbstractAuthenticator implements AuthenticationEntryPointInterface
 {
     /**
-     * OpenIdLoginAuthenticator constructor
+     * OpenIdLoginAuthenticator constructor.
      *
      * @param OpenIdConfigurationProviderManager $providerManager
      * @param RequestStack $requestStack
@@ -29,7 +29,7 @@ abstract class OpenIdLoginAuthenticator extends AbstractAuthenticator implements
     ) {
     }
 
-    /** @inheritDoc */
+    /** {@inheritDoc} */
     public function supports(Request $request): ?bool
     {
         // Check if request has state and id_token
@@ -80,7 +80,7 @@ abstract class OpenIdLoginAuthenticator extends AbstractAuthenticator implements
         return (array) $claims + ['open_id_connect_provider' => $providerKey];
     }
 
-    /** @inheritDoc */
+    /** {@inheritDoc} */
     public function onAuthenticationFailure(Request $request, AuthenticationException $exception): ?Response
     {
         throw new AuthenticationException('Error occurred validating openid login');
