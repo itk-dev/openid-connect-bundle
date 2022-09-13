@@ -15,4 +15,7 @@ security:
       security: false
     main:
       lazy: true
-      provider: test_users_1
+      custom_authenticators:
+        - ItkDev\OpenIdConnectBundle\Tests\Security\TestAuthenticator
+        - ItkDev\OpenIdConnectBundle\Security\CliLoginTokenAuthenticator
+      entry_point: ItkDev\OpenIdConnectBundle\Tests\Security\TestAuthenticator
