@@ -3,7 +3,6 @@
 namespace ItkDev\OpenIdConnectBundle\Controller;
 
 use ItkDev\OpenIdConnect\Exception\ItkOpenIdConnectException;
-use ItkDev\OpenIdConnect\Security\OpenIdConfigurationProvider;
 use ItkDev\OpenIdConnectBundle\Exception\InvalidProviderException;
 use ItkDev\OpenIdConnectBundle\Security\OpenIdConfigurationProviderManager;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -16,23 +15,15 @@ use Symfony\Component\HttpFoundation\Session\SessionInterface;
  */
 class LoginController extends AbstractController
 {
-    /**
-     * @var OpenIdConfigurationProviderManager
-     */
-    private $providerManager;
-
-    public function __construct(OpenIdConfigurationProviderManager $providerManager)
-    {
-        $this->providerManager = $providerManager;
+    public function __construct(
+        private readonly OpenIdConfigurationProviderManager $providerManager
+    ) {
     }
 
     /**
      * Login method redirecting to authorizer.
      *
-     * @param Request $request
-     * @param SessionInterface $session
-     * @return RedirectResponse
-     * @throws ItkOpenIdConnectException
+     * @throws ItkOpenIdConnectException|InvalidProviderException
      */
     public function login(Request $request, SessionInterface $session, string $providerKey): RedirectResponse
     {

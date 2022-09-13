@@ -7,7 +7,7 @@ use Symfony\Component\DependencyInjection\Extension\ExtensionInterface;
 use Symfony\Component\HttpKernel\Bundle\Bundle;
 
 /**
- * Class ItkDevOpenIdConnectBundle
+ * Class ItkDevOpenIdConnectBundle.
  */
 class ItkDevOpenIdConnectBundle extends Bundle
 {

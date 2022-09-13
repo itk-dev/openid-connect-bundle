@@ -22,7 +22,7 @@ class ItkDevOpenIdConnectExtension extends Extension
      */
     public function load(array $configs, ContainerBuilder $container): void
     {
-        $loader = new YamlFileLoader($container, new FileLocator(__DIR__ . '/../Resources/config'));
+        $loader = new YamlFileLoader($container, new FileLocator(__DIR__.'/../Resources/config'));
         $loader->load('services.yaml');
 
         $configuration = new Configuration();
@@ -34,9 +34,7 @@ class ItkDevOpenIdConnectExtension extends Extension
             'default_providers_options' => [
                 'cacheItemPool' => new Reference($config['cache_options']['cache_pool']),
             ],
-            'providers' => array_map(static function (array $options) use ($config) {
-                return $options['options'];
-            }, $config['openid_providers']),
+            'providers' => array_map(static fn (array $options) => $options['options'], $config['openid_providers']),
         ];
         $definition->replaceArgument('$config', $providersConfig);
 
@@ -44,10 +42,16 @@ class ItkDevOpenIdConnectExtension extends Extension
         $definition->replaceArgument('$cache', new Reference($config['cache_options']['cache_pool']));
 
         $definition = $container->getDefinition(UserLoginCommand::class);
-        $definition->replaceArgument('$cliLoginRedirectRoute', $config['cli_login_options']['cli_redirect']);
+        $definition->replaceArgument('$cliLoginRoute', $config['cli_login_options']['route']);
+        if (null !== $config['user_provider']) {
+            $definition->setArgument('$userProvider', $config['user_provider']);
+        }
 
         $definition = $container->getDefinition(CliLoginTokenAuthenticator::class);
-        $definition->replaceArgument('$cliLoginRedirectRoute', $config['cli_login_options']['cli_redirect']);
+        $definition->replaceArgument('$cliLoginRoute', $config['cli_login_options']['route']);
+        if (null !== $config['user_provider']) {
+            $definition->setArgument('$userProvider', $config['user_provider']);
+        }
     }
 
     /**
