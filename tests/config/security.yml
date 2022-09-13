@@ -1,6 +1,11 @@
 security:
+  enable_authenticator_manager: true
   providers:
-    test_users:
+    test_users_1:
+      memory:
+        users:
+          admin: { password: 'test', roles: ['ROLE_ADMIN'] }
+    test_users_2:
       memory:
         users:
           admin: { password: 'test', roles: ['ROLE_ADMIN'] }
@@ -9,5 +14,5 @@ security:
       pattern: ^/(_(profiler|wdt)|css|images|js)/
       security: false
     main:
-      anonymous: true
       lazy: true
+      provider: test_users_1

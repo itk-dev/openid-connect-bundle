@@ -16,6 +16,7 @@ use Symfony\Component\Security\Core\Exception\CustomUserMessageAuthenticationExc
 use Symfony\Component\Security\Core\User\UserProviderInterface;
 use Symfony\Component\Security\Http\Authenticator\AbstractAuthenticator;
 use Symfony\Component\Security\Http\Authenticator\Passport\Badge\UserBadge;
+use Symfony\Component\Security\Http\Authenticator\Passport\Passport;
 use Symfony\Component\Security\Http\Authenticator\Passport\SelfValidatingPassport;
 
 /**
@@ -23,18 +24,12 @@ use Symfony\Component\Security\Http\Authenticator\Passport\SelfValidatingPasspor
  */
 class CliLoginTokenAuthenticator extends AbstractAuthenticator
 {
-    private CliLoginHelper $cliLoginHelper;
-    private UserProviderInterface $userProvider;
-    private UrlGeneratorInterface $router;
-
-    private string $cliLoginRedirectRoute;
-
-    public function __construct(CliLoginHelper $cliLoginHelper, UserProviderInterface $userProvider, string $cliLoginRedirectRoute, UrlGeneratorInterface $router)
-    {
-        $this->cliLoginHelper = $cliLoginHelper;
-        $this->userProvider = $userProvider;
-        $this->cliLoginRedirectRoute = $cliLoginRedirectRoute;
-        $this->router = $router;
+    public function __construct(
+        private readonly CliLoginHelper $cliLoginHelper,
+        private readonly UserProviderInterface $userProvider,
+        private readonly string $cliLoginRoute,
+        private readonly UrlGeneratorInterface $router
+    ) {
     }
 
     public function supports(Request $request): ?bool
@@ -42,7 +37,10 @@ class CliLoginTokenAuthenticator extends AbstractAuthenticator
         return $request->query->has('loginToken');
     }
 
-    public function authenticate(Request $request)
+    /**
+     * @throws UsernameDoesNotExistException
+     */
+    public function authenticate(Request $request): Passport
     {
         $token = (string) $request->query->get('loginToken');
         if (empty($token)) {
@@ -53,7 +51,7 @@ class CliLoginTokenAuthenticator extends AbstractAuthenticator
 
         try {
             $username = $this->cliLoginHelper->getUsername($token);
-        } catch (CacheException | TokenNotFoundException $e) {
+        } catch (CacheException|TokenNotFoundException) {
             throw new CustomUserMessageAuthenticationException('Cannot get username');
         }
 
@@ -66,7 +64,7 @@ class CliLoginTokenAuthenticator extends AbstractAuthenticator
 
     public function onAuthenticationSuccess(Request $request, TokenInterface $token, string $firewallName): ?Response
     {
-        return new RedirectResponse($this->router->generate($this->cliLoginRedirectRoute));
+        return new RedirectResponse($this->router->generate($this->cliLoginRoute));
     }
 
     public function onAuthenticationFailure(Request $request, AuthenticationException $exception): ?Response

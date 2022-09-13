@@ -1,5 +1,13 @@
 # OpenId Connect Bundle
 
+[![Github](https://img.shields.io/badge/source-itk--dev/openid--connect--bundle-blue?style=flat-square)](https://github.com/itk-dev/openid-connect-bundle)
+[![Release](https://img.shields.io/packagist/v/itk-dev/openid-connect-bundle.svg?style=flat-square&label=release)](https://packagist.org/packages/itk-dev/openid-connect-bundle)
+[![PHP Version](https://img.shields.io/packagist/php-v/itk-dev/openid-connect-bundle.svg?style=flat-square&colorB=%238892BF)](https://www.php.net/downloads)
+[![Build Status](https://img.shields.io/github/workflow/status/itk-dev/openid-connect-bundle/Test%20%26%20Code%20Style%20Review?label=CI&logo=github&style=flat-square)](https://github.com/itk-dev/openid-connect-bundle/actions?query=workflow%3A%22Test+%26+Code+Style+Review%22)
+[![Codecov Code Coverage](https://img.shields.io/codecov/c/gh/itk-dev/openid-connect-bundle?label=codecov&logo=codecov&style=flat-square)](https://codecov.io/gh/itk-dev/openid-connect-bundle)
+[![Read License](https://img.shields.io/packagist/l/itk-dev/openid-connect-bundle.svg?style=flat-square&colorB=darkcyan)](https://github.com/itk-dev/openid-connect-bundle/blob/master/LICENSE.md)
+[![Package downloads on Packagist](https://img.shields.io/packagist/dt/itk-dev/openid-connect-bundle.svg?style=flat-square&colorB=darkmagenta)](https://packagist.org/packages/itk-dev/openid-connect-bundle/stats)
+
 Symfony bundle for authorization via OpenID Connect.
 
 ## Installation
@@ -32,7 +40,8 @@ itkdev_openid_connect:
   cache_options:
     cache_pool: 'cache.app' # Cache item pool for caching discovery document and CLI login tokens
   cli_login_options:
-    cli_redirect: '%env(CLI_REDIRECT)%' # Redirect route for CLI login
+    route: '%env(string:OIDC_CLI_LOGIN_ROUTE)%' # Redirect route for CLI login
+  user_provider: ~ #
   openid_providers:
     # Define one or more providers
     # [providerKey]:
@@ -41,19 +50,19 @@ itkdev_openid_connect:
     #     …
     admin:
       options:
-        metadata_url: '%env(ADMIN_OIDC_METADATA_URL)%'
-        client_id: '%env(ADMIN_OIDC_CLIENT_ID)%'
-        client_secret: '%env(ADMIN_OIDC_CLIENT_SECRET)%'
+        metadata_url: '%env(string:ADMIN_OIDC_METADATA_URL)%'
+        client_id: '%env(string:ADMIN_OIDC_CLIENT_ID)%'
+        client_secret: '%env(string:ADMIN_OIDC_CLIENT_SECRET)%'
         # Specify redirect URI
-        redirect_uri: '%env(ADMIN_OIDC_REDIRECT_URI)%'
+        redirect_uri: '%env(string:ADMIN_OIDC_REDIRECT_URI)%'
         # Optional: Specify leeway (seconds) to account for clock skew between provider and hosting
         #           Defaults to 10
-        leeway: '%env(ADMIN_OIDC_LEEWAY)%'
+        leeway: '%env(int:ADMIN_OIDC_LEEWAY)%'
     user:
       options:
-        metadata_url: '%env(USER_OIDC_METADATA_URL)%'
-        client_id: '%env(USER_OIDC_CLIENT_ID)%'
-        client_secret: '%env(USER_OIDC_CLIENT_SECRET)%'
+        metadata_url: '%env(string:USER_OIDC_METADATA_URL)%'
+        client_id: '%env(string:USER_OIDC_CLIENT_ID)%'
+        client_secret: '%env(string:USER_OIDC_CLIENT_SECRET)%'
         # As an alternative to using (a more or less) hardcoded redirect uri,
         # a Symfony route can be used as redirect URI
         redirect_route: 'default'
@@ -77,9 +86,12 @@ USER_OIDC_METADATA_URL=USER_APP_METADATA_URL
 USER_OIDC_CLIENT_ID=USER_APP_CLIENT_ID
 USER_OIDC_CLIENT_SECRET=USER_APP_CLIENT_SECRET
 
-CLI_REDIRECT=APP_CLI_REDIRECT_URI
+# cli redirect url 
+OIDC_CLI_LOGIN_ROUTE=OIDC_CLI_LOGIN_ROUTE
 ###< itk-dev/openid-connect-bundle ###
 ```
+
+Set the actual values your `env.local` file to ensure they are not committed to Git.
 
 In `/config/routes/` you need a similar `itkdev_openid_connect.yaml` file for
 configuring the routing
@@ -110,22 +122,22 @@ something along the lines of
 ```yaml
 # config/packages/security.yaml
 security:
-  …
+  # …
   access_control:
-    …
+    # …
     - { path: ^/openidconnect/login(/.+)?$, role: IS_AUTHENTICATED_ANONYMOUSLY }
 ```
 
 ### CLI login
 
 In order to use the CLI login feature the following environment variable must be
-set:
+set in order for Symfony to be able to generate URLs in commands:
 
 ```shell
 DEFAULT_URI=
 ```
 
-See [Symfony documentation](https://symfony.com/doc/current/routing.html#generating-urls-in-commands)
+See [Symfony documentation: Generating URLs in Commands](https://symfony.com/doc/current/routing.html#generating-urls-in-commands)
 for more information.
 
 You must also add the Bundle `LoginTokenAuthenticator` to the `security.yaml`
@@ -138,6 +150,11 @@ security:
       custom_authenticators:
         - ItkDev\OpenIdConnectBundle\Security\LoginTokenAuthenticator
 ```
+
+Finally, configure the Symfony route to use for login links: `cli_login_options:
+route`. If yoy have multiple firewalls that are active for different url patterns
+you need to make sure you add `LoginTokenAuthenticator` to the firewall active
+for the route specified here.
 
 ### Creating the Authenticator
 
@@ -218,48 +235,51 @@ namespace App\Security;
 use App\Entity\User;
 use Doctrine\ORM\EntityManagerInterface;
 use ItkDev\OpenIdConnect\Exception\ItkOpenIdConnectException;
-use ItkDev\OpenIdConnect\Security\OpenIdConfigurationProvider;
+use ItkDev\OpenIdConnectBundle\Exception\InvalidProviderException;
+use ItkDev\OpenIdConnectBundle\Security\OpenIdConfigurationProviderManager;
 use ItkDev\OpenIdConnectBundle\Security\OpenIdLoginAuthenticator;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\HttpFoundation\Session\SessionInterface;
+use Symfony\Component\HttpFoundation\RequestStack;
+use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
 use Symfony\Component\Security\Core\Exception\AuthenticationException;
 use Symfony\Component\Security\Core\Exception\CustomUserMessageAuthenticationException;
-use Symfony\Component\Security\Core\User\UserProviderInterface;
+use Symfony\Component\Security\Http\Authenticator\Passport\Badge\UserBadge;
 use Symfony\Component\Security\Http\Authenticator\Passport\Passport;
 use Symfony\Component\Security\Http\Authenticator\Passport\SelfValidatingPassport;
 
-class ExampleAuthenticator extends OpenIdLoginAuthenticator
+class AzureOIDCAuthenticator extends OpenIdLoginAuthenticator
 {
     /**
-     * @var UrlGeneratorInterface
+     * AzureOIDCAuthenticator constructor
+     *
+     * @param EntityManagerInterface $entityManager
+     * @param RequestStack $requestStack
+     * @param UrlGeneratorInterface $router
+     * @param OpenIdConfigurationProviderManager $providerManager
      */
-    private $router;
-    /**
-     * @var EntityManagerInterface
-     */
-    private $entityManager;
-
-    public function __construct(EntityManagerInterface $entityManager, SessionInterface $session, UrlGeneratorInterface $router, OpenIdConfigurationProvider $provider)
-    {
-        $this->router = $router;
-        $this->entityManager = $entityManager;
-        parent::__construct($provider, $session, $leeway);
+    public function __construct(
+        private readonly EntityManagerInterface $entityManager,
+        private readonly RequestStack $requestStack,
+        private readonly UrlGeneratorInterface $router,
+        private readonly OpenIdConfigurationProviderManager $providerManager
+    ) {
+        parent::__construct($providerManager, $requestStack);
     }
 
-
+    /** @inheritDoc */
     public function authenticate(Request $request): Passport
     {
         try {
             // Validate claims
             $claims = $this->validateClaims($request);
-            
+
             // Extract properties from claims
             $name = $claims['name'];
             $email = $claims['upn'];
-    
+
             // Check if user exists already - if not create a user
             $user = $this->entityManager->getRepository(User::class)
                 ->findOneBy(['email'=> $email]);
@@ -271,23 +291,23 @@ class ExampleAuthenticator extends OpenIdLoginAuthenticator
             // Update/set user properties
             $user->setName($name);
             $user->setEmail($email);
-    
+
             $this->entityManager->flush();
-    
+
             return new SelfValidatingPassport(new UserBadge($user->getUserIdentifier()));
-        } catch (ItkOpenIdConnectException $exception) {
+        } catch (ItkOpenIdConnectException|InvalidProviderException $exception) {
             throw new CustomUserMessageAuthenticationException($exception->getMessage());
         }
-
-
     }
 
+    /** @inheritDoc */
     public function onAuthenticationSuccess(Request $request, TokenInterface $token, string $firewallName): ?Response
     {
         return new RedirectResponse($this->router->generate('homepage_authenticated'));
     }
 
-    public function start(Request $request, AuthenticationException $authException = null)
+    /** @inheritDoc */
+    public function start(Request $request, AuthenticationException $authException = null): Response
     {
         return new RedirectResponse($this->router->generate('itkdev_openid_connect_login', [
             'provider' => 'user',
@@ -299,7 +319,7 @@ class ExampleAuthenticator extends OpenIdLoginAuthenticator
 ## Sign in from command line
 
 Rather than signing in via OpenId Connect, you can get a sign in url from the
-command line by providing a username. Make sure to configure `DEFAULT_URI`. Run
+command line by providing a username. Make sure to configure `OIDC_CLI_REDIRECT_URL`. Run
 
 ```shell
 bin/console itk-dev:openid-connect:login <username>
@@ -317,16 +337,9 @@ Be aware that a login token only can be used once before it is removed, and if
 you used email as your user provider property the email goes into the `username`
 argument.
 
-## Changes for Symfony 6.0
-
-In Symfony 6.0 a new security system is
-[introduced](https://symfony.com/doc/current/security/experimental_authenticators.html).
-This system is said to be almost fully backwards compatible, but changes may be
-needed. If so, a new version of this bundle might be necessary.
-
 ## Development Setup
 
-A [`docker-compose.yml`](docker-compose.yml) file with a PHP 7.4 image is
+A [`docker-compose.yml`](docker-compose.yml) file with a PHP 8.1 image is
 included in this project. To install the dependencies you can run
 
 ```shell
@@ -360,14 +373,14 @@ the project.
 * PHP files (PHP-CS-Fixer)
 
     ```shell
-    docker compose exec phpfpm composer check-coding-standards
+    docker compose exec phpfpm composer coding-standards-check
     ```
 
 * Markdown files (markdownlint standard rules)
 
     ```shell
-    docker run -v ${PWD}:/app itkdev/yarn:latest install
-    docker run -v ${PWD}:/app itkdev/yarn:latest coding-standards-check
+    docker run --rm -v "$PWD":/usr/src/app -w /usr/src/app node:18 yarn install
+    docker run --rm -v "$PWD":/usr/src/app -w /usr/src/app node:18 yarn coding-standards-check
     ```
 
 ### Apply Coding Standards
@@ -377,19 +390,19 @@ To attempt to automatically fix coding style
 * PHP files (PHP-CS-Fixer)
 
     ```sh
-    docker compose exec phpfpm composer apply-coding-standards
+    docker compose exec phpfpm composer coding-standards-apply
     ```
 
 * Markdown files (markdownlint standard rules)
 
     ```shell
-    docker run -v ${PWD}:/app itkdev/yarn:latest install
-    docker run -v ${PWD}:/app itkdev/yarn:latest coding-standards-apply
+    docker run --rm -v "$PWD":/usr/src/app -w /usr/src/app node:18 yarn install
+    docker run --rm -v "$PWD":/usr/src/app -w /usr/src/app node:18 yarn coding-standards-apply
     ```
 
 ## CI
 
-Github Actions are used to run the test suite and code style checks on all PRs.
+GitHub Actions are used to run the test suite and code style checks on all PRs.
 
 If you wish to test against the jobs locally you can install
 [act](https://github.com/nektos/act). Then do:

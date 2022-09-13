@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.0.0] - 2022-09-13
+### Added
+- Support for multiple user providers 
+- Symfony 6.x support
+- Rector tooling
+- php-cs-fixer tooling 
+
+### Removed
+- PHP 7.4 and 8.0 support
+- phpcodesniffer
+
 ## [2.0.0] - 2021-12-08
 ### Added
 - Migrated to Symfony's new (5.1+) security system

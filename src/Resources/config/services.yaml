@@ -25,10 +25,10 @@ services:
     public: true
     arguments:
       $cliLoginHelper: '@ItkDev\OpenIdConnectBundle\Util\CliLoginHelper'
-      $cliLoginRedirectRoute: ~
+      $cliLoginRoute: ~
 
   ItkDev\OpenIdConnectBundle\Security\CliLoginTokenAuthenticator:
     public: true
     arguments:
       $cliLoginHelper: '@ItkDev\OpenIdConnectBundle\Util\CliLoginHelper'
-      $cliLoginRedirectRoute: ~
+      $cliLoginRoute: ~

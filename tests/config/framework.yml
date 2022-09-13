@@ -7,7 +7,7 @@ framework:
           - cache.adapter.array
   test: true
   session:
-    storage_id: session.storage.mock_file
+    handler_id: session.handler.native_file
   form: false
   csrf_protection: false
   validation:
