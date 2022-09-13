@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.0.1] - 2022-09-13
+### Fixed
+- Auto wiring when `itkdev_openid_connect.user_provider` was configured 
+
 ## [3.0.0] - 2022-09-13
 ### Added
 - Support for multiple user providers 

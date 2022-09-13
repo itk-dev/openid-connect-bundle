@@ -9,9 +9,11 @@ namespace ItkDev\OpenIdConnectBundle\Tests;
 
 use Exception;
 use ItkDev\OpenIdConnectBundle\ItkDevOpenIdConnectBundle;
+use ItkDev\OpenIdConnectBundle\Tests\Security\TestAuthenticator;
 use Symfony\Bundle\FrameworkBundle\FrameworkBundle;
 use Symfony\Bundle\SecurityBundle\SecurityBundle;
 use Symfony\Component\Config\Loader\LoaderInterface;
+use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\HttpKernel\Kernel;
 
 /**
@@ -19,7 +21,7 @@ use Symfony\Component\HttpKernel\Kernel;
  */
 class ItkDevOpenIdConnectBundleTestingKernel extends Kernel
 {
-    private $pathToConfigs;
+    private array $pathToConfigs;
 
     public function __construct(array $pathToConfigs)
     {
@@ -46,6 +48,10 @@ class ItkDevOpenIdConnectBundleTestingKernel extends Kernel
      */
     public function registerContainerConfiguration(LoaderInterface $loader)
     {
+        $loader->load(function (ContainerBuilder $builder) {
+            $builder->register('ItkDev\OpenIdConnectBundle\Tests\Security\TestAuthenticator', TestAuthenticator::class);
+        });
+
         foreach ($this->pathToConfigs as $path) {
             if (file_exists($path)) {
                 $loader->load($path);
