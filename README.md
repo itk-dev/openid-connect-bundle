@@ -140,7 +140,7 @@ DEFAULT_URI=
 See [Symfony documentation: Generating URLs in Commands](https://symfony.com/doc/current/routing.html#generating-urls-in-commands)
 for more information.
 
-You must also add the Bundle `LoginTokenAuthenticator` to the `security.yaml`
+You must also add the bundles `CliLoginTokenAuthenticator` to the `security.yaml`
 file:
 
 ```yaml
@@ -148,7 +148,7 @@ security:
   firewalls:
     main:
       custom_authenticators:
-        - ItkDev\OpenIdConnectBundle\Security\LoginTokenAuthenticator
+        - ItkDev\OpenIdConnectBundle\Security\CliLoginTokenAuthenticator
 ```
 
 Finally, configure the Symfony route to use for login links: `cli_login_options:
