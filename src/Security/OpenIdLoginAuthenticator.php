@@ -42,8 +42,7 @@ abstract class OpenIdLoginAuthenticator extends AbstractAuthenticator implements
         $provider = $this->providerManager->getProvider($providerKey);
 
         // Make sure state and oauth2state are the same
-        $oauth2state = $this->requestStack->getSession()->get('oauth2state');
-        $this->requestStack->getSession()->remove('oauth2state');
+        $oauth2state = $this->requestStack->getSession()->remove('oauth2state');
 
         if ($request->query->get('state') !== $oauth2state) {
             throw new ValidationException('Invalid state');
@@ -53,20 +52,18 @@ abstract class OpenIdLoginAuthenticator extends AbstractAuthenticator implements
             $idToken = $request->query->get('id_token');
 
             if (null === $idToken) {
-                throw new ValidationException('Id token not found.');
+                throw new ValidationException('Id token not found');
             }
 
             if (!is_string($idToken)) {
                 throw new ValidationException('Id token not type string');
             }
 
-            $claims = $provider->validateIdToken($idToken, $this->requestStack->getSession()->get('oauth2nonce'));
+            $claims = $provider->validateIdToken($idToken, $oauth2state);
             // Authentication successful
         } catch (ItkOpenIdConnectException $exception) {
             // Handle failed authentication
             throw new ValidationException($exception->getMessage());
-        } finally {
-            $this->requestStack->getSession()->remove('oauth2nonce');
         }
 
         return (array) $claims + ['open_id_connect_provider' => $providerKey];

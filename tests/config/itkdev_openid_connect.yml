@@ -5,13 +5,13 @@ itkdev_openid_connect:
     route: 'route_test'
   user_provider: 'security.user.provider.concrete.test_users_1'
   openid_providers:
-    test:
+    test_provider_1:
       options:
         metadata_url: 'https://provider.com/openid-configuration'
         client_id: 'test_id'
         client_secret: 'test_secret'
         redirect_uri: 'https://app.com/callback_uri'
-    test2:
+    test_provider_2:
       options:
         metadata_url: 'https://provider.com/openid-configuration'
         client_id: 'test_id'
