@@ -59,6 +59,11 @@ abstract class OpenIdLoginAuthenticator extends AbstractAuthenticator implements
             throw new ValidationException('Invalid state');
         }
 
+        $oauth2nonce = $this->requestStack->getSession()->remove('oauth2nonce');
+        if (empty($oauth2nonce)) {
+            throw new ValidationException('Nonce empty or not found');
+        }
+
         try {
             $idToken = $request->query->get('id_token');
 
@@ -70,7 +75,7 @@ abstract class OpenIdLoginAuthenticator extends AbstractAuthenticator implements
                 throw new ValidationException('Id token not type string');
             }
 
-            $claims = $provider->validateIdToken($idToken, $oauth2state);
+            $claims = $provider->validateIdToken($idToken, $oauth2nonce);
             // Authentication successful
         } catch (ItkOpenIdConnectException $exception) {
             // Handle failed authentication
