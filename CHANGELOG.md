@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.0.2] - 2022-09-14
+### Fixed
+- State passed instead of nonce when validating id token 
+
 ## [3.0.1] - 2022-09-13
 ### Fixed
 - Auto wiring when `itkdev_openid_connect.user_provider` was configured 

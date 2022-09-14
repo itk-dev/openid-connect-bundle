@@ -107,7 +107,7 @@ class OpenIdLoginAuthenticatorTest extends TestCase
         $this->authenticator->authenticate($mockRequest);
     }
 
-    public function testValidateClaimsSucces(): void
+    public function testValidateClaimsSuccess(): void
     {
         $mockProvider = $this->createMock(OpenIdConfigurationProvider::class);
 
