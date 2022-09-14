@@ -27,6 +27,7 @@ class OpenIdLoginAuthenticatorTest extends TestCase
         $map = [
             ['oauth2provider', 'test_provider_1'],
             ['oauth2state', 'test_state'],
+            ['oauth2nonce', 'test_nonce'],
         ];
         $mockSession->method('remove')->will($this->returnValueMap($map));
 
