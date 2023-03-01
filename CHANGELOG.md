@@ -7,20 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.0.3] - 2023-03-01
+
+- Fixed return annotation.
+
 ## [3.0.2] - 2022-09-14
 ### Fixed
-- State passed instead of nonce when validating id token 
+- State passed instead of nonce when validating id token
 
 ## [3.0.1] - 2022-09-13
 ### Fixed
-- Auto wiring when `itkdev_openid_connect.user_provider` was configured 
+- Auto wiring when `itkdev_openid_connect.user_provider` was configured
 
 ## [3.0.0] - 2022-09-13
 ### Added
-- Support for multiple user providers 
+- Support for multiple user providers
 - Symfony 6.x support
 - Rector tooling
-- php-cs-fixer tooling 
+- php-cs-fixer tooling
 
 ### Removed
 - PHP 7.4 and 8.0 support
@@ -43,7 +47,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.0.1] - 2021-09-20
 ### Fixed
-- Updated README 
+- Updated README
 - Avoided duplicate cache configuration
 
 ## [1.0.0] - 2021-09-16
