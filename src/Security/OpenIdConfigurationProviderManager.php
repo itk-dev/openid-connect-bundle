@@ -21,7 +21,7 @@ class OpenIdConfigurationProviderManager
     /**
      * Get all provider keys.
      *
-     * @return array|OpenIdConfigurationProvider[]
+     * @return array|string[]
      */
     public function getProviderKeys(): array
     {
