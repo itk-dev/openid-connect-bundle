@@ -56,6 +56,8 @@ class OpenIdLoginAuthenticatorTest extends TestCase
 
         $mockRequest->query = new InputBag(['state' => 'wrong_test_state']);
 
+        $this->setupMockSessionOnMockRequest($mockRequest);
+
         $this->expectException(ValidationException::class);
         $this->expectExceptionMessage('Invalid state');
         $this->authenticator->authenticate($mockRequest);
