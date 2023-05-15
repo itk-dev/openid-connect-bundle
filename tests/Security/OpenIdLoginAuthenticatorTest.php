@@ -7,10 +7,10 @@ use ItkDev\OpenIdConnect\Exception\ValidationException;
 use ItkDev\OpenIdConnect\Security\OpenIdConfigurationProvider;
 use ItkDev\OpenIdConnectBundle\Security\OpenIdConfigurationProviderManager;
 use ItkDev\OpenIdConnectBundle\Security\OpenIdLoginAuthenticator;
+use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpFoundation\InputBag;
 use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpFoundation\Session\SessionInterface;
 use Symfony\Component\Security\Core\Exception\AuthenticationException;
 
@@ -23,18 +23,7 @@ class OpenIdLoginAuthenticatorTest extends TestCase
     {
         $this->mockProviderManager = $this->createMock(OpenIdConfigurationProviderManager::class);
 
-        $mockSession = $this->createMock(SessionInterface::class);
-        $map = [
-            ['oauth2provider', 'test_provider_1'],
-            ['oauth2state', 'test_state'],
-            ['oauth2nonce', 'test_nonce'],
-        ];
-        $mockSession->method('remove')->will($this->returnValueMap($map));
-
-        $mockRequestStack = $this->createMock(RequestStack::class);
-        $mockRequestStack->method('getSession')->willReturn($mockSession);
-
-        $this->authenticator = new TestAuthenticator($this->mockProviderManager, $mockRequestStack);
+        $this->authenticator = new TestAuthenticator($this->mockProviderManager);
     }
 
     public function testSupports(): void
@@ -78,6 +67,8 @@ class OpenIdLoginAuthenticatorTest extends TestCase
 
         $mockRequest->query = new InputBag(['state' => 'test_state']);
 
+        $this->setupMockSessionOnMockRequest($mockRequest);
+
         $this->expectException(ValidationException::class);
         $this->expectExceptionMessage('Missing code');
         $this->authenticator->authenticate($mockRequest);
@@ -88,6 +79,8 @@ class OpenIdLoginAuthenticatorTest extends TestCase
         $mockRequest = $this->createMock(Request::class);
 
         $mockRequest->query = new InputBag(['state' => 'test_state', 'code' => 42]);
+
+        $this->setupMockSessionOnMockRequest($mockRequest);
 
         $this->expectException(ValidationException::class);
         $this->expectExceptionMessage('Code not type string');
@@ -102,6 +95,8 @@ class OpenIdLoginAuthenticatorTest extends TestCase
 
         $mockRequest = $this->createMock(Request::class);
         $mockRequest->query = new InputBag(['state' => 'test_state', 'code' => 'test_code']);
+
+        $this->setupMockSessionOnMockRequest($mockRequest);
 
         $this->expectException(ValidationException::class);
         $this->expectExceptionMessage('test message');
@@ -122,8 +117,23 @@ class OpenIdLoginAuthenticatorTest extends TestCase
         $mockRequest = $this->createMock(Request::class);
         $mockRequest->query = new InputBag(['state' => 'test_state', 'code' => 'test_code']);
 
+        $this->setupMockSessionOnMockRequest($mockRequest);
+
         $passport = $this->authenticator->authenticate($mockRequest);
 
         $this->assertSame('test@test.com', $passport->getUser()->getUserIdentifier());
+    }
+
+    private function setupMockSessionOnMockRequest(MockObject $mockRequest)
+    {
+        $mockSession = $this->createMock(SessionInterface::class);
+        $map = [
+            ['oauth2provider', 'test_provider_1'],
+            ['oauth2state', 'test_state'],
+            ['oauth2nonce', 'test_nonce'],
+        ];
+        $mockSession->method('remove')->will($this->returnValueMap($map));
+
+        $mockRequest->method('getSession')->willReturn($mockSession);
     }
 }

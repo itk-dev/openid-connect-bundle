@@ -6,7 +6,6 @@ use ItkDev\OpenIdConnect\Exception\ItkOpenIdConnectException;
 use ItkDev\OpenIdConnect\Exception\ValidationException;
 use ItkDev\OpenIdConnectBundle\Exception\InvalidProviderException;
 use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Security\Core\Exception\AuthenticationException;
 use Symfony\Component\Security\Http\Authenticator\AbstractAuthenticator;
@@ -21,11 +20,9 @@ abstract class OpenIdLoginAuthenticator extends AbstractAuthenticator implements
      * OpenIdLoginAuthenticator constructor.
      *
      * @param OpenIdConfigurationProviderManager $providerManager
-     * @param RequestStack $requestStack
      */
     public function __construct(
         private readonly OpenIdConfigurationProviderManager $providerManager,
-        private readonly RequestStack $requestStack
     ) {
     }
 
@@ -49,17 +46,18 @@ abstract class OpenIdLoginAuthenticator extends AbstractAuthenticator implements
      */
     protected function validateClaims(Request $request): array
     {
-        $providerKey = (string) $this->requestStack->getSession()->remove('oauth2provider');
+        $session = $request->getSession();
+        $providerKey = (string) $session->remove('oauth2provider');
         $provider = $this->providerManager->getProvider($providerKey);
 
         // Make sure state and oauth2state are the same
-        $oauth2state = $this->requestStack->getSession()->remove('oauth2state');
+        $oauth2state = $session->remove('oauth2state');
 
         if ($request->query->get('state') !== $oauth2state) {
             throw new ValidationException('Invalid state');
         }
 
-        $oauth2nonce = $this->requestStack->getSession()->remove('oauth2nonce');
+        $oauth2nonce = $session->remove('oauth2nonce');
         if (empty($oauth2nonce)) {
             throw new ValidationException('Nonce empty or not found');
         }
