@@ -60,7 +60,7 @@ itkdev_openid_connect:
         leeway: '%env(int:ADMIN_OIDC_LEEWAY)%'
         # Optional: Allow http OIDC discovery document (used for mocking a IdP)
         #           Defaults to false
-        allow_http: '%env(boolean:ADMIN_OIDC_ALLOW_HTTP)%'
+        allow_http: '%env(bool:ADMIN_OIDC_ALLOW_HTTP)%'
     user:
       options:
         metadata_url: '%env(string:USER_OIDC_METADATA_URL)%'

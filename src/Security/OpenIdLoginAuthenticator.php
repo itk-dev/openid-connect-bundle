@@ -75,7 +75,7 @@ abstract class OpenIdLoginAuthenticator extends AbstractAuthenticator implements
                 throw new ValidationException('Code not type string');
             }
 
-            $idToken = $provider->getIdToken($request->query->get('code'));
+            $idToken = $provider->getIdToken($code);
             $claims = $provider->validateIdToken($idToken, $oauth2nonce);
             // Authentication successful
         } catch (ItkOpenIdConnectException $exception) {
