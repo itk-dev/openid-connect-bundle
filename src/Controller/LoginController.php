@@ -37,7 +37,7 @@ class LoginController extends AbstractController
         $session->set('oauth2state', $state);
         $session->set('oauth2nonce', $nonce);
 
-        $authUrl = $provider->getAuthorizationUrl(['state' => $state, 'nonce' => $nonce]);
+        $authUrl = $provider->getAuthorizationUrl(['state' => $state, 'nonce' => $nonce, 'response_type' => 'code', 'scope' => 'openid email profile']);
 
         return new RedirectResponse($authUrl);
     }

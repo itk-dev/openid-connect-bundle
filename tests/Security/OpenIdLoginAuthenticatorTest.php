@@ -47,7 +47,7 @@ class OpenIdLoginAuthenticatorTest extends TestCase
         $mockRequest->query->set('state', 'abcd');
         $this->assertFalse($this->authenticator->supports($mockRequest));
 
-        $mockRequest->query->set('id_token', 'xyz');
+        $mockRequest->query->set('code', 'xyz');
         $this->assertTrue($this->authenticator->supports($mockRequest));
     }
 
@@ -72,36 +72,36 @@ class OpenIdLoginAuthenticatorTest extends TestCase
         $this->authenticator->authenticate($mockRequest);
     }
 
-    public function testValidateClaimsNoToken(): void
+    public function testValidateClaimsNoCode(): void
     {
         $mockRequest = $this->createMock(Request::class);
 
         $mockRequest->query = new InputBag(['state' => 'test_state']);
 
         $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage('Id token not found');
+        $this->expectExceptionMessage('Missing code');
         $this->authenticator->authenticate($mockRequest);
     }
 
-    public function testValidateClaimsTokenNotString(): void
+    public function testValidateClaimsCodeNotString(): void
     {
         $mockRequest = $this->createMock(Request::class);
 
-        $mockRequest->query = new InputBag(['state' => 'test_state', 'id_token' => 42]);
+        $mockRequest->query = new InputBag(['state' => 'test_state', 'code' => 42]);
 
         $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage('Id token not type string');
+        $this->expectExceptionMessage('Code not type string');
         $this->authenticator->authenticate($mockRequest);
     }
 
-    public function testValidateClaimsTokenDoesNotValidate(): void
+    public function testValidateClaimsCodeDoesNotValidate(): void
     {
         $mockProvider = $this->createMock(OpenIdConfigurationProvider::class);
         $mockProvider->method('validateIdToken')->willThrowException(new ClaimsException('test message'));
         $this->mockProviderManager->method('getProvider')->willReturn($mockProvider);
 
         $mockRequest = $this->createMock(Request::class);
-        $mockRequest->query = new InputBag(['state' => 'test_state', 'id_token' => 'test_token']);
+        $mockRequest->query = new InputBag(['state' => 'test_state', 'code' => 'test_code']);
 
         $this->expectException(ValidationException::class);
         $this->expectExceptionMessage('test message');
@@ -120,7 +120,7 @@ class OpenIdLoginAuthenticatorTest extends TestCase
         $this->mockProviderManager->method('getProvider')->willReturn($mockProvider);
 
         $mockRequest = $this->createMock(Request::class);
-        $mockRequest->query = new InputBag(['state' => 'test_state', 'id_token' => 'test_token']);
+        $mockRequest->query = new InputBag(['state' => 'test_state', 'code' => 'test_code']);
 
         $passport = $this->authenticator->authenticate($mockRequest);
 

@@ -58,6 +58,10 @@ class OpenIdConfigurationProviderManager
                 $providerOptions['leeway'] = $options['leeway'];
             }
 
+            if (isset($options['allow_http'])) {
+                $providerOptions['allowHttp'] = $options['allow_http'];
+            }
+
             $this->providers[$key] = new OpenIdConfigurationProvider($providerOptions);
         }
 

@@ -32,8 +32,8 @@ abstract class OpenIdLoginAuthenticator extends AbstractAuthenticator implements
     /** {@inheritDoc} */
     public function supports(Request $request): ?bool
     {
-        // Check if request has state and id_token
-        return $request->query->has('state') && $request->query->has('id_token');
+        // Check if request has state and code
+        return $request->query->has('state') && $request->query->has('code');
     }
 
     /**
@@ -65,16 +65,17 @@ abstract class OpenIdLoginAuthenticator extends AbstractAuthenticator implements
         }
 
         try {
-            $idToken = $request->query->get('id_token');
+            $code = $request->query->get('code');
 
-            if (null === $idToken) {
-                throw new ValidationException('Id token not found');
+            if (null === $code) {
+                throw new ValidationException('Missing code');
             }
 
-            if (!is_string($idToken)) {
-                throw new ValidationException('Id token not type string');
+            if (!is_string($code)) {
+                throw new ValidationException('Code not type string');
             }
 
+            $idToken = $provider->getIdToken($request->query->get('code'));
             $claims = $provider->validateIdToken($idToken, $oauth2nonce);
             // Authentication successful
         } catch (ItkOpenIdConnectException $exception) {
