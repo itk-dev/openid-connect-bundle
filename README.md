@@ -58,7 +58,7 @@ itkdev_openid_connect:
         # Optional: Specify leeway (seconds) to account for clock skew between provider and hosting
         #           Defaults to 10
         leeway: '%env(int:ADMIN_OIDC_LEEWAY)%'
-        # Optional: Allow http OIDC discovery document (used for mocking a IdP)
+        # Optional: Allow http requests (used for mocking a IdP)
         #           Defaults to false
         allow_http: '%env(bool:ADMIN_OIDC_ALLOW_HTTP)%'
     user:
