@@ -58,6 +58,9 @@ itkdev_openid_connect:
         # Optional: Specify leeway (seconds) to account for clock skew between provider and hosting
         #           Defaults to 10
         leeway: '%env(int:ADMIN_OIDC_LEEWAY)%'
+        # Optional: Allow http requests (used for mocking a IdP)
+        #           Defaults to false
+        allow_http: '%env(bool:ADMIN_OIDC_ALLOW_HTTP)%'
     user:
       options:
         metadata_url: '%env(string:USER_OIDC_METADATA_URL)%'
@@ -80,6 +83,7 @@ ADMIN_OIDC_CLIENT_ID=ADMIN_APP_CLIENT_ID
 ADMIN_OIDC_CLIENT_SECRET=ADMIN_APP_CLIENT_SECRET
 ADMIN_OIDC_REDIRECT_URI=ADMIN_APP_REDIRECT_URI
 ADMIN_OIDC_LEEWAY=30
+ADMIN_OIDC_ALLOW_HTTP=true
 
 # "user" open id connect configuration variables
 USER_OIDC_METADATA_URL=USER_APP_METADATA_URL
@@ -319,7 +323,8 @@ class AzureOIDCAuthenticator extends OpenIdLoginAuthenticator
 ## Sign in from command line
 
 Rather than signing in via OpenId Connect, you can get a sign in url from the
-command line by providing a username. Make sure to configure `OIDC_CLI_REDIRECT_URL`. Run
+command line by providing a username. Make sure to configure
+`OIDC_CLI_REDIRECT_URL`. Run
 
 ```shell
 bin/console itk-dev:openid-connect:login <username>
