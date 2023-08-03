@@ -18,6 +18,11 @@
                 <file name="src/DependencyInjection/Configuration.php"/>
             </errorLevel>
         </PossiblyNullReference>
+        <UndefinedInterfaceMethod>
+            <errorLevel type="suppress">
+                <file name="src/DependencyInjection/Configuration.php"/>
+            </errorLevel>
+        </UndefinedInterfaceMethod>
         <PossiblyUndefinedMethod>
             <errorLevel type="suppress">
                 <file name="src/DependencyInjection/Configuration.php"/>

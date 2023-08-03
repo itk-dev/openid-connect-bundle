@@ -31,7 +31,7 @@ class LoginControllerTest extends TestCase
         $mockProvider
             ->expects($this->exactly(1))
             ->method('getAuthorizationUrl')
-            ->with(['state' => 'abcd', 'nonce' => '1234'])
+            ->with(['state' => 'abcd', 'nonce' => '1234', 'response_type' => 'code', 'scope' => 'openid email profile'])
             ->willReturn('https://test.com');
 
         $mockProviderManager = $this->createMock(OpenIdConfigurationProviderManager::class);

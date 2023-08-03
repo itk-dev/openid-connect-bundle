@@ -2,7 +2,6 @@
 
 namespace ItkDev\OpenIdConnectBundle\DependencyInjection;
 
-use Exception;
 use ItkDev\OpenIdConnectBundle\Command\UserLoginCommand;
 use ItkDev\OpenIdConnectBundle\Security\CliLoginTokenAuthenticator;
 use ItkDev\OpenIdConnectBundle\Security\OpenIdConfigurationProviderManager;
@@ -18,7 +17,7 @@ class ItkDevOpenIdConnectExtension extends Extension
     /**
      * {@inheritdoc}
      *
-     * @throws Exception
+     * @throws \Exception
      */
     public function load(array $configs, ContainerBuilder $container): void
     {

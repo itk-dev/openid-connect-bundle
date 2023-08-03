@@ -7,7 +7,6 @@
 
 namespace ItkDev\OpenIdConnectBundle\Tests;
 
-use Exception;
 use ItkDev\OpenIdConnectBundle\ItkDevOpenIdConnectBundle;
 use ItkDev\OpenIdConnectBundle\Tests\Security\TestAuthenticator;
 use Symfony\Bundle\FrameworkBundle\FrameworkBundle;
@@ -44,7 +43,7 @@ class ItkDevOpenIdConnectBundleTestingKernel extends Kernel
     /**
      * {@inheritdoc}
      *
-     * @throws Exception
+     * @throws \Exception
      */
     public function registerContainerConfiguration(LoaderInterface $loader)
     {

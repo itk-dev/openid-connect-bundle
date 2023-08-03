@@ -3,7 +3,7 @@
 [![Github](https://img.shields.io/badge/source-itk--dev/openid--connect--bundle-blue?style=flat-square)](https://github.com/itk-dev/openid-connect-bundle)
 [![Release](https://img.shields.io/packagist/v/itk-dev/openid-connect-bundle.svg?style=flat-square&label=release)](https://packagist.org/packages/itk-dev/openid-connect-bundle)
 [![PHP Version](https://img.shields.io/packagist/php-v/itk-dev/openid-connect-bundle.svg?style=flat-square&colorB=%238892BF)](https://www.php.net/downloads)
-[![Build Status](https://img.shields.io/github/workflow/status/itk-dev/openid-connect-bundle/Test%20%26%20Code%20Style%20Review?label=CI&logo=github&style=flat-square)](https://github.com/itk-dev/openid-connect-bundle/actions?query=workflow%3A%22Test+%26+Code+Style+Review%22)
+[![Build Status](https://img.shields.io/github/actions/workflow/status/itk-dev/openid-connect-bundle/pr.yaml?label=CI&logo=github&style=flat-square)](https://github.com/itk-dev/openid-connect-bundle/actions?query=workflow%3A%22Test+%26+Code+Style+Review%22)
 [![Codecov Code Coverage](https://img.shields.io/codecov/c/gh/itk-dev/openid-connect-bundle?label=codecov&logo=codecov&style=flat-square)](https://codecov.io/gh/itk-dev/openid-connect-bundle)
 [![Read License](https://img.shields.io/packagist/l/itk-dev/openid-connect-bundle.svg?style=flat-square&colorB=darkcyan)](https://github.com/itk-dev/openid-connect-bundle/blob/master/LICENSE.md)
 [![Package downloads on Packagist](https://img.shields.io/packagist/dt/itk-dev/openid-connect-bundle.svg?style=flat-square&colorB=darkmagenta)](https://packagist.org/packages/itk-dev/openid-connect-bundle/stats)
@@ -58,6 +58,9 @@ itkdev_openid_connect:
         # Optional: Specify leeway (seconds) to account for clock skew between provider and hosting
         #           Defaults to 10
         leeway: '%env(int:ADMIN_OIDC_LEEWAY)%'
+        # Optional: Allow http requests (used for mocking a IdP)
+        #           Defaults to false
+        allow_http: '%env(bool:ADMIN_OIDC_ALLOW_HTTP)%'
     user:
       options:
         metadata_url: '%env(string:USER_OIDC_METADATA_URL)%'
@@ -80,6 +83,7 @@ ADMIN_OIDC_CLIENT_ID=ADMIN_APP_CLIENT_ID
 ADMIN_OIDC_CLIENT_SECRET=ADMIN_APP_CLIENT_SECRET
 ADMIN_OIDC_REDIRECT_URI=ADMIN_APP_REDIRECT_URI
 ADMIN_OIDC_LEEWAY=30
+ADMIN_OIDC_ALLOW_HTTP=true
 
 # "user" open id connect configuration variables
 USER_OIDC_METADATA_URL=USER_APP_METADATA_URL
@@ -319,7 +323,8 @@ class AzureOIDCAuthenticator extends OpenIdLoginAuthenticator
 ## Sign in from command line
 
 Rather than signing in via OpenId Connect, you can get a sign in url from the
-command line by providing a username. Make sure to configure `OIDC_CLI_REDIRECT_URL`. Run
+command line by providing a username. Make sure to configure
+`OIDC_CLI_REDIRECT_URL`. Run
 
 ```shell
 bin/console itk-dev:openid-connect:login <username>
