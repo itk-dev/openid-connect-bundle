@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Added support for `authorization code flow`.
+
+### Removed
+
+- Removed support for `openid connect implicit`.
+
 ## [3.0.3] - 2023-03-01
 
 - Fixed return annotation.

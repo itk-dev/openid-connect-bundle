@@ -18,7 +18,7 @@
         "ext-json": "*",
         "ext-openssl": "*",
         "doctrine/orm": "^2.8",
-        "itk-dev/openid-connect": "dev-feature/authorization-code-flow as 3.0.0",
+        "itk-dev/openid-connect": "3.1",
         "symfony/cache": "^5.4|^6.0",
         "symfony/framework-bundle": "^5.4|^6.0",
         "symfony/security-bundle": "^5.4|^6.0",
