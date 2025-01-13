@@ -48,9 +48,6 @@ class ItkDevOpenIdConnectExtension extends Extension
 
         $definition = $container->getDefinition(CliLoginTokenAuthenticator::class);
         $definition->replaceArgument('$cliLoginRoute', $config['cli_login_options']['route']);
-        if (null !== $config['user_provider']) {
-            $definition->setArgument('$userProvider', new Reference($config['user_provider']));
-        }
     }
 
     /**

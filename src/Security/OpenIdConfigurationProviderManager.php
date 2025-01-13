@@ -10,7 +10,8 @@ use Symfony\Component\Routing\RouterInterface;
 
 class OpenIdConfigurationProviderManager
 {
-    private ?array $providers = null;
+    /** @var array<string,OpenIdConfigurationProvider> */
+    private array $providers = [];
 
     public function __construct(
         private readonly RouterInterface $router,
@@ -21,7 +22,7 @@ class OpenIdConfigurationProviderManager
     /**
      * Get all provider keys.
      *
-     * @return array|string[]
+     * @return string[]
      */
     public function getProviderKeys(): array
     {
