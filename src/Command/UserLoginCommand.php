@@ -4,6 +4,7 @@ namespace ItkDev\OpenIdConnectBundle\Command;
 
 use ItkDev\OpenIdConnectBundle\Exception\CacheException;
 use ItkDev\OpenIdConnectBundle\Util\CliLoginHelper;
+use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
@@ -13,11 +14,12 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Security\Core\Exception\UserNotFoundException;
 use Symfony\Component\Security\Core\User\UserProviderInterface;
 
+#[AsCommand(
+    name: 'itk-dev:openid-connect:login',
+    description: 'Get login url for user',
+)]
 class UserLoginCommand extends Command
 {
-    protected static $defaultName = 'itk-dev:openid-connect:login';
-    protected static $defaultDescription = 'Get login url for user';
-
     /**
      * UserLoginCommand constructor.
      *
@@ -38,7 +40,6 @@ class UserLoginCommand extends Command
     protected function configure(): void
     {
         $this
-            ->setDescription(self::$defaultDescription)
             ->addArgument('username', InputArgument::REQUIRED, 'Username');
     }
 
