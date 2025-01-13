@@ -5,6 +5,7 @@ namespace ItkDev\OpenIdConnectBundle\Security;
 use ItkDev\OpenIdConnect\Exception\ItkOpenIdConnectException;
 use ItkDev\OpenIdConnect\Exception\ValidationException;
 use ItkDev\OpenIdConnectBundle\Exception\InvalidProviderException;
+use Psr\Http\Client\ClientExceptionInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Security\Core\Exception\AuthenticationException;
@@ -43,6 +44,7 @@ abstract class OpenIdLoginAuthenticator extends AbstractAuthenticator implements
      * @throws InvalidProviderException
      * @throws ItkOpenIdConnectException
      * @throws ValidationException
+     * @throws ClientExceptionInterface
      */
     protected function validateClaims(Request $request): array
     {

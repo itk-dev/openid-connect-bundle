@@ -10,7 +10,7 @@ use Symfony\Component\Routing\RouterInterface;
 
 class OpenIdConfigurationProviderManager
 {
-    private ?array $providers;
+    private ?array $providers = null;
 
     public function __construct(
         private readonly RouterInterface $router,

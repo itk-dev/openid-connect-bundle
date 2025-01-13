@@ -16,6 +16,7 @@ class ItkDevOpenIdConnectBundle extends Bundle
      *
      * Overridden to allow for the custom extension alias.
      */
+    #[\Override]
     public function getContainerExtension(): ?ExtensionInterface
     {
         if (null === $this->extension) {
@@ -25,6 +26,7 @@ class ItkDevOpenIdConnectBundle extends Bundle
         return $this->extension;
     }
 
+    #[\Override]
     public function getPath(): string
     {
         return \dirname(__DIR__);

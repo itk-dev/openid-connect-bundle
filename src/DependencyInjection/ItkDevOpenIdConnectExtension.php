@@ -56,6 +56,7 @@ class ItkDevOpenIdConnectExtension extends Extension
     /**
      * {@inheritdoc}
      */
+    #[\Override]
     public function getAlias(): string
     {
         return 'itkdev_openid_connect';
