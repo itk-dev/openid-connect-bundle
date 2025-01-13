@@ -134,7 +134,7 @@ class OpenIdLoginAuthenticatorTest extends TestCase
             ['oauth2state', 'test_state'],
             ['oauth2nonce', 'test_nonce'],
         ];
-        $mockSession->method('remove')->will($this->returnValueMap($map));
+        $mockSession->method('remove')->willReturnMap($map);
 
         $mockRequest->method('getSession')->willReturn($mockSession);
     }
