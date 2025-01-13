@@ -16,3 +16,4 @@ build
 var
 .phpcs-cache
 .php-cs-fixer.cache
+.phpunit.cache

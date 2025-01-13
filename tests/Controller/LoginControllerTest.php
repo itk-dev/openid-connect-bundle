@@ -49,14 +49,23 @@ class LoginControllerTest extends TestCase
         $mockRequest = $this->createMock(Request::class);
         $mockRequest->query = new InputBag(['provider' => 'test']);
         $mockSession = $this->createMock(SessionInterface::class);
+        $matcher = $this->exactly(3);
         $mockSession
-            ->expects($this->exactly(3))
-            ->method('set')
-            ->withConsecutive(
-                [$this->equalTo('oauth2provider'), $this->equalTo('test')],
-                [$this->equalTo('oauth2state'), $this->equalTo('abcd')],
-                [$this->equalTo('oauth2nonce'), $this->equalTo('1234')]
-            );
+            ->expects($matcher)
+            ->method('set')->willReturnCallback(function (...$parameters) use ($matcher) {
+                if (1 === $matcher->numberOfInvocations()) {
+                    $this->assertEquals('oauth2provider', $parameters[0]);
+                    $this->assertEquals('test', $parameters[1]);
+                }
+                if (2 === $matcher->numberOfInvocations()) {
+                    $this->assertEquals('oauth2state', $parameters[0]);
+                    $this->assertEquals('abcd', $parameters[1]);
+                }
+                if (3 === $matcher->numberOfInvocations()) {
+                    $this->assertEquals('oauth2nonce', $parameters[0]);
+                    $this->assertEquals('1234', $parameters[1]);
+                }
+            });
 
         $response = $this->loginController->login($mockRequest, $mockSession, 'test');
         $this->assertInstanceOf(RedirectResponse::class, $response);

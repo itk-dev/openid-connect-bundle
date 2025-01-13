@@ -13,7 +13,7 @@ use Symfony\Component\Uid\Uuid;
  */
 class CliLoginHelper
 {
-    private const ITK_NAMESPACE = 'itk-dev-cli-login';
+    private const string ITK_NAMESPACE = 'itk-dev-cli-login';
 
     public function __construct(
         private readonly CacheItemPoolInterface $cache

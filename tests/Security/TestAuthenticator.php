@@ -20,19 +20,17 @@ class TestAuthenticator extends OpenIdLoginAuthenticator
         return new SelfValidatingPassport(
             new UserBadge(
                 $claims['email'],
-                function ($email) {
-                    return new TestUser($email);
-                }
+                fn ($email) => new TestUser($email)
             )
         );
     }
 
-    public function onAuthenticationSuccess(Request $request, TokenInterface $token, string $providerKey): ?Response
+    public function onAuthenticationSuccess(Request $request, TokenInterface $token, string $firewallName): ?Response
     {
         // TODO: Implement onAuthenticationSuccess() method.
     }
 
-    public function start(Request $request, AuthenticationException $authException = null)
+    public function start(Request $request, ?AuthenticationException $authException = null): Response
     {
         // TODO: Implement start() method.
     }

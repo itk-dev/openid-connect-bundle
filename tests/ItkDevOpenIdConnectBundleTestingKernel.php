@@ -20,11 +20,9 @@ use Symfony\Component\HttpKernel\Kernel;
  */
 class ItkDevOpenIdConnectBundleTestingKernel extends Kernel
 {
-    private array $pathToConfigs;
-
-    public function __construct(array $pathToConfigs)
-    {
-        $this->pathToConfigs = $pathToConfigs;
+    public function __construct(
+        private readonly array $pathToConfigs
+    ) {
         parent::__construct('test', true);
     }
 
@@ -48,7 +46,7 @@ class ItkDevOpenIdConnectBundleTestingKernel extends Kernel
     public function registerContainerConfiguration(LoaderInterface $loader)
     {
         $loader->load(function (ContainerBuilder $builder) {
-            $builder->register('ItkDev\OpenIdConnectBundle\Tests\Security\TestAuthenticator', TestAuthenticator::class);
+            $builder->register(TestAuthenticator::class, TestAuthenticator::class);
         });
 
         foreach ($this->pathToConfigs as $path) {

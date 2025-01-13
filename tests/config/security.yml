@@ -1,5 +1,4 @@
 security:
-  enable_authenticator_manager: true
   providers:
     test_users_1:
       memory:
@@ -19,3 +18,4 @@ security:
         - ItkDev\OpenIdConnectBundle\Tests\Security\TestAuthenticator
         - ItkDev\OpenIdConnectBundle\Security\CliLoginTokenAuthenticator
       entry_point: ItkDev\OpenIdConnectBundle\Tests\Security\TestAuthenticator
+      provider: test_users_1
