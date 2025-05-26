@@ -10,16 +10,17 @@
 
 Symfony bundle for authorization via OpenID Connect.
 
-## Note: Symfony Native OIDC Support
-
-Since this bundle was created Symfony has added [support for OpenID Connect](https://symfony.com/blog/new-in-symfony-6-3-openid-connect-token-handler)
-as documented in ["Using OpenID Connect (OIDC)"](https://symfony.com/doc/current/security/access_token.html#using-openid-connect-oidc)
-
-As of Symfony 7.2 (jan. 2025) it seems this is still a work in progress: 
-* [OIDC discovery](https://github.com/symfony/symfony/pull/54932) is not yet implemented making config a bit cumbersome. 
-* It's not obvious how to implement support for multiple providers, although it may be possible using [Multiple Authenticators](https://symfony.com/doc/current/security/entry_point.html#multiple-authenticators-with-separate-entry-points)
-
-Until these issues are resolved this bundle cannot be fully replaced by the native features. 
+> [!NOTE]
+> ### Symfony Native OIDC Support
+> 
+> Since this bundle was created Symfony has added [support for OpenID Connect](https://symfony.com/blog/new-in-symfony-6-3-openid-connect-token-handler)
+> as documented in ["Using OpenID Connect (OIDC)"](https://symfony.com/doc/current/security/access_token.html#using-openid-connect-oidc)
+> 
+> As of Symfony 7.2 (jan. 2025) it seems this is still a work in progress: 
+> * [OIDC discovery](https://github.com/symfony/symfony/pull/54932) is not yet implemented making config a bit cumbersome. 
+> * It's not obvious how to implement support for multiple providers, although it may be possible using [Multiple Authenticators](https://symfony.com/doc/current/security/> entry_point.html#multiple-authenticators-with-separate-entry-points)
+> 
+> Until these issues are resolved this bundle cannot be fully replaced by the native features. 
 
 
 ## Installation
