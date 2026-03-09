@@ -10,16 +10,17 @@
 
 Symfony bundle for authorization via OpenID Connect.
 
-## Note: Symfony Native OIDC Support
-
-Since theis bundle was created Symfony has added [support for OpenID Connect](https://symfony.com/blog/new-in-symfony-6-3-openid-connect-token-handler)
-as documented in ["Using OpenID Connect (OIDC)"](https://symfony.com/doc/current/security/access_token.html#using-openid-connect-oidc)
-
-As of Symfony 7.2 (jan. 2025) it seems this still a work in progress: 
-* [OIDC discovery](https://github.com/symfony/symfony/pull/54932) is not yet implemented making config a bit cumbersome. 
-* It's not obvious how to implement support for multiple providers, although it may be possible using [Multiple Authenticators](https://symfony.com/doc/current/security/entry_point.html#multiple-authenticators-with-separate-entry-points)
-
-Until these issues are resolved this bundle cannot be fully replaced by the native features. 
+> [!NOTE]
+> ### Symfony Native OIDC Support
+> 
+> Since this bundle was created Symfony has added [support for OpenID Connect](https://symfony.com/blog/new-in-symfony-6-3-openid-connect-token-handler)
+> as documented in ["Using OpenID Connect (OIDC)"](https://symfony.com/doc/current/security/access_token.html#using-openid-connect-oidc)
+> 
+> As of Symfony 7.2 (jan. 2025) it seems this is still a work in progress: 
+> * [OIDC discovery](https://github.com/symfony/symfony/pull/54932) is not yet implemented making config a bit cumbersome. 
+> * It's not obvious how to implement support for multiple providers, although it may be possible using [Multiple Authenticators](https://symfony.com/doc/current/security/> entry_point.html#multiple-authenticators-with-separate-entry-points)
+> 
+> Until these issues are resolved this bundle cannot be fully replaced by the native features. 
 
 
 ## Installation
@@ -70,7 +71,7 @@ itkdev_openid_connect:
         # Optional: Specify leeway (seconds) to account for clock skew between provider and hosting
         #           Defaults to 10
         leeway: '%env(int:ADMIN_OIDC_LEEWAY)%'
-        # Optional: Allow http requests (used for mocking a IdP)
+        # Optional: Allow (non-secure) http requests (used for mocking a IdP). NOT RECOMMENDED FOR PRODUCTION.
         #           Defaults to false
         allow_http: '%env(bool:ADMIN_OIDC_ALLOW_HTTP)%'
     user:
@@ -95,7 +96,7 @@ ADMIN_OIDC_CLIENT_ID=ADMIN_APP_CLIENT_ID
 ADMIN_OIDC_CLIENT_SECRET=ADMIN_APP_CLIENT_SECRET
 ADMIN_OIDC_REDIRECT_URI=ADMIN_APP_REDIRECT_URI
 ADMIN_OIDC_LEEWAY=30
-ADMIN_OIDC_ALLOW_HTTP=true
+ADMIN_OIDC_ALLOW_HTTP=false
 
 # "user" open id connect configuration variables
 USER_OIDC_METADATA_URL=USER_APP_METADATA_URL

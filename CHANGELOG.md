@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Upgraded to PHPUnit 12
 - Set phpstan to max level
+- Set default for ADMIN_OIDC_ALLOW_HTTP to false in README to prevent unsafe settings in production
 
 ### Fixed
 
