@@ -12,6 +12,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Security\Core\Exception\UserNotFoundException;
+use Symfony\Component\Security\Core\User\UserInterface;
 use Symfony\Component\Security\Core\User\UserProviderInterface;
 
 #[AsCommand(
@@ -23,16 +24,13 @@ class UserLoginCommand extends Command
     /**
      * UserLoginCommand constructor.
      *
-     * @param CliLoginHelper $cliLoginHelper
-     * @param string $cliLoginRoute
-     * @param UrlGeneratorInterface $urlGenerator
-     * @param UserProviderInterface $userProvider
+     * @param UserProviderInterface<UserInterface> $userProvider
      */
     public function __construct(
         private readonly CliLoginHelper $cliLoginHelper,
         private readonly string $cliLoginRoute,
         private readonly UrlGeneratorInterface $urlGenerator,
-        private readonly UserProviderInterface $userProvider
+        private readonly UserProviderInterface $userProvider,
     ) {
         parent::__construct();
     }
@@ -52,6 +50,12 @@ class UserLoginCommand extends Command
     {
         $io = new SymfonyStyle($input, $output);
         $username = $input->getArgument('username');
+
+        if (!is_string($username)) { // @codeCoverageIgnore
+            $io->error('Username must be a string'); // @codeCoverageIgnore
+
+            return Command::FAILURE; // @codeCoverageIgnore
+        } // @codeCoverageIgnore
 
         // Check if username is registered in User database
         try {
