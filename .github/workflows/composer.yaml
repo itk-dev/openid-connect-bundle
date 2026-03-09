@@ -29,7 +29,7 @@ jobs:
       - uses: actions/checkout@v5
 
       - run: |
-          docker compose run --rm phpfpm composer install
+          docker compose run --rm phpfpm composer update
           docker compose run --rm phpfpm composer normalize --dry-run
 
   composer-audit:

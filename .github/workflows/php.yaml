@@ -18,7 +18,7 @@ jobs:
       - uses: actions/checkout@v5
 
       - run: |
-          docker compose run --rm phpfpm composer install
+          docker compose run --rm phpfpm composer update
           docker compose run --rm phpfpm vendor/bin/php-cs-fixer fix --dry-run --diff
 
   phpstan:
@@ -28,7 +28,7 @@ jobs:
       - uses: actions/checkout@v5
 
       - run: |
-          docker compose run --rm phpfpm composer install
+          docker compose run --rm phpfpm composer update
           docker compose run --rm phpfpm vendor/bin/phpstan
 
   unit-tests:
@@ -42,7 +42,7 @@ jobs:
       - uses: actions/checkout@v5
 
       - run: |
-          docker compose run --rm ${{ matrix.service }} composer install
+          docker compose run --rm ${{ matrix.service }} composer update
           docker compose run --rm ${{ matrix.service }} vendor/bin/phpunit --coverage-clover=coverage/unit.xml
 
       - name: Upload coverage to Codecov
