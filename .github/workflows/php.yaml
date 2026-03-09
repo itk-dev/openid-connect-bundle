@@ -9,7 +9,7 @@ on:
 
 jobs:
   coding-standards:
-    name: PHP - Check Coding Standards
+    name: Coding style (8.3)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -19,7 +19,7 @@ jobs:
           docker compose run --rm --user "$(id -u):$(id -g)" phpfpm vendor/bin/php-cs-fixer fix --dry-run --diff
 
   phpstan:
-    name: PHPStan
+    name: PHPStan (8.3)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -29,21 +29,39 @@ jobs:
           docker compose run --rm --user "$(id -u):$(id -g)" phpfpm vendor/bin/phpstan
 
   unit-tests:
-    name: Unit tests (${{ matrix.service }})
+    name: Unit tests (${{ matrix.php }}) / (${{ matrix.prefer }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        service: [phpfpm, phpfpm84, phpfpm85]
+        include:
+          - service: phpfpm
+            php: '8.3'
+            prefer: prefer-lowest
+          - service: phpfpm
+            php: '8.3'
+            prefer: prefer-stable
+          - service: phpfpm84
+            php: '8.4'
+            prefer: prefer-lowest
+          - service: phpfpm84
+            php: '8.4'
+            prefer: prefer-stable
+          - service: phpfpm85
+            php: '8.5'
+            prefer: prefer-lowest
+          - service: phpfpm85
+            php: '8.5'
+            prefer: prefer-stable
     steps:
       - uses: actions/checkout@v5
 
       - run: |
-          docker compose run --rm --user "$(id -u):$(id -g)" -e XDEBUG_MODE=coverage ${{ matrix.service }} composer update
+          docker compose run --rm --user "$(id -u):$(id -g)" -e XDEBUG_MODE=coverage ${{ matrix.service }} composer update --${{ matrix.prefer }}
           docker compose run --rm --user "$(id -u):$(id -g)" -e XDEBUG_MODE=coverage ${{ matrix.service }} vendor/bin/phpunit --coverage-clover=coverage/unit.xml
 
       - name: Upload coverage to Codecov
-        if: matrix.service == 'phpfpm'
+        if: matrix.service == 'phpfpm' && matrix.prefer == 'prefer-stable'
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
