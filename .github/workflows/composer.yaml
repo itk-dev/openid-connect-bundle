@@ -27,7 +27,7 @@ jobs:
 
       - run: |
           docker compose run --rm --user "$(id -u):$(id -g)" phpfpm composer update
-          docker compose run --rm phpfpm composer normalize --dry-run
+          docker compose run --rm --user "$(id -u):$(id -g)" phpfpm composer normalize --dry-run
 
   composer-audit:
     runs-on: ubuntu-latest
