@@ -9,7 +9,7 @@ on:
 
 jobs:
   coding-standards:
-    name: Coding style (8.3)
+    name: PHP - Check Coding Standards
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -19,7 +19,7 @@ jobs:
           docker compose run --rm --user "$(id -u):$(id -g)" phpfpm vendor/bin/php-cs-fixer fix --dry-run --diff
 
   phpstan:
-    name: PHPStan (8.3)
+    name: PHPStan
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -29,7 +29,7 @@ jobs:
           docker compose run --rm --user "$(id -u):$(id -g)" phpfpm vendor/bin/phpstan
 
   unit-tests:
-    name: Unit tests (${{ matrix.php }}) / (${{ matrix.prefer }})
+    name: Unit tests (${{ matrix.php }}, ${{ matrix.prefer }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false

@@ -5,7 +5,6 @@ on:
 
 jobs:
   changelog:
-    name: Changelog should be updated
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false

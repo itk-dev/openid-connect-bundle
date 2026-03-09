@@ -9,7 +9,7 @@ on:
 
 jobs:
   composer-validate:
-    name: Validate composer (8.3) / (${{ matrix.prefer }})
+    name: Validate composer (${{ matrix.prefer }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
