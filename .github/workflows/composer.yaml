@@ -1,0 +1,43 @@
+name: Composer
+
+env:
+  COMPOSE_USER: runner
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - develop
+
+jobs:
+  composer-validate:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@v5
+
+      - run: |
+          docker compose run --rm phpfpm composer validate --strict
+
+  composer-normalized:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@v5
+
+      - run: |
+          docker compose run --rm phpfpm composer install
+          docker compose run --rm phpfpm composer normalize --dry-run
+
+  composer-audit:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@v5
+
+      - run: |
+          docker compose run --rm phpfpm composer audit

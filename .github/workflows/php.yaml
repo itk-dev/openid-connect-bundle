@@ -1,0 +1,55 @@
+name: PHP
+
+env:
+  COMPOSE_USER: runner
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - develop
+
+jobs:
+  coding-standards:
+    name: PHP - Check Coding Standards
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - run: |
+          docker compose run --rm phpfpm composer install
+          docker compose run --rm phpfpm vendor/bin/php-cs-fixer fix --dry-run --diff
+
+  phpstan:
+    name: PHPStan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - run: |
+          docker compose run --rm phpfpm composer install
+          docker compose run --rm phpfpm vendor/bin/phpstan
+
+  unit-tests:
+    name: Unit tests (${{ matrix.service }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [phpfpm, phpfpm84, phpfpm85]
+    steps:
+      - uses: actions/checkout@v5
+
+      - run: |
+          docker compose run --rm ${{ matrix.service }} composer install
+          docker compose run --rm ${{ matrix.service }} vendor/bin/phpunit --coverage-clover=coverage/unit.xml
+
+      - name: Upload coverage to Codecov
+        if: matrix.service == 'phpfpm'
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./coverage/unit.xml
+          fail_ci_if_error: true
+          flags: unittests

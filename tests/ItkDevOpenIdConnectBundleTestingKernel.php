@@ -43,7 +43,7 @@ class ItkDevOpenIdConnectBundleTestingKernel extends Kernel
      *
      * @throws \Exception
      */
-    public function registerContainerConfiguration(LoaderInterface $loader)
+    public function registerContainerConfiguration(LoaderInterface $loader): void
     {
         $loader->load(function (ContainerBuilder $builder) {
             $builder->register(TestAuthenticator::class, TestAuthenticator::class);

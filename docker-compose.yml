@@ -14,3 +14,13 @@ services:
       - PHP_IDE_CONFIG=serverName=localhost
     volumes:
       - .:/app
+
+  phpfpm84:
+    extends:
+      service: phpfpm
+    image: itkdev/php8.4-fpm:latest
+
+  phpfpm85:
+    extends:
+      service: phpfpm
+    image: itkdev/php8.5-fpm:latest

@@ -25,7 +25,6 @@ class Configuration implements ConfigurationInterface
                     ->children()
                         ->scalarNode('cache_pool')
                             ->info('Method for caching')
-                            ->defaultValue('cache.app')
                             ->isRequired()->cannotBeEmpty()
                         ->end() // cache_pool
                     ->end()
