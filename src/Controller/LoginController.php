@@ -16,7 +16,7 @@ use Symfony\Component\HttpFoundation\Session\SessionInterface;
 class LoginController extends AbstractController
 {
     public function __construct(
-        private readonly OpenIdConfigurationProviderManager $providerManager
+        private readonly OpenIdConfigurationProviderManager $providerManager,
     ) {
     }
 

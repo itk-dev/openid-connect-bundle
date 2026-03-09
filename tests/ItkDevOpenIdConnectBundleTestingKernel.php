@@ -21,7 +21,7 @@ use Symfony\Component\HttpKernel\Kernel;
 class ItkDevOpenIdConnectBundleTestingKernel extends Kernel
 {
     public function __construct(
-        private readonly array $pathToConfigs
+        private readonly array $pathToConfigs,
     ) {
         parent::__construct('test', true);
     }
