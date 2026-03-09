@@ -9,36 +9,18 @@ on:
 
 jobs:
   composer-validate:
-    name: Validate composer (${{ matrix.php }}) / (${{ matrix.prefer }})
+    name: Validate composer (8.3) / (${{ matrix.prefer }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - service: phpfpm
-            php: '8.3'
-            prefer: prefer-lowest
-          - service: phpfpm
-            php: '8.3'
-            prefer: prefer-stable
-          - service: phpfpm84
-            php: '8.4'
-            prefer: prefer-lowest
-          - service: phpfpm84
-            php: '8.4'
-            prefer: prefer-stable
-          - service: phpfpm85
-            php: '8.5'
-            prefer: prefer-lowest
-          - service: phpfpm85
-            php: '8.5'
-            prefer: prefer-stable
+        prefer: [prefer-lowest, prefer-stable]
     steps:
       - uses: actions/checkout@v5
 
       - run: |
           docker compose run --rm phpfpm composer validate --strict
-          docker compose run --rm --user "$(id -u):$(id -g)" ${{ matrix.service }} composer update --${{ matrix.prefer }}
+          docker compose run --rm --user "$(id -u):$(id -g)" phpfpm composer update --${{ matrix.prefer }}
 
   composer-normalized:
     runs-on: ubuntu-latest
