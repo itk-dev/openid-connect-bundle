@@ -4,6 +4,8 @@ namespace ItkDev\OpenIdConnectBundle\Tests;
 
 use ItkDev\OpenIdConnectBundle\Command\UserLoginCommand;
 use ItkDev\OpenIdConnectBundle\Controller\LoginController;
+use ItkDev\OpenIdConnectBundle\DependencyInjection\ItkDevOpenIdConnectExtension;
+use ItkDev\OpenIdConnectBundle\ItkDevOpenIdConnectBundle;
 use ItkDev\OpenIdConnectBundle\Security\CliLoginTokenAuthenticator;
 use ItkDev\OpenIdConnectBundle\Security\OpenIdConfigurationProviderManager;
 use ItkDev\OpenIdConnectBundle\Security\OpenIdLoginAuthenticator;
@@ -18,7 +20,7 @@ class ItkDevOpenIdConnectBundleTest extends TestCase
     /**
      * Test service wiring.
      */
-    public function testServiceWiring()
+    public function testServiceWiring(): void
     {
         $kernel = new ItkDevOpenIdConnectBundleTestingKernel([
             __DIR__.'/config/framework.yml',
@@ -56,5 +58,24 @@ class ItkDevOpenIdConnectBundleTest extends TestCase
         $this->assertTrue($container->has(CliLoginTokenAuthenticator::class));
         $authenticator = $container->get(CliLoginTokenAuthenticator::class);
         $this->assertInstanceOf(CliLoginTokenAuthenticator::class, $authenticator);
+    }
+
+    public function testGetContainerExtension(): void
+    {
+        $bundle = new ItkDevOpenIdConnectBundle();
+
+        $extension = $bundle->getContainerExtension();
+        $this->assertInstanceOf(ItkDevOpenIdConnectExtension::class, $extension);
+
+        // Call again to test caching
+        $extension2 = $bundle->getContainerExtension();
+        $this->assertSame($extension, $extension2);
+    }
+
+    public function testGetPath(): void
+    {
+        $bundle = new ItkDevOpenIdConnectBundle();
+
+        $this->assertSame(dirname(__DIR__), $bundle->getPath());
     }
 }
