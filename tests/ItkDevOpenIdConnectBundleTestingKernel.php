@@ -26,9 +26,6 @@ class ItkDevOpenIdConnectBundleTestingKernel extends Kernel
         parent::__construct('test', true);
     }
 
-    /**
-     * {@inheritdoc}
-     */
     public function registerBundles(): iterable
     {
         return [
@@ -39,8 +36,6 @@ class ItkDevOpenIdConnectBundleTestingKernel extends Kernel
     }
 
     /**
-     * {@inheritdoc}
-     *
      * @throws \Exception
      */
     public function registerContainerConfiguration(LoaderInterface $loader): void

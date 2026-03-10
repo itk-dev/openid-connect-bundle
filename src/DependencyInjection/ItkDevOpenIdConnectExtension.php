@@ -15,8 +15,6 @@ use Symfony\Component\DependencyInjection\Reference;
 class ItkDevOpenIdConnectExtension extends Extension
 {
     /**
-     * {@inheritdoc}
-     *
      * @throws \Exception
      */
     public function load(array $configs, ContainerBuilder $container): void
@@ -51,9 +49,6 @@ class ItkDevOpenIdConnectExtension extends Extension
         $definition->replaceArgument('$cliLoginRoute', $config['cli_login_options']['route']);
     }
 
-    /**
-     * {@inheritdoc}
-     */
     #[\Override]
     public function getAlias(): string
     {

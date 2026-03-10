@@ -19,15 +19,12 @@ abstract class OpenIdLoginAuthenticator extends AbstractAuthenticator implements
 {
     /**
      * OpenIdLoginAuthenticator constructor.
-     *
-     * @param OpenIdConfigurationProviderManager $providerManager
      */
     public function __construct(
         private readonly OpenIdConfigurationProviderManager $providerManager,
     ) {
     }
 
-    /** {@inheritDoc} */
     public function supports(Request $request): ?bool
     {
         // Check if request has state and code
@@ -36,8 +33,6 @@ abstract class OpenIdLoginAuthenticator extends AbstractAuthenticator implements
 
     /**
      * Validate oidc claims.
-     *
-     * @param Request $request
      *
      * @return array<string, string> Array of claims
      *
@@ -86,7 +81,6 @@ abstract class OpenIdLoginAuthenticator extends AbstractAuthenticator implements
         return $claimsArray + ['open_id_connect_provider' => $providerKey];
     }
 
-    /** {@inheritDoc} */
     public function onAuthenticationFailure(Request $request, AuthenticationException $exception): ?Response
     {
         throw new AuthenticationException('Error occurred validating openid login');
