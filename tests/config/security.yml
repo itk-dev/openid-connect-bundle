@@ -3,11 +3,11 @@ security:
     test_users_1:
       memory:
         users:
-          admin: { password: 'test', roles: ['ROLE_ADMIN'] }
+          admin: { password: "test", roles: ["ROLE_ADMIN"] }
     test_users_2:
       memory:
         users:
-          admin: { password: 'test', roles: ['ROLE_ADMIN'] }
+          admin: { password: "test", roles: ["ROLE_ADMIN"] }
   firewalls:
     dev:
       pattern: ^/(_(profiler|wdt)|css|images|js)/

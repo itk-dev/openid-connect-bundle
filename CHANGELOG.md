@@ -24,9 +24,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Increased test coverage to 100%
 
 ## [4.0.1] - 2025-01-16
-- Fix doctrine/orm require 
+
+- Fix doctrine/orm require
 
 ## [4.0.0] - 2025-01-13
+
 - Remove support for PHP 8.1 and 8.2 (BC)
 - Remove support for Symfony versions lower than 6.4 (BC)
 - Bump dependency requirements
@@ -46,46 +48,65 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed return annotation.
 
 ## [3.0.2] - 2022-09-14
+
 ### Fixed
+
 - State passed instead of nonce when validating id token
 
 ## [3.0.1] - 2022-09-13
+
 ### Fixed
+
 - Auto wiring when `itkdev_openid_connect.user_provider` was configured
 
 ## [3.0.0] - 2022-09-13
+
 ### Added
+
 - Support for multiple user providers
 - Symfony 6.x support
 - Rector tooling
 - php-cs-fixer tooling
 
 ### Removed
+
 - PHP 7.4 and 8.0 support
 - phpcodesniffer
 
 ## [2.0.0] - 2021-12-08
+
 ### Added
+
 - Migrated to Symfony's new (5.1+) security system
+
 ### Changed
+
 - Require Symfony 5.4
 - Moved `leeway` config to provider config
 - ITK OpenID Connect: Upgraded from
   `itk-dev/openid-connect` 2.1.0 to 3.0.0
+
 ### Removed
+
 - Remove support for PHP 7.3
 
 ## [1.1.0] - 2021-12-08
+
 ### Added
+
 - Support for multiple open id connect configuration providers
 
 ## [1.0.1] - 2021-09-20
+
 ### Fixed
+
 - Updated README
 - Avoided duplicate cache configuration
 
 ## [1.0.0] - 2021-09-16
+
 ### Added
+
 - README
 - LICENSE
 - OpenID Connect Bundle: Added bundle files, a login controller and an abstract authenticator.
