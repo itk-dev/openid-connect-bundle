@@ -1,0 +1,241 @@
+# yaml-language-server: $schema=https://taskfile.dev/schema.json
+---
+version: "3"
+
+vars:
+  DOCKER_COMPOSE: "docker compose"
+  PHP: "{{.DOCKER_COMPOSE}} exec phpfpm"
+  COMPOSER: "{{.PHP}} composer"
+
+tasks:
+  default:
+    silent: true
+    cmds:
+      - task --list
+
+  install:
+    desc: Install dependencies
+    cmds:
+      - task: composer:install
+
+  setup:
+    desc: Set up the project
+    cmds:
+      - task: up
+      - task: install
+
+  # Container management
+
+  up:
+    desc: Start docker containers
+    cmds:
+      - task: network:frontend
+      - "{{.DOCKER_COMPOSE}} up -d"
+
+  down:
+    desc: Stop docker containers
+    cmds:
+      - "{{.DOCKER_COMPOSE}} down"
+
+  restart:
+    desc: Restart docker containers
+    cmds:
+      - task: down
+      - task: up
+
+  network:frontend:
+    internal: true
+    desc: Create docker frontend network
+    cmds:
+      - docker network create frontend 2>/dev/null || true
+
+  # Composer
+
+  composer:
+    desc: Run arbitrary composer command
+    cmds:
+      - "{{.COMPOSER}} {{.CLI_ARGS}}"
+
+  composer:install:
+    desc: Install composer dependencies
+    cmds:
+      - "{{.COMPOSER}} install"
+
+  composer:update:
+    desc: Update composer dependencies
+    cmds:
+      - "{{.COMPOSER}} update"
+
+  composer:normalize:
+    desc: Normalize composer.json
+    cmds:
+      - "{{.COMPOSER}} normalize"
+
+  # Code quality
+
+  lint:
+    desc: Run all linters
+    cmds:
+      - task: lint:php
+      - task: lint:composer
+      - task: lint:markdown
+      - task: lint:yaml
+
+  lint:php:
+    desc: Check PHP coding standards
+    cmds:
+      - "{{.PHP}} vendor/bin/php-cs-fixer fix --dry-run --diff"
+
+  lint:php:fix:
+    desc: Fix PHP coding standards
+    cmds:
+      - "{{.PHP}} vendor/bin/php-cs-fixer fix"
+
+  lint:composer:
+    desc: Validate and audit composer
+    cmds:
+      - "{{.PHP}} composer validate --strict"
+      - "{{.COMPOSER}} normalize --dry-run"
+      - "{{.COMPOSER}} audit"
+
+  lint:markdown:
+    desc: Lint markdown files
+    cmds:
+      - "{{.DOCKER_COMPOSE}} run --rm markdownlint markdownlint '**/*.md'"
+
+  lint:markdown:fix:
+    desc: Fix markdown files
+    cmds:
+      - "{{.DOCKER_COMPOSE}} run --rm markdownlint markdownlint '**/*.md' --fix"
+
+  lint:yaml:
+    desc: Lint YAML files
+    cmds:
+      - "{{.DOCKER_COMPOSE}} run --rm prettier '**/*.{yml,yaml}' --check"
+
+  lint:yaml:fix:
+    desc: Fix YAML files
+    cmds:
+      - "{{.DOCKER_COMPOSE}} run --rm prettier '**/*.{yml,yaml}' --write"
+
+  # Analysis
+
+  analyze:
+    desc: Run PHPStan static analysis
+    cmds:
+      - "{{.PHP}} vendor/bin/phpstan"
+
+  # Testing
+
+  test:
+    desc: Run tests
+    cmds:
+      - "{{.PHP}} vendor/bin/phpunit"
+
+  test:coverage:
+    desc: Run tests with coverage
+    cmds:
+      - "{{.PHP}} vendor/bin/phpunit --coverage-clover=coverage/unit.xml"
+
+  test:matrix:
+    desc: Run tests across all PHP versions (mirrors CI matrix)
+    vars:
+      RESULTS_FILE:
+        sh: mktemp
+    cmds:
+      - task: test:run
+        vars:
+          {
+            SERVICE: phpfpm,
+            PHP: "8.3",
+            PREFER: prefer-lowest,
+            RESULTS_FILE: "{{.RESULTS_FILE}}",
+          }
+      - task: test:run
+        vars:
+          {
+            SERVICE: phpfpm,
+            PHP: "8.3",
+            PREFER: prefer-stable,
+            RESULTS_FILE: "{{.RESULTS_FILE}}",
+          }
+      - task: test:run
+        vars:
+          {
+            SERVICE: phpfpm84,
+            PHP: "8.4",
+            PREFER: prefer-lowest,
+            RESULTS_FILE: "{{.RESULTS_FILE}}",
+          }
+      - task: test:run
+        vars:
+          {
+            SERVICE: phpfpm84,
+            PHP: "8.4",
+            PREFER: prefer-stable,
+            RESULTS_FILE: "{{.RESULTS_FILE}}",
+          }
+      - task: test:run
+        vars:
+          {
+            SERVICE: phpfpm85,
+            PHP: "8.5",
+            PREFER: prefer-lowest,
+            RESULTS_FILE: "{{.RESULTS_FILE}}",
+          }
+      - task: test:run
+        vars:
+          {
+            SERVICE: phpfpm85,
+            PHP: "8.5",
+            PREFER: prefer-stable,
+            RESULTS_FILE: "{{.RESULTS_FILE}}",
+          }
+      - task: test:summary
+        vars: { RESULTS_FILE: "{{.RESULTS_FILE}}" }
+
+  test:run:
+    internal: true
+    desc: Run tests for a specific PHP version and dependency preference
+    cmds:
+      - echo "Testing PHP {{.PHP}} ({{.PREFER}})..."
+      - "{{.DOCKER_COMPOSE}} run --rm -e XDEBUG_MODE=coverage {{.SERVICE}} composer update --{{.PREFER}}"
+      - cmd: |
+          if {{.DOCKER_COMPOSE}} run --rm -e XDEBUG_MODE=coverage {{.SERVICE}} vendor/bin/phpunit --coverage-clover=coverage/unit.xml; then
+              echo "PASS PHP {{.PHP}} ({{.PREFER}})" >> "{{.RESULTS_FILE}}"
+          else
+              echo "FAIL PHP {{.PHP}} ({{.PREFER}})" >> "{{.RESULTS_FILE}}"
+              exit 1
+          fi
+        ignore_error: true
+
+  test:summary:
+    internal: true
+    desc: Print test matrix summary
+    cmds:
+      - cmd: |
+          echo ""
+          echo "=============================="
+          echo "  Test Matrix Summary"
+          echo "=============================="
+          cat "{{.RESULTS_FILE}}"
+          echo "=============================="
+          if grep -q "^FAIL" "{{.RESULTS_FILE}}"; then
+              echo "  Some tests FAILED"
+              echo "=============================="
+              rm -f "{{.RESULTS_FILE}}"
+              exit 1
+          else
+              echo "  All tests PASSED"
+              echo "=============================="
+              rm -f "{{.RESULTS_FILE}}"
+          fi
+
+  # CI
+
+  pr:actions:
+    desc: Run all CI checks locally
+    cmds:
+      - task: lint
+      - task: analyze
+      - task: test:matrix
