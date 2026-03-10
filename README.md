@@ -15,15 +15,18 @@ Symfony bundle for authorization via OpenID Connect.
 > ## Symfony Native OIDC Support
 >
 > Since this bundle was created Symfony has added [support for OpenID Connect](https://symfony.com/blog/new-in-symfony-6-3-openid-connect-token-handler)
-> as documented in ["Using OpenID Connect (OIDC)"](https://symfony.com/doc/current/security/access_token.html#using-openid-connect-oidc)
+> as documented in ["Using OpenID Connect (OIDC)"](https://symfony.com/doc/current/security/access_token.html#using-openid-connect-oidc).
 >
-> As of Symfony 7.2 (jan. 2025) it seems this is still a work in progress:
+> As of Symfony 7.4 (March 2026), Symfony's native OIDC support has matured:
 >
-> * [OIDC discovery](https://github.com/symfony/symfony/pull/54932) is not yet implemented making config a bit cumbersome.
-> * It's not obvious how to implement support for multiple providers, although it may be possible using
->   [Multiple Authenticators](https://symfony.com/doc/current/security/entry_point.html#multiple-authenticators-with-separate-entry-points)
+> * [OIDC discovery](https://github.com/symfony/symfony/pull/54932) was added in Symfony 7.3, removing the need
+>   for manual keyset configuration.
+> * Multiple providers are supported via multiple `base_uri` and `issuers` entries in the discovery config.
 >
-> Until these issues are resolved this bundle cannot be fully replaced by the native features.
+> However, Symfony's native OIDC support is designed for **bearer token validation** (API authentication) only.
+> It does not implement the **authorization code flow** (browser-based login with redirect to the IdP and callback
+> handling), which is the primary use case of this bundle. If your application needs browser-based OIDC login,
+> this bundle is still required.
 
 ## Installation
 
