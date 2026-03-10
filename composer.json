@@ -27,9 +27,7 @@
     },
     "require-dev": {
         "ergebnis/composer-normalize": "^2.28",
-        "escapestudios/symfony2-coding-standard": "^3.12",
         "friendsofphp/php-cs-fixer": "^3.11",
-        "kubawerlos/php-cs-fixer-custom-fixers": "^3.11",
         "phpstan/phpstan": "^2.1",
         "phpunit/phpunit": "^12.0",
         "rector/rector": "^2.0",
@@ -53,11 +51,11 @@
         "sort-packages": true
     },
     "scripts": {
-        "coding-standards-apply": [
-            "./vendor/bin/php-cs-fixer fix"
+        "apply-coding-standards": [
+            "vendor/bin/php-cs-fixer fix"
         ],
-        "coding-standards-check": [
-            "./vendor/bin/php-cs-fixer fix --dry-run --format=checkstyle"
+        "check-coding-standards": [
+            "vendor/bin/php-cs-fixer fix --dry-run --diff"
         ],
         "test": "XDEBUG_MODE=coverage ./vendor/bin/phpunit"
     }
