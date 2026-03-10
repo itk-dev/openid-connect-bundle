@@ -1,0 +1,11 @@
+# This file is copied from config/symfony/yaml/.prettierrc.yaml in https://github.com/itk-dev/devops_itkdev-docker.
+# Feel free to edit the file, but consider making a pull request if you find a general issue with the file.
+
+# https://prettier.io/docs/configuration
+overrides:
+  # Symfony config
+  - files:
+      - "config/**/*.{yml,yaml}"
+    options:
+      tabWidth: 4
+      singleQuote: true
