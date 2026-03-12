@@ -23,7 +23,6 @@ class ItkDevOpenIdConnectExtension extends Extension
         $loader->load('services.yaml');
 
         $configuration = new Configuration();
-        /** @var array{cache_options: array{cache_pool: string}, cli_login_options: array{route: string}, user_provider: string|null, openid_providers: array<string, array{options: array<string, mixed>}>} $config */
         $config = $this->processConfiguration($configuration, $configs);
 
         $definition = $container->getDefinition(OpenIdConfigurationProviderManager::class);
