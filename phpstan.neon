@@ -1,11 +1,4 @@
 parameters:
-	level: 8
+	level: max
 	paths:
 		- src
-	ignoreErrors:
-		- identifier: missingType.iterableValue
-		  path: src/Security/OpenIdConfigurationProviderManager.php
-		- identifier: return.type
-		  path: src/Security/OpenIdConfigurationProviderManager.php
-		- identifier: missingType.generics
-		  path: src/Command/UserLoginCommand.php

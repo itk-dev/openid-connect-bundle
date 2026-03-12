@@ -13,6 +13,21 @@ class OpenIdConfigurationProviderManager
     /** @var array<string,OpenIdConfigurationProvider> */
     private array $providers = [];
 
+    /**
+     * @param array{
+     *     default_providers_options: array<string, mixed>,
+     *     providers: array<string, array{
+     *         metadata_url: string,
+     *         client_id: string,
+     *         client_secret: string,
+     *         redirect_uri?: string,
+     *         redirect_route?: string,
+     *         redirect_route_parameters?: array<string, string>,
+     *         leeway?: int,
+     *         allow_http?: bool,
+     *     }>,
+     * } $config
+     */
     public function __construct(
         private readonly RouterInterface $router,
         private readonly array $config,
