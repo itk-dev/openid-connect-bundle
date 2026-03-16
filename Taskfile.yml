@@ -171,23 +171,17 @@ tasks:
         sh: mktemp
     cmds:
       - task: test:matrix:run
-        vars:
-          { PHP: "8.3", DEPS: lowest, RESULTS_FILE: "{{.RESULTS_FILE}}" }
+        vars: { PHP: "8.3", DEPS: lowest, RESULTS_FILE: "{{.RESULTS_FILE}}" }
       - task: test:matrix:run
-        vars:
-          { PHP: "8.3", DEPS: stable, RESULTS_FILE: "{{.RESULTS_FILE}}" }
+        vars: { PHP: "8.3", DEPS: stable, RESULTS_FILE: "{{.RESULTS_FILE}}" }
       - task: test:matrix:run
-        vars:
-          { PHP: "8.4", DEPS: lowest, RESULTS_FILE: "{{.RESULTS_FILE}}" }
+        vars: { PHP: "8.4", DEPS: lowest, RESULTS_FILE: "{{.RESULTS_FILE}}" }
       - task: test:matrix:run
-        vars:
-          { PHP: "8.4", DEPS: stable, RESULTS_FILE: "{{.RESULTS_FILE}}" }
+        vars: { PHP: "8.4", DEPS: stable, RESULTS_FILE: "{{.RESULTS_FILE}}" }
       - task: test:matrix:run
-        vars:
-          { PHP: "8.5", DEPS: lowest, RESULTS_FILE: "{{.RESULTS_FILE}}" }
+        vars: { PHP: "8.5", DEPS: lowest, RESULTS_FILE: "{{.RESULTS_FILE}}" }
       - task: test:matrix:run
-        vars:
-          { PHP: "8.5", DEPS: stable, RESULTS_FILE: "{{.RESULTS_FILE}}" }
+        vars: { PHP: "8.5", DEPS: stable, RESULTS_FILE: "{{.RESULTS_FILE}}" }
       - task: test:summary
         vars: { RESULTS_FILE: "{{.RESULTS_FILE}}" }
 

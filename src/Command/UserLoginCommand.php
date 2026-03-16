@@ -46,8 +46,7 @@ class UserLoginCommand extends Command
     {
         $io = new SymfonyStyle($input, $output);
 
-        /* Symfony's getArgument() always returns a string for a REQUIRED argument */
-        /* @var string $username */
+        /** @var string $username Symfony's getArgument() always returns a string for a REQUIRED argument */
         $username = $input->getArgument('username');
 
         // Check if the username is registered in the user database

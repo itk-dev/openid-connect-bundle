@@ -26,6 +26,16 @@ services:
       - .:/app
       - composer-cache:/home/deploy/.composer/cache
 
+  phpfpm84:
+    extends:
+      service: phpfpm
+    image: itkdev/php8.4-fpm:latest
+
+  phpfpm85:
+    extends:
+      service: phpfpm
+    image: itkdev/php8.5-fpm:latest
+
   # Test matrix services (PHP version × dependency set)
   phpfpm83-stable:
     extends:
@@ -106,4 +116,3 @@ volumes:
   phpfpm85-stable-vendor:
   phpfpm85-lowest-vendor:
   composer-cache:
-
