@@ -23,7 +23,7 @@ class Configuration implements ConfigurationInterface
                         ->scalarNode('cache_pool')
                             ->info('Method for caching')
                             ->defaultValue('cache.app')
-                            ->isRequired()->cannotBeEmpty()
+                            ->cannotBeEmpty()
                         ->end() // cache_pool
                     ->end()
                 ->end() // cache_options
@@ -82,17 +82,8 @@ class Configuration implements ConfigurationInterface
                                     ->end()
                                 ->end()
                                 ->validate()
-                                    ->always()
-                                    ->then(
-                                        static function (array $value) {
-                                            // Complain if both redirect_uri and redirect_route are set.
-                                            if (isset($value['redirect_uri'], $value['redirect_route'])) {
-                                                throw new \InvalidArgumentException('Only one of redirect_uri or redirect_route must be set.');
-                                            }
-
-                                            return $value;
-                                        }
-                                    )
+                                    ->ifTrue(static fn (array $v) => isset($v['redirect_uri'], $v['redirect_route']))
+                                    ->thenInvalid('Only one of redirect_uri or redirect_route must be set.')
                             ->end()
                         ->end()
                     ->end()
