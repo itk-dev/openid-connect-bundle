@@ -77,7 +77,6 @@ tasks:
     desc: Run all linters
     cmds:
       - task: lint:php
-      - task: lint:composer
       - task: lint:markdown
       - task: lint:yaml
 
@@ -91,7 +90,7 @@ tasks:
     cmds:
       - "{{.PHP}} vendor/bin/php-cs-fixer fix"
 
-  lint:composer:
+  composer:check:
     desc: Validate and audit composer
     cmds:
       - "{{.PHP}} composer validate --strict"
@@ -244,6 +243,7 @@ tasks:
   pr:actions:
     desc: Run all CI checks locally
     cmds:
+      - task: composer:check
       - task: lint
       - task: analyze
       - task: test:matrix
