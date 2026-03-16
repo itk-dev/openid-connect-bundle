@@ -55,8 +55,7 @@ services:
 
   phpfpm84-stable:
     extends:
-      service: phpfpm
-    image: itkdev/php8.4-fpm:latest
+      service: phpfpm84
     volumes:
       - .:/app
       - phpfpm84-stable-vendor:/app/vendor
@@ -64,8 +63,7 @@ services:
 
   phpfpm84-lowest:
     extends:
-      service: phpfpm
-    image: itkdev/php8.4-fpm:latest
+      service: phpfpm84
     volumes:
       - .:/app
       - phpfpm84-lowest-vendor:/app/vendor
@@ -73,8 +71,7 @@ services:
 
   phpfpm85-stable:
     extends:
-      service: phpfpm
-    image: itkdev/php8.5-fpm:latest
+      service: phpfpm85
     volumes:
       - .:/app
       - phpfpm85-stable-vendor:/app/vendor
@@ -82,8 +79,7 @@ services:
 
   phpfpm85-lowest:
     extends:
-      service: phpfpm
-    image: itkdev/php8.5-fpm:latest
+      service: phpfpm85
     volumes:
       - .:/app
       - phpfpm85-lowest-vendor:/app/vendor
