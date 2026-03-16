@@ -137,80 +137,78 @@ tasks:
     cmds:
       - "{{.PHP}} vendor/bin/phpunit --coverage-clover=coverage/unit.xml"
 
+  test:run:
+    desc: "Run tests for a PHP version and dependency set (e.g. task test:run PHP=8.4 DEPS=lowest)"
+    vars:
+      PHP: '{{.PHP | default "8.3"}}'
+      DEPS: '{{.DEPS | default "stable"}}'
+      PREFER: "prefer-{{.DEPS}}"
+      SERVICE: 'phpfpm{{.PHP | replace "." ""}}-{{.DEPS}}'
+    cmds:
+      - cmd: |
+          trap 'stty sane 2>/dev/null || true' EXIT
+          set -e
+          echo "Testing PHP {{.PHP}} ({{.PREFER}})..."
+          {{.DOCKER_COMPOSE}} run --rm -T --user root {{.SERVICE}} chown -R deploy:deploy /app/vendor /home/deploy/.composer
+          {{.DOCKER_COMPOSE}} run --rm -T -e XDEBUG_MODE=coverage {{.SERVICE}} sh -c '
+            if [ -f /app/vendor/.composer.lock ]; then
+              cp /app/vendor/.composer.lock /app/composer.lock
+              composer install -q
+            else
+              composer update -q --{{.PREFER}}
+              cp /app/composer.lock /app/vendor/.composer.lock
+            fi'
+          {{.DOCKER_COMPOSE}} run --rm -T -e XDEBUG_MODE=coverage {{.SERVICE}} vendor/bin/phpunit --coverage-clover=coverage/unit.xml
+
+  test:matrix:reset:
+    desc: Remove cached vendor volumes to force a fresh dependency resolve
+    cmds:
+      - "{{.DOCKER_COMPOSE}} down --volumes"
+
   test:matrix:
     desc: Run tests across all PHP versions (mirrors CI matrix)
     vars:
       RESULTS_FILE:
         sh: mktemp
     cmds:
-      - task: test:run
+      - task: test:matrix:run
         vars:
-          {
-            SERVICE: phpfpm,
-            PHP: "8.3",
-            PREFER: prefer-lowest,
-            RESULTS_FILE: "{{.RESULTS_FILE}}",
-          }
-      - task: test:run
+          { PHP: "8.3", DEPS: lowest, RESULTS_FILE: "{{.RESULTS_FILE}}" }
+      - task: test:matrix:run
         vars:
-          {
-            SERVICE: phpfpm,
-            PHP: "8.3",
-            PREFER: prefer-stable,
-            RESULTS_FILE: "{{.RESULTS_FILE}}",
-          }
-      - task: test:run
+          { PHP: "8.3", DEPS: stable, RESULTS_FILE: "{{.RESULTS_FILE}}" }
+      - task: test:matrix:run
         vars:
-          {
-            SERVICE: phpfpm84,
-            PHP: "8.4",
-            PREFER: prefer-lowest,
-            RESULTS_FILE: "{{.RESULTS_FILE}}",
-          }
-      - task: test:run
+          { PHP: "8.4", DEPS: lowest, RESULTS_FILE: "{{.RESULTS_FILE}}" }
+      - task: test:matrix:run
         vars:
-          {
-            SERVICE: phpfpm84,
-            PHP: "8.4",
-            PREFER: prefer-stable,
-            RESULTS_FILE: "{{.RESULTS_FILE}}",
-          }
-      - task: test:run
+          { PHP: "8.4", DEPS: stable, RESULTS_FILE: "{{.RESULTS_FILE}}" }
+      - task: test:matrix:run
         vars:
-          {
-            SERVICE: phpfpm85,
-            PHP: "8.5",
-            PREFER: prefer-lowest,
-            RESULTS_FILE: "{{.RESULTS_FILE}}",
-          }
-      - task: test:run
+          { PHP: "8.5", DEPS: lowest, RESULTS_FILE: "{{.RESULTS_FILE}}" }
+      - task: test:matrix:run
         vars:
-          {
-            SERVICE: phpfpm85,
-            PHP: "8.5",
-            PREFER: prefer-stable,
-            RESULTS_FILE: "{{.RESULTS_FILE}}",
-          }
+          { PHP: "8.5", DEPS: stable, RESULTS_FILE: "{{.RESULTS_FILE}}" }
       - task: test:summary
         vars: { RESULTS_FILE: "{{.RESULTS_FILE}}" }
 
-  test:run:
+  test:matrix:run:
     internal: true
-    desc: Run tests for a specific PHP version and dependency preference
+    desc: Run a single matrix combination and record the result
+    vars:
+      PREFER: "prefer-{{.DEPS}}"
     cmds:
-      - echo "Testing PHP {{.PHP}} ({{.PREFER}})..."
-      - "{{.DOCKER_COMPOSE}} run --rm -e XDEBUG_MODE=coverage {{.SERVICE}} composer update --{{.PREFER}}"
       - cmd: |
-          if {{.DOCKER_COMPOSE}} run --rm -e XDEBUG_MODE=coverage {{.SERVICE}} vendor/bin/phpunit --coverage-clover=coverage/unit.xml; then
+          if task test:run PHP={{.PHP}} DEPS={{.DEPS}}; then
               echo "PASS PHP {{.PHP}} ({{.PREFER}})" >> "{{.RESULTS_FILE}}"
           else
               echo "FAIL PHP {{.PHP}} ({{.PREFER}})" >> "{{.RESULTS_FILE}}"
-              exit 1
           fi
         ignore_error: true
 
   test:summary:
     internal: true
+    silent: true
     desc: Print test matrix summary
     cmds:
       - cmd: |
@@ -218,11 +216,21 @@ tasks:
           echo "=============================="
           echo "  Test Matrix Summary"
           echo "=============================="
-          cat "{{.RESULTS_FILE}}"
+          while IFS= read -r line; do
+              if [[ "$line" == PASS* ]]; then
+                  echo "  OK   ${line#PASS }"
+              elif [[ "$line" == FAIL* ]]; then
+                  echo "  FAIL ${line#FAIL }"
+              fi
+          done < "{{.RESULTS_FILE}}"
           echo "=============================="
           if grep -q "^FAIL" "{{.RESULTS_FILE}}"; then
-              echo "  Some tests FAILED"
-              echo "=============================="
+              echo ""
+              echo "  Failed combinations:"
+              grep "^FAIL" "{{.RESULTS_FILE}}" | while IFS= read -r line; do
+                  echo "    - ${line#FAIL }"
+              done
+              echo ""
               rm -f "{{.RESULTS_FILE}}"
               exit 1
           else
