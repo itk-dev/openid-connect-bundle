@@ -71,6 +71,13 @@ tasks:
     cmds:
       - "{{.COMPOSER}} normalize"
 
+  composer:check:
+    desc: Validate and audit composer
+    cmds:
+      - "{{.PHP}} composer validate --strict"
+      - "{{.COMPOSER}} normalize --dry-run"
+      - "{{.COMPOSER}} audit"
+
   # Code quality
 
   lint:
@@ -89,13 +96,6 @@ tasks:
     desc: Fix PHP coding standards
     cmds:
       - "{{.PHP}} vendor/bin/php-cs-fixer fix"
-
-  composer:check:
-    desc: Validate and audit composer
-    cmds:
-      - "{{.PHP}} composer validate --strict"
-      - "{{.COMPOSER}} normalize --dry-run"
-      - "{{.COMPOSER}} audit"
 
   lint:markdown:
     desc: Lint markdown files
@@ -119,7 +119,7 @@ tasks:
 
   # Analysis
 
-  analyze:
+  analyze:php:
     desc: Run PHPStan static analysis
     cmds:
       - "{{.PHP}} vendor/bin/phpstan"
@@ -239,5 +239,5 @@ tasks:
     cmds:
       - task: composer:check
       - task: lint
-      - task: analyze
+      - task: analyze:php
       - task: test:matrix
