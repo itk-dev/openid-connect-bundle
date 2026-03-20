@@ -26,7 +26,7 @@ class CliLoginTokenAuthenticator extends AbstractAuthenticator
     public function __construct(
         private readonly CliLoginHelper $cliLoginHelper,
         private readonly string $cliLoginRoute,
-        private readonly UrlGeneratorInterface $router
+        private readonly UrlGeneratorInterface $router,
     ) {
     }
 

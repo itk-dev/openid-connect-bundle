@@ -1,0 +1,243 @@
+# yaml-language-server: $schema=https://taskfile.dev/schema.json
+---
+version: "3"
+
+vars:
+  DOCKER_COMPOSE: "docker compose"
+  PHP_EXEC: "{{.DOCKER_COMPOSE}} exec phpfpm"
+  COMPOSER: "{{.PHP_EXEC}} composer"
+
+tasks:
+  default:
+    silent: true
+    cmds:
+      - task --list
+
+  install:
+    desc: Install dependencies
+    cmds:
+      - task: composer:install
+
+  setup:
+    desc: Set up the project
+    cmds:
+      - task: up
+      - task: install
+
+  # Container management
+
+  up:
+    desc: Start docker containers
+    cmds:
+      - task: network:frontend
+      - "{{.DOCKER_COMPOSE}} up -d"
+
+  down:
+    desc: Stop docker containers
+    cmds:
+      - "{{.DOCKER_COMPOSE}} down"
+
+  restart:
+    desc: Restart docker containers
+    cmds:
+      - task: down
+      - task: up
+
+  network:frontend:
+    internal: true
+    desc: Create docker frontend network
+    cmds:
+      - docker network create frontend 2>/dev/null || true
+
+  # Composer
+
+  composer:
+    desc: Run arbitrary composer command
+    cmds:
+      - "{{.COMPOSER}} {{.CLI_ARGS}}"
+
+  composer:install:
+    desc: Install composer dependencies
+    cmds:
+      - "{{.COMPOSER}} install"
+
+  composer:update:
+    desc: Update composer dependencies
+    cmds:
+      - "{{.COMPOSER}} update"
+
+  composer:normalize:
+    desc: Normalize composer.json
+    cmds:
+      - "{{.COMPOSER}} normalize"
+
+  composer:check:
+    desc: Validate and audit composer
+    cmds:
+      - "{{.PHP_EXEC}} composer validate --strict"
+      - "{{.COMPOSER}} normalize --dry-run"
+      - "{{.COMPOSER}} audit"
+
+  # Code quality
+
+  lint:
+    desc: Run all linters
+    cmds:
+      - task: lint:php
+      - task: lint:markdown
+      - task: lint:yaml
+
+  lint:php:
+    desc: Check PHP coding standards
+    cmds:
+      - "{{.PHP_EXEC}} vendor/bin/php-cs-fixer fix --dry-run --diff"
+
+  lint:php:fix:
+    desc: Fix PHP coding standards
+    cmds:
+      - "{{.PHP_EXEC}} vendor/bin/php-cs-fixer fix"
+
+  lint:markdown:
+    desc: Lint markdown files
+    cmds:
+      - "{{.DOCKER_COMPOSE}} run --rm markdownlint markdownlint '**/*.md'"
+
+  lint:markdown:fix:
+    desc: Fix markdown files
+    cmds:
+      - "{{.DOCKER_COMPOSE}} run --rm markdownlint markdownlint '**/*.md' --fix"
+
+  lint:yaml:
+    desc: Lint YAML files
+    cmds:
+      - "{{.DOCKER_COMPOSE}} run --rm prettier '**/*.{yml,yaml}' --check"
+
+  lint:yaml:fix:
+    desc: Fix YAML files
+    cmds:
+      - "{{.DOCKER_COMPOSE}} run --rm prettier '**/*.{yml,yaml}' --write"
+
+  # Analysis
+
+  analyze:php:
+    desc: Run PHPStan static analysis
+    cmds:
+      - "{{.PHP_EXEC}} vendor/bin/phpstan"
+
+  # Testing
+
+  test:
+    desc: Run tests
+    cmds:
+      - "{{.PHP_EXEC}} vendor/bin/phpunit"
+
+  test:coverage:
+    desc: Run tests with coverage
+    cmds:
+      - "{{.PHP_EXEC}} vendor/bin/phpunit --coverage-clover=coverage/unit.xml"
+
+  test:run:
+    desc: "Run tests for a PHP version and dependency set (e.g. task test:run PHP=8.4 DEPS=lowest)"
+    vars:
+      PHP: '{{.PHP | default "8.3"}}'
+      DEPS: '{{.DEPS | default "stable"}}'
+      PREFER: "prefer-{{.DEPS}}"
+      SERVICE: 'phpfpm{{.PHP | replace "." ""}}-{{.DEPS}}'
+    cmds:
+      - cmd: |
+          trap 'stty sane 2>/dev/null || true' EXIT
+          set -e
+          echo "Testing PHP {{.PHP}} ({{.PREFER}})..."
+          {{.DOCKER_COMPOSE}} run --rm -T --user root {{.SERVICE}} chown -R deploy:deploy /app/vendor /home/deploy/.composer
+          {{.DOCKER_COMPOSE}} run --rm -T -e XDEBUG_MODE=coverage {{.SERVICE}} sh -c '
+            if [ -f /app/vendor/.composer.lock ]; then
+              cp /app/vendor/.composer.lock /app/composer.lock
+              composer install -q
+            else
+              composer update -q --{{.PREFER}}
+              cp /app/composer.lock /app/vendor/.composer.lock
+            fi'
+          {{.DOCKER_COMPOSE}} run --rm -T -e XDEBUG_MODE=coverage {{.SERVICE}} vendor/bin/phpunit --coverage-clover=coverage/unit.xml
+
+  test:matrix:reset:
+    desc: Remove cached vendor volumes to force a fresh dependency resolve
+    cmds:
+      - "{{.DOCKER_COMPOSE}} down --volumes"
+
+  test:matrix:
+    desc: Run tests across all PHP versions (mirrors CI matrix)
+    vars:
+      RESULTS_FILE:
+        sh: mktemp
+    cmds:
+      - task: test:matrix:run
+        vars: { PHP: "8.3", DEPS: lowest, RESULTS_FILE: "{{.RESULTS_FILE}}" }
+      - task: test:matrix:run
+        vars: { PHP: "8.3", DEPS: stable, RESULTS_FILE: "{{.RESULTS_FILE}}" }
+      - task: test:matrix:run
+        vars: { PHP: "8.4", DEPS: lowest, RESULTS_FILE: "{{.RESULTS_FILE}}" }
+      - task: test:matrix:run
+        vars: { PHP: "8.4", DEPS: stable, RESULTS_FILE: "{{.RESULTS_FILE}}" }
+      - task: test:matrix:run
+        vars: { PHP: "8.5", DEPS: lowest, RESULTS_FILE: "{{.RESULTS_FILE}}" }
+      - task: test:matrix:run
+        vars: { PHP: "8.5", DEPS: stable, RESULTS_FILE: "{{.RESULTS_FILE}}" }
+      - task: test:summary
+        vars: { RESULTS_FILE: "{{.RESULTS_FILE}}" }
+
+  test:matrix:run:
+    internal: true
+    desc: Run a single matrix combination and record the result
+    vars:
+      PREFER: "prefer-{{.DEPS}}"
+    cmds:
+      - cmd: |
+          if task test:run PHP={{.PHP}} DEPS={{.DEPS}}; then
+              echo "PASS PHP {{.PHP}} ({{.PREFER}})" >> "{{.RESULTS_FILE}}"
+          else
+              echo "FAIL PHP {{.PHP}} ({{.PREFER}})" >> "{{.RESULTS_FILE}}"
+          fi
+        ignore_error: true
+
+  test:summary:
+    internal: true
+    silent: true
+    desc: Print test matrix summary
+    cmds:
+      - cmd: |
+          echo ""
+          echo "=============================="
+          echo "  Test Matrix Summary"
+          echo "=============================="
+          while IFS= read -r line; do
+              if [[ "$line" == PASS* ]]; then
+                  echo "  OK   ${line#PASS }"
+              elif [[ "$line" == FAIL* ]]; then
+                  echo "  FAIL ${line#FAIL }"
+              fi
+          done < "{{.RESULTS_FILE}}"
+          echo "=============================="
+          if grep -q "^FAIL" "{{.RESULTS_FILE}}"; then
+              echo ""
+              echo "  Failed combinations:"
+              grep "^FAIL" "{{.RESULTS_FILE}}" | while IFS= read -r line; do
+                  echo "    - ${line#FAIL }"
+              done
+              echo ""
+              rm -f "{{.RESULTS_FILE}}"
+              exit 1
+          else
+              echo "  All tests PASSED"
+              echo "=============================="
+              rm -f "{{.RESULTS_FILE}}"
+          fi
+
+  # CI
+
+  pr:actions:
+    desc: Run all CI checks locally
+    cmds:
+      - task: composer:check
+      - task: lint
+      - task: analyze:php
+      - task: test:matrix

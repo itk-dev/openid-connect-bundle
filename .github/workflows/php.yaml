@@ -1,0 +1,85 @@
+name: PHP
+
+env:
+  COMPOSE_USER: runner
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - develop
+
+jobs:
+  coding-standards:
+    name: PHP - Check Coding Standards
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Create docker network
+        run: |
+          docker network create frontend
+
+      - run: |
+          docker compose run --rm phpfpm composer install
+          docker compose run --rm phpfpm vendor/bin/php-cs-fixer fix --dry-run --diff
+
+  phpstan:
+    name: PHPStan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Create docker network
+        run: |
+          docker network create frontend
+
+      - run: |
+          docker compose run --rm phpfpm composer install
+          docker compose run --rm phpfpm vendor/bin/phpstan
+
+  unit-tests:
+    name: Unit tests (${{ matrix.php }}, ${{ matrix.prefer }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: phpfpm
+            php: "8.3"
+            prefer: prefer-lowest
+          - service: phpfpm
+            php: "8.3"
+            prefer: prefer-stable
+          - service: phpfpm84
+            php: "8.4"
+            prefer: prefer-lowest
+          - service: phpfpm84
+            php: "8.4"
+            prefer: prefer-stable
+          - service: phpfpm85
+            php: "8.5"
+            prefer: prefer-lowest
+          - service: phpfpm85
+            php: "8.5"
+            prefer: prefer-stable
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Create docker network
+        run: |
+          docker network create frontend
+
+      - run: |
+          docker compose run --rm -e XDEBUG_MODE=coverage ${{ matrix.service }} composer update --${{ matrix.prefer }}
+          docker compose run --rm -e XDEBUG_MODE=coverage ${{ matrix.service }} vendor/bin/phpunit --coverage-clover=coverage/unit.xml
+
+      - name: Upload coverage to Codecov
+        if: matrix.service == 'phpfpm' && matrix.prefer == 'prefer-stable'
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./coverage/unit.xml
+          fail_ci_if_error: true
+          flags: unittests

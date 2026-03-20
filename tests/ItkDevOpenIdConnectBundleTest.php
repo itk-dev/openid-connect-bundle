@@ -18,7 +18,7 @@ class ItkDevOpenIdConnectBundleTest extends TestCase
     /**
      * Test service wiring.
      */
-    public function testServiceWiring()
+    public function testServiceWiring(): void
     {
         $kernel = new ItkDevOpenIdConnectBundleTestingKernel([
             __DIR__.'/config/framework.yml',

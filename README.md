@@ -10,17 +10,23 @@
 
 Symfony bundle for authorization via OpenID Connect.
 
-## Note: Symfony Native OIDC Support
-
-Since theis bundle was created Symfony has added [support for OpenID Connect](https://symfony.com/blog/new-in-symfony-6-3-openid-connect-token-handler)
-as documented in ["Using OpenID Connect (OIDC)"](https://symfony.com/doc/current/security/access_token.html#using-openid-connect-oidc)
-
-As of Symfony 7.2 (jan. 2025) it seems this still a work in progress: 
-* [OIDC discovery](https://github.com/symfony/symfony/pull/54932) is not yet implemented making config a bit cumbersome. 
-* It's not obvious how to implement support for multiple providers, although it may be possible using [Multiple Authenticators](https://symfony.com/doc/current/security/entry_point.html#multiple-authenticators-with-separate-entry-points)
-
-Until these issues are resolved this bundle cannot be fully replaced by the native features. 
-
+> [!NOTE]
+>
+> ## Symfony Native OIDC Support
+>
+> Since this bundle was created Symfony has added [support for OpenID Connect](https://symfony.com/blog/new-in-symfony-6-3-openid-connect-token-handler)
+> as documented in ["Using OpenID Connect (OIDC)"](https://symfony.com/doc/current/security/access_token.html#using-openid-connect-oidc).
+>
+> As of Symfony 7.4 (March 2026), Symfony's native OIDC support has matured:
+>
+> * [OIDC discovery](https://github.com/symfony/symfony/pull/54932) was added in Symfony 7.3, removing the need
+>   for manual keyset configuration.
+> * Multiple providers are supported via multiple `base_uri` and `issuers` entries in the discovery config.
+>
+> However, Symfony's native OIDC support is designed for **bearer token validation** (API authentication) only.
+> It does not implement the **authorization code flow** (browser-based login with redirect to the IdP and callback
+> handling), which is the primary use case of this bundle. If your application needs browser-based OIDC login,
+> this bundle is still required.
 
 ## Installation
 
@@ -70,7 +76,7 @@ itkdev_openid_connect:
         # Optional: Specify leeway (seconds) to account for clock skew between provider and hosting
         #           Defaults to 10
         leeway: '%env(int:ADMIN_OIDC_LEEWAY)%'
-        # Optional: Allow http requests (used for mocking a IdP)
+        # Optional: Allow (non-secure) http requests (used for mocking a IdP). NOT RECOMMENDED FOR PRODUCTION.
         #           Defaults to false
         allow_http: '%env(bool:ADMIN_OIDC_ALLOW_HTTP)%'
     user:
@@ -95,7 +101,7 @@ ADMIN_OIDC_CLIENT_ID=ADMIN_APP_CLIENT_ID
 ADMIN_OIDC_CLIENT_SECRET=ADMIN_APP_CLIENT_SECRET
 ADMIN_OIDC_REDIRECT_URI=ADMIN_APP_REDIRECT_URI
 ADMIN_OIDC_LEEWAY=30
-ADMIN_OIDC_ALLOW_HTTP=true
+ADMIN_OIDC_ALLOW_HTTP=false
 
 # "user" open id connect configuration variables
 USER_OIDC_METADATA_URL=USER_APP_METADATA_URL
@@ -356,77 +362,82 @@ argument.
 
 ## Development Setup
 
-A [`docker-compose.yml`](docker-compose.yml) file with a PHP 8.1 image is
-included in this project. To install the dependencies you can run
+A `docker-compose.yml` file with a PHP 8.3+ image is included in this project.
+A [Taskfile](https://taskfile.dev/) is used to run common development tasks.
+
+To set up the project:
 
 ```shell
-docker compose up -d
-docker compose exec phpfpm composer install
+task setup
+```
+
+This starts the Docker containers and installs Composer dependencies.
+
+### Running All CI Checks
+
+To run all checks locally (coding standards, static analysis, tests):
+
+```shell
+task pr:actions
 ```
 
 ### Unit Testing
 
-A PhpUnit setup is included in this library. To run the unit tests:
-
 ```shell
-docker compose exec phpfpm composer install
-docker compose exec phpfpm ./vendor/bin/phpunit
+task test
 ```
 
-### Psalm static analysis
+### Test Matrix
 
-We’re using [Psalm](https://psalm.dev/) for static analysis. To run psalm do
+Run the test suite across all supported PHP versions (8.3, 8.4, 8.5) with both
+lowest and stable dependencies, mirroring the CI matrix:
 
 ```shell
-docker compose exec phpfpm composer install
-docker compose exec phpfpm ./vendor/bin/psalm
+task test:matrix
 ```
 
-### Check Coding Standard
+This runs PHPUnit with coverage for each combination and prints a summary of
+pass/fail results.
 
-The following command let you test that the code follows the coding standard for
-the project.
+### PHPStan Static Analysis
 
-* PHP files (PHP-CS-Fixer)
+```shell
+task analyze
+```
 
-    ```shell
-    docker compose exec phpfpm composer coding-standards-check
-    ```
+### Coding Standards
 
-* Markdown files (markdownlint standard rules)
+Check all coding standards:
 
-    ```shell
-    docker run --rm -v "$PWD":/usr/src/app -w /usr/src/app node:18 yarn install
-    docker run --rm -v "$PWD":/usr/src/app -w /usr/src/app node:18 yarn coding-standards-check
-    ```
+```shell
+task lint
+```
 
-### Apply Coding Standards
+Fix PHP coding standards (php-cs-fixer):
 
-To attempt to automatically fix coding style
+```shell
+task lint:php:fix
+```
 
-* PHP files (PHP-CS-Fixer)
+Fix Markdown files:
 
-    ```sh
-    docker compose exec phpfpm composer coding-standards-apply
-    ```
+```shell
+task lint:markdown:fix
+```
 
-* Markdown files (markdownlint standard rules)
+Fix YAML files:
 
-    ```shell
-    docker run --rm -v "$PWD":/usr/src/app -w /usr/src/app node:18 yarn install
-    docker run --rm -v "$PWD":/usr/src/app -w /usr/src/app node:18 yarn coding-standards-apply
-    ```
+```shell
+task lint:yaml:fix
+```
+
+### Available Tasks
+
+Run `task --list` to see all available tasks.
 
 ## CI
 
 GitHub Actions are used to run the test suite and code style checks on all PRs.
-
-If you wish to test against the jobs locally you can install
-[act](https://github.com/nektos/act). Then do:
-
-```shell
-act -P ubuntu-latest=shivammathur/node:latest pull_request
-```
 
 ## Versioning
 

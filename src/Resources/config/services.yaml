@@ -2,13 +2,13 @@
 services:
   # default configuration for services in *this* file
   _defaults:
-    autowire: true      # Automatically injects dependencies in your services.
+    autowire: true # Automatically injects dependencies in your services.
     autoconfigure: true # Automatically registers your services as commands, event subscribers, etc.
 
   ItkDev\OpenIdConnectBundle\Security\OpenIdConfigurationProviderManager:
-      public: true
-      arguments:
-          $config: ~
+    public: true
+    arguments:
+      $config: ~
 
   ItkDev\OpenIdConnectBundle\Controller\LoginController:
     public: true

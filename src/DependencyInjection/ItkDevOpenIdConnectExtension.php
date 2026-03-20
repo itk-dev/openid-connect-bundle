@@ -15,8 +15,6 @@ use Symfony\Component\DependencyInjection\Reference;
 class ItkDevOpenIdConnectExtension extends Extension
 {
     /**
-     * {@inheritdoc}
-     *
      * @throws \Exception
      */
     public function load(array $configs, ContainerBuilder $container): void
@@ -25,6 +23,13 @@ class ItkDevOpenIdConnectExtension extends Extension
         $loader->load('services.yaml');
 
         $configuration = new Configuration();
+        /** @var array{
+         *     cache_options: array{cache_pool: string},
+         *     cli_login_options: array{route: string},
+         *     user_provider: string|null,
+         *     openid_providers: array<string, array{options: array<string, mixed>}>
+         *  } $config
+         */
         $config = $this->processConfiguration($configuration, $configs);
 
         $definition = $container->getDefinition(OpenIdConfigurationProviderManager::class);
@@ -33,7 +38,7 @@ class ItkDevOpenIdConnectExtension extends Extension
             'default_providers_options' => [
                 'cacheItemPool' => new Reference($config['cache_options']['cache_pool']),
             ],
-            'providers' => array_map(static fn (array $options) => $options['options'], $config['openid_providers']),
+            'providers' => array_map(static fn (array $options): array => $options['options'], $config['openid_providers']),
         ];
         $definition->replaceArgument('$config', $providersConfig);
 
@@ -50,9 +55,6 @@ class ItkDevOpenIdConnectExtension extends Extension
         $definition->replaceArgument('$cliLoginRoute', $config['cli_login_options']['route']);
     }
 
-    /**
-     * {@inheritdoc}
-     */
     #[\Override]
     public function getAlias(): string
     {

@@ -19,15 +19,12 @@ abstract class OpenIdLoginAuthenticator extends AbstractAuthenticator implements
 {
     /**
      * OpenIdLoginAuthenticator constructor.
-     *
-     * @param OpenIdConfigurationProviderManager $providerManager
      */
     public function __construct(
         private readonly OpenIdConfigurationProviderManager $providerManager,
     ) {
     }
 
-    /** {@inheritDoc} */
     public function supports(Request $request): ?bool
     {
         // Check if request has state and code
@@ -37,9 +34,7 @@ abstract class OpenIdLoginAuthenticator extends AbstractAuthenticator implements
     /**
      * Validate oidc claims.
      *
-     * @param Request $request
-     *
-     * @return array|string[] Array of claims
+     * @return array<string, string> Array of claims
      *
      * @throws InvalidProviderException
      * @throws ItkOpenIdConnectException
@@ -49,7 +44,8 @@ abstract class OpenIdLoginAuthenticator extends AbstractAuthenticator implements
     protected function validateClaims(Request $request): array
     {
         $session = $request->getSession();
-        $providerKey = (string) $session->remove('oauth2provider');
+        $providerKey = $session->remove('oauth2provider');
+        $providerKey = is_string($providerKey) ? $providerKey : '';
         $provider = $this->providerManager->getProvider($providerKey);
 
         // Make sure state and oauth2state are the same
@@ -60,19 +56,15 @@ abstract class OpenIdLoginAuthenticator extends AbstractAuthenticator implements
         }
 
         $oauth2nonce = $session->remove('oauth2nonce');
-        if (empty($oauth2nonce)) {
+        if (!is_string($oauth2nonce) || '' === $oauth2nonce) {
             throw new ValidationException('Nonce empty or not found');
         }
 
         try {
             $code = $request->query->get('code');
 
-            if (null === $code) {
-                throw new ValidationException('Missing code');
-            }
-
             if (!is_string($code)) {
-                throw new ValidationException('Code not type string');
+                throw new ValidationException('Missing or invalid code');
             }
 
             $idToken = $provider->getIdToken($code);
@@ -83,10 +75,12 @@ abstract class OpenIdLoginAuthenticator extends AbstractAuthenticator implements
             throw new ValidationException($exception->getMessage());
         }
 
-        return (array) $claims + ['open_id_connect_provider' => $providerKey];
+        /** @var array<string, string> $claimsArray */
+        $claimsArray = (array) $claims;
+
+        return $claimsArray + ['open_id_connect_provider' => $providerKey];
     }
 
-    /** {@inheritDoc} */
     public function onAuthenticationFailure(Request $request, AuthenticationException $exception): ?Response
     {
         throw new AuthenticationException('Error occurred validating openid login');
