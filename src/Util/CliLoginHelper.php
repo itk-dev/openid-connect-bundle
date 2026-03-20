@@ -16,7 +16,7 @@ class CliLoginHelper
     private const string ITK_NAMESPACE = 'itk-dev-cli-login';
 
     public function __construct(
-        private readonly CacheItemPoolInterface $cache
+        private readonly CacheItemPoolInterface $cache,
     ) {
     }
 
@@ -38,7 +38,13 @@ class CliLoginHelper
         }
 
         if ($revCacheItem->isHit()) {
-            return $revCacheItem->get();
+            $cachedToken = $revCacheItem->get();
+
+            if (!is_string($cachedToken)) {
+                throw new CacheException('Cached token is not a string');
+            }
+
+            return $cachedToken;
         }
         $revCacheItem->set($token);
         $this->cache->save($revCacheItem);
@@ -75,6 +81,10 @@ class CliLoginHelper
         }
 
         $username = $usernameItem->get();
+
+        if (!is_string($username)) {
+            throw new CacheException('Cached username is not a string');
+        }
 
         // Delete both entries from cache
         try {

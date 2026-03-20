@@ -1,21 +1,4 @@
 parameters:
-	level: 8
+	level: max
 	paths:
 		- src
-	ignoreErrors:
-		-
-			message: '#^Call to an undefined method Symfony\\Component\\Config\\Definition\\Builder\\NodeDefinition\:\:children\(\)\.$#'
-			identifier: method.notFound
-			path: src/DependencyInjection/Configuration.php
-		-
-			message: '#^Method ItkDev\\OpenIdConnectBundle\\Security\\OpenIdConfigurationProviderManager\:\:__construct\(\) has parameter \$config with no value type specified in iterable type array\.$#'
-			identifier: missingType.iterableValue
-			path: src/Security/OpenIdConfigurationProviderManager.php
-		-
-			message: '#^Method ItkDev\\OpenIdConnectBundle\\Security\\OpenIdConfigurationProviderManager\:\:getProviderKeys\(\) should return array\<string\> but returns list\<int\|string\>\.$#'
-			identifier: return.type
-			path: src/Security/OpenIdConfigurationProviderManager.php
-		-
-			message: '#^Method ItkDev\\OpenIdConnectBundle\\Command\\UserLoginCommand\:\:__construct\(\) has parameter \$userProvider with generic interface Symfony\\Component\\Security\\Core\\User\\UserProviderInterface but does not specify its types\: TUser$#'
-			identifier: missingType.generics
-			path: src/Command/UserLoginCommand.php

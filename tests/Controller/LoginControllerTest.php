@@ -13,7 +13,7 @@ use Symfony\Component\HttpFoundation\Session\SessionInterface;
 
 class LoginControllerTest extends TestCase
 {
-    private $loginController;
+    private LoginController $loginController;
 
     public function setUp(): void
     {
@@ -46,8 +46,8 @@ class LoginControllerTest extends TestCase
 
     public function testLogin(): void
     {
-        $mockRequest = $this->createMock(Request::class);
-        $mockRequest->query = new InputBag(['provider' => 'test']);
+        $stubRequest = $this->createStub(Request::class);
+        $stubRequest->query = new InputBag(['provider' => 'test']);
         $mockSession = $this->createMock(SessionInterface::class);
         $matcher = $this->exactly(3);
         $mockSession
@@ -67,7 +67,7 @@ class LoginControllerTest extends TestCase
                 }
             });
 
-        $response = $this->loginController->login($mockRequest, $mockSession, 'test');
+        $response = $this->loginController->login($stubRequest, $mockSession, 'test');
         $this->assertInstanceOf(RedirectResponse::class, $response);
         $this->assertSame('https://test.com', $response->getTargetUrl());
     }

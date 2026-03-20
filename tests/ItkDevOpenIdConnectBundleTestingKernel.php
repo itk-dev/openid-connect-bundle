@@ -21,14 +21,11 @@ use Symfony\Component\HttpKernel\Kernel;
 class ItkDevOpenIdConnectBundleTestingKernel extends Kernel
 {
     public function __construct(
-        private readonly array $pathToConfigs
+        private readonly array $pathToConfigs,
     ) {
         parent::__construct('test', true);
     }
 
-    /**
-     * {@inheritdoc}
-     */
     public function registerBundles(): iterable
     {
         return [
@@ -39,11 +36,9 @@ class ItkDevOpenIdConnectBundleTestingKernel extends Kernel
     }
 
     /**
-     * {@inheritdoc}
-     *
      * @throws \Exception
      */
-    public function registerContainerConfiguration(LoaderInterface $loader)
+    public function registerContainerConfiguration(LoaderInterface $loader): void
     {
         $loader->load(function (ContainerBuilder $builder) {
             $builder->register(TestAuthenticator::class, TestAuthenticator::class);

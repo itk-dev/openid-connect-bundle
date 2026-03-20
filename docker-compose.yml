@@ -1,16 +1,130 @@
-# itk-version: 3.2.1
+# itk-version: 3.2.4
+networks:
+  frontend:
+    external: true
+  app:
+    driver: bridge
+    internal: false
 
 services:
   phpfpm:
     image: itkdev/php8.3-fpm:latest
+    user: ${COMPOSE_USER:-deploy}
+    networks:
+      - app
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       - PHP_XDEBUG_MODE=${PHP_XDEBUG_MODE:-off}
       - PHP_MAX_EXECUTION_TIME=30
       - PHP_MEMORY_LIMIT=256M
       # Depending on the setup, you may have to remove --read-envelope-from from msmtp (cf. https://marlam.de/msmtp/msmtp.html) or use SMTP to send mail
       - PHP_SENDMAIL_PATH=/usr/bin/msmtp --host=mail --port=1025 --read-recipients --read-envelope-from
-      - DOCKER_HOST_DOMAIN=${COMPOSE_DOMAIN}
-      - COMPOSER_VERSION=2
+      - DOCKER_HOST_DOMAIN=${COMPOSE_DOMAIN:?}
       - PHP_IDE_CONFIG=serverName=localhost
     volumes:
       - .:/app
+      - composer-cache:/home/deploy/.composer/cache
+
+  phpfpm84:
+    extends:
+      service: phpfpm
+    image: itkdev/php8.4-fpm:latest
+    profiles:
+      - ci
+
+  phpfpm85:
+    extends:
+      service: phpfpm
+    image: itkdev/php8.5-fpm:latest
+    profiles:
+      - ci
+
+  # Test matrix services (PHP version × dependency set)
+  phpfpm83-stable:
+    extends:
+      service: phpfpm
+    profiles:
+      - ci
+    volumes:
+      - .:/app
+      - phpfpm83-stable-vendor:/app/vendor
+      - composer-cache:/home/deploy/.composer/cache
+
+  phpfpm83-lowest:
+    extends:
+      service: phpfpm
+    profiles:
+      - ci
+    volumes:
+      - .:/app
+      - phpfpm83-lowest-vendor:/app/vendor
+      - composer-cache:/home/deploy/.composer/cache
+
+  phpfpm84-stable:
+    extends:
+      service: phpfpm84
+    profiles:
+      - ci
+    volumes:
+      - .:/app
+      - phpfpm84-stable-vendor:/app/vendor
+      - composer-cache:/home/deploy/.composer/cache
+
+  phpfpm84-lowest:
+    extends:
+      service: phpfpm84
+    profiles:
+      - ci
+    volumes:
+      - .:/app
+      - phpfpm84-lowest-vendor:/app/vendor
+      - composer-cache:/home/deploy/.composer/cache
+
+  phpfpm85-stable:
+    extends:
+      service: phpfpm85
+    profiles:
+      - ci
+    volumes:
+      - .:/app
+      - phpfpm85-stable-vendor:/app/vendor
+      - composer-cache:/home/deploy/.composer/cache
+
+  phpfpm85-lowest:
+    extends:
+      service: phpfpm85
+    profiles:
+      - ci
+    volumes:
+      - .:/app
+      - phpfpm85-lowest-vendor:/app/vendor
+      - composer-cache:/home/deploy/.composer/cache
+
+  # Code checks tools
+  markdownlint:
+    image: itkdev/markdownlint
+    profiles:
+      - dev
+    volumes:
+      - ./:/md
+
+  prettier:
+    # Prettier does not (yet, fcf.
+    # https://github.com/prettier/prettier/issues/15206) have an official
+    # docker image.
+    # https://hub.docker.com/r/jauderho/prettier is good candidate (cf. https://hub.docker.com/search?q=prettier&sort=updated_at&order=desc)
+    image: jauderho/prettier
+    profiles:
+      - dev
+    volumes:
+      - ./:/work
+
+volumes:
+  phpfpm83-stable-vendor:
+  phpfpm83-lowest-vendor:
+  phpfpm84-stable-vendor:
+  phpfpm84-lowest-vendor:
+  phpfpm85-stable-vendor:
+  phpfpm85-lowest-vendor:
+  composer-cache:
