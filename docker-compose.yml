@@ -30,16 +30,22 @@ services:
     extends:
       service: phpfpm
     image: itkdev/php8.4-fpm:latest
+    profiles:
+      - ci
 
   phpfpm85:
     extends:
       service: phpfpm
     image: itkdev/php8.5-fpm:latest
+    profiles:
+      - ci
 
   # Test matrix services (PHP version × dependency set)
   phpfpm83-stable:
     extends:
       service: phpfpm
+    profiles:
+      - ci
     volumes:
       - .:/app
       - phpfpm83-stable-vendor:/app/vendor
@@ -48,6 +54,8 @@ services:
   phpfpm83-lowest:
     extends:
       service: phpfpm
+    profiles:
+      - ci
     volumes:
       - .:/app
       - phpfpm83-lowest-vendor:/app/vendor
@@ -56,6 +64,8 @@ services:
   phpfpm84-stable:
     extends:
       service: phpfpm84
+    profiles:
+      - ci
     volumes:
       - .:/app
       - phpfpm84-stable-vendor:/app/vendor
@@ -64,6 +74,8 @@ services:
   phpfpm84-lowest:
     extends:
       service: phpfpm84
+    profiles:
+      - ci
     volumes:
       - .:/app
       - phpfpm84-lowest-vendor:/app/vendor
@@ -72,6 +84,8 @@ services:
   phpfpm85-stable:
     extends:
       service: phpfpm85
+    profiles:
+      - ci
     volumes:
       - .:/app
       - phpfpm85-stable-vendor:/app/vendor
@@ -80,6 +94,8 @@ services:
   phpfpm85-lowest:
     extends:
       service: phpfpm85
+    profiles:
+      - ci
     volumes:
       - .:/app
       - phpfpm85-lowest-vendor:/app/vendor
