@@ -4,8 +4,8 @@ version: "3"
 
 vars:
   DOCKER_COMPOSE: "docker compose"
-  PHP: "{{.DOCKER_COMPOSE}} exec phpfpm"
-  COMPOSER: "{{.PHP}} composer"
+  PHP_EXEC: "{{.DOCKER_COMPOSE}} exec phpfpm"
+  COMPOSER: "{{.PHP_EXEC}} composer"
 
 tasks:
   default:
@@ -74,7 +74,7 @@ tasks:
   composer:check:
     desc: Validate and audit composer
     cmds:
-      - "{{.PHP}} composer validate --strict"
+      - "{{.PHP_EXEC}} composer validate --strict"
       - "{{.COMPOSER}} normalize --dry-run"
       - "{{.COMPOSER}} audit"
 
@@ -90,12 +90,12 @@ tasks:
   lint:php:
     desc: Check PHP coding standards
     cmds:
-      - "{{.PHP}} vendor/bin/php-cs-fixer fix --dry-run --diff"
+      - "{{.PHP_EXEC}} vendor/bin/php-cs-fixer fix --dry-run --diff"
 
   lint:php:fix:
     desc: Fix PHP coding standards
     cmds:
-      - "{{.PHP}} vendor/bin/php-cs-fixer fix"
+      - "{{.PHP_EXEC}} vendor/bin/php-cs-fixer fix"
 
   lint:markdown:
     desc: Lint markdown files
@@ -122,19 +122,19 @@ tasks:
   analyze:php:
     desc: Run PHPStan static analysis
     cmds:
-      - "{{.PHP}} vendor/bin/phpstan"
+      - "{{.PHP_EXEC}} vendor/bin/phpstan"
 
   # Testing
 
   test:
     desc: Run tests
     cmds:
-      - "{{.PHP}} vendor/bin/phpunit"
+      - "{{.PHP_EXEC}} vendor/bin/phpunit"
 
   test:coverage:
     desc: Run tests with coverage
     cmds:
-      - "{{.PHP}} vendor/bin/phpunit --coverage-clover=coverage/unit.xml"
+      - "{{.PHP_EXEC}} vendor/bin/phpunit --coverage-clover=coverage/unit.xml"
 
   test:run:
     desc: "Run tests for a PHP version and dependency set (e.g. task test:run PHP=8.4 DEPS=lowest)"
