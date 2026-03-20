@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.1.0] - 2026-03-20
+
 ### Added
 
 - Added Symfony 8 support
@@ -121,7 +123,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `itk-dev/openid-connect` 1.0.0 to 2.1.0
 - OpenId Connect Bundle: Added CLI login feature.
 
-[unreleased]: https://github.com/itk-dev/openid-connect-bundle/compare/4.0.1...HEAD
+[unreleased]: https://github.com/itk-dev/openid-connect-bundle/compare/4.1.0...HEAD
+[4.1.0]: https://github.com/itk-dev/openid-connect-bundle/compare/4.0.1...4.1.0
 [4.0.1]: https://github.com/itk-dev/openid-connect-bundle/compare/4.0.0...4.0.1
 [4.0.0]: https://github.com/itk-dev/openid-connect-bundle/compare/3.1.0...4.0.0
 [3.1.0]: https://github.com/itk-dev/openid-connect-bundle/compare/3.0.3...3.1.0
