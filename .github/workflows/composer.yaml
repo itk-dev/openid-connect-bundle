@@ -44,7 +44,7 @@ jobs:
       matrix:
         prefer: [prefer-lowest, prefer-stable]
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Create docker network
         run: |
@@ -58,7 +58,7 @@ jobs:
     strategy:
       fail-fast: false
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Create docker network
         run: |
@@ -73,7 +73,7 @@ jobs:
     strategy:
       fail-fast: false
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Create docker network
         run: |

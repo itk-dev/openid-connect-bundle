@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Bumped actions/checkout from v5 to v6 in all GitHub workflows
+- Renamed PHP_EXEC variable to PHP in Taskfile
+- Added lint:composer task to Taskfile
+- Improved test:coverage to enable XDEBUG_MODE and add text output
+- Fixed test:matrix:reset to include CI profile when removing volumes
+- Fixed test:run to remove stale composer.lock before updating dependencies
+
 ## [4.1.0] - 2026-03-20
 
 ### Added
