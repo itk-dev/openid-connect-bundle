@@ -4,8 +4,8 @@ version: "3"
 
 vars:
   DOCKER_COMPOSE: "docker compose"
-  PHP_EXEC: "{{.DOCKER_COMPOSE}} exec phpfpm"
-  COMPOSER: "{{.PHP_EXEC}} composer"
+  PHP: "{{.DOCKER_COMPOSE}} exec phpfpm"
+  COMPOSER: "{{.PHP}} composer"
 
 tasks:
   default:
@@ -74,7 +74,7 @@ tasks:
   composer:check:
     desc: Validate and audit composer
     cmds:
-      - "{{.PHP_EXEC}} composer validate --strict"
+      - "{{.PHP}} composer validate --strict"
       - "{{.COMPOSER}} normalize --dry-run"
       - "{{.COMPOSER}} audit"
 
@@ -84,18 +84,26 @@ tasks:
     desc: Run all linters
     cmds:
       - task: lint:php
+      - task: lint:composer
       - task: lint:markdown
       - task: lint:yaml
 
   lint:php:
     desc: Check PHP coding standards
     cmds:
-      - "{{.PHP_EXEC}} vendor/bin/php-cs-fixer fix --dry-run --diff"
+      - "{{.PHP}} vendor/bin/php-cs-fixer fix --dry-run --diff"
 
   lint:php:fix:
     desc: Fix PHP coding standards
     cmds:
-      - "{{.PHP_EXEC}} vendor/bin/php-cs-fixer fix"
+      - "{{.PHP}} vendor/bin/php-cs-fixer fix"
+
+  lint:composer:
+    desc: Validate and audit composer
+    cmds:
+      - "{{.PHP}} composer validate --strict"
+      - "{{.COMPOSER}} normalize --dry-run"
+      - "{{.COMPOSER}} audit"
 
   lint:markdown:
     desc: Lint markdown files
@@ -122,19 +130,19 @@ tasks:
   analyze:php:
     desc: Run PHPStan static analysis
     cmds:
-      - "{{.PHP_EXEC}} vendor/bin/phpstan"
+      - "{{.PHP}} vendor/bin/phpstan"
 
   # Testing
 
   test:
     desc: Run tests
     cmds:
-      - "{{.PHP_EXEC}} vendor/bin/phpunit"
+      - "{{.PHP}} vendor/bin/phpunit"
 
   test:coverage:
     desc: Run tests with coverage
     cmds:
-      - "{{.PHP_EXEC}} vendor/bin/phpunit --coverage-clover=coverage/unit.xml"
+      - "{{.DOCKER_COMPOSE}} exec -e XDEBUG_MODE=coverage phpfpm vendor/bin/phpunit --coverage-text --coverage-clover=coverage/unit.xml"
 
   test:run:
     desc: "Run tests for a PHP version and dependency set (e.g. task test:run PHP=8.4 DEPS=lowest)"
@@ -154,6 +162,7 @@ tasks:
               cp /app/vendor/.composer.lock /app/composer.lock
               composer install -q
             else
+              rm -f /app/composer.lock
               composer update -q --{{.PREFER}}
               cp /app/composer.lock /app/vendor/.composer.lock
             fi'
@@ -162,7 +171,7 @@ tasks:
   test:matrix:reset:
     desc: Remove cached vendor volumes to force a fresh dependency resolve
     cmds:
-      - "{{.DOCKER_COMPOSE}} down --volumes"
+      - "{{.DOCKER_COMPOSE}} --profile ci down --volumes"
 
   test:matrix:
     desc: Run tests across all PHP versions (mirrors CI matrix)
