@@ -3,7 +3,7 @@
 [![Github](https://img.shields.io/badge/source-itk--dev/openid--connect--bundle-blue?style=flat-square)](https://github.com/itk-dev/openid-connect-bundle)
 [![Release](https://img.shields.io/packagist/v/itk-dev/openid-connect-bundle.svg?style=flat-square&label=release)](https://packagist.org/packages/itk-dev/openid-connect-bundle)
 [![PHP Version](https://img.shields.io/packagist/php-v/itk-dev/openid-connect-bundle.svg?style=flat-square&colorB=%238892BF)](https://www.php.net/downloads)
-[![Build Status](https://img.shields.io/github/actions/workflow/status/itk-dev/openid-connect-bundle/pr.yaml?label=CI&logo=github&style=flat-square)](https://github.com/itk-dev/openid-connect-bundle/actions?query=workflow%3A%22Test+%26+Code+Style+Review%22)
+[![Build Status](https://img.shields.io/github/actions/workflow/status/itk-dev/openid-connect-bundle/php.yaml?branch=develop&label=CI&logo=github&style=flat-square)](https://github.com/itk-dev/openid-connect-bundle/actions/workflows/php.yaml?query=branch%3Adevelop)
 [![Codecov Code Coverage](https://img.shields.io/codecov/c/gh/itk-dev/openid-connect-bundle?label=codecov&logo=codecov&style=flat-square)](https://codecov.io/gh/itk-dev/openid-connect-bundle)
 [![Read License](https://img.shields.io/packagist/l/itk-dev/openid-connect-bundle.svg?style=flat-square&colorB=darkcyan)](https://github.com/itk-dev/openid-connect-bundle/blob/master/LICENSE.md)
 [![Package downloads on Packagist](https://img.shields.io/packagist/dt/itk-dev/openid-connect-bundle.svg?style=flat-square&colorB=darkmagenta)](https://packagist.org/packages/itk-dev/openid-connect-bundle/stats)
@@ -17,16 +17,48 @@ Symfony bundle for authorization via OpenID Connect.
 > Since this bundle was created Symfony has added [support for OpenID Connect](https://symfony.com/blog/new-in-symfony-6-3-openid-connect-token-handler)
 > as documented in ["Using OpenID Connect (OIDC)"](https://symfony.com/doc/current/security/access_token.html#using-openid-connect-oidc).
 >
-> As of Symfony 7.4 (March 2026), Symfony's native OIDC support has matured:
+> Symfony's native OIDC support has improved significantly in recent releases:
 >
-> * [OIDC discovery](https://github.com/symfony/symfony/pull/54932) was added in Symfony 7.3, removing the need
->   for manual keyset configuration.
-> * Multiple providers are supported via multiple `base_uri` and `issuers` entries in the discovery config.
+> * [OIDC discovery](https://github.com/symfony/symfony/pull/54932) was added in
+>   Symfony 7.3 (May 2025), removing the need for manual keyset configuration.
+>   Keys are fetched and cached automatically from the provider's
+>   `.well-known/openid-configuration` endpoint.
+> * [OAuth2 Token Introspection](https://symfony.com/blog/new-in-symfony-7-3-security-improvements)
+>   (RFC 7662) support was added in Symfony 7.3, useful when access tokens are
+>   opaque (not JWTs).
+> * [JWE (encrypted token) support](https://github.com/symfony/symfony/pull/57721)
+>   was added in Symfony 7.3 for OIDC token handlers.
 >
-> However, Symfony's native OIDC support is designed for **bearer token validation** (API authentication) only.
-> It does not implement the **authorization code flow** (browser-based login with redirect to the IdP and callback
-> handling), which is the primary use case of this bundle. If your application needs browser-based OIDC login,
-> this bundle is still required.
+> However, Symfony's native OIDC support is designed for **stateless bearer
+> token validation** (the `access_token` authenticator) only. It validates tokens
+> that are already present on the request (e.g. in an `Authorization: Bearer`
+> header).
+>
+> It does **not** implement the **authorization code flow** — the browser-based
+> login where the application redirects to the IdP, handles the callback with an
+> authorization code, exchanges it for tokens, and establishes a session. This
+> is tracked upstream in [symfony/symfony#50896](https://github.com/symfony/symfony/issues/50896).
+>
+> This means the following features of this bundle have no native Symfony
+> equivalent:
+>
+> | Feature                        | This bundle | Symfony native |
+> |--------------------------------|:-----------:|:--------------:|
+> | Authorization code flow        | ✅          | ❌             |
+> | Session-based browser login    | ✅          | ❌             |
+> | Multiple named OIDC providers  | ✅          | ❌ ¹           |
+> | CLI login tokens               | ✅          | ❌             |
+> | OIDC discovery                 | ✅          | ✅             |
+> | Bearer token validation (API)  | ❌          | ✅             |
+> | OAuth2 token introspection     | ❌          | ✅             |
+>
+> ¹ Symfony's `access_token` handler accepts multiple `issuers` for token
+> validation, but this is not the same as this bundle's named provider model
+> with distinct client credentials, redirect URIs, and selectable login routes
+> per provider.
+>
+> If your application needs browser-based OIDC login, this bundle is still
+> required.
 
 ## Installation
 
