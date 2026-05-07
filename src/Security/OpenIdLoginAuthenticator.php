@@ -60,20 +60,18 @@ abstract class OpenIdLoginAuthenticator extends AbstractAuthenticator implements
             throw new ValidationException('Nonce empty or not found');
         }
 
-        try {
-            $code = $request->query->get('code');
+        $code = $request->query->get('code');
 
-            if (!is_string($code)) {
-                throw new ValidationException('Missing or invalid code');
-            }
-
-            $idToken = $provider->getIdToken($code);
-            $claims = $provider->validateIdToken($idToken, $oauth2nonce);
-            // Authentication successful
-        } catch (ItkOpenIdConnectException $exception) {
-            // Handle failed authentication
-            throw new ValidationException($exception->getMessage());
+        if (!is_string($code)) {
+            throw new ValidationException('Missing or invalid code');
         }
+
+        // Library exceptions (HttpException, CodeException, ClaimsException,
+        // ValidationException, JsonException, CacheException, KeyException,
+        // DecodeException) all extend ItkOpenIdConnectException and bubble up
+        // unchanged so callers can react to specific failure modes.
+        $idToken = $provider->getIdToken($code);
+        $claims = $provider->validateIdToken($idToken, $oauth2nonce);
 
         /** @var array<string, string> $claimsArray */
         $claimsArray = (array) $claims;
@@ -83,6 +81,9 @@ abstract class OpenIdLoginAuthenticator extends AbstractAuthenticator implements
 
     public function onAuthenticationFailure(Request $request, AuthenticationException $exception): ?Response
     {
-        throw new AuthenticationException('Error occurred validating openid login');
+        // Preserve the cause so logs and error reporters can see what actually
+        // failed (timeout, signature mismatch, wrong nonce, etc.). Symfony's
+        // security renders only the safe message key to the user.
+        throw new AuthenticationException(sprintf('Error occurred validating openid login: %s', $exception->getMessage()), $exception->getCode(), $exception);
     }
 }

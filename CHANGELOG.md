@@ -15,6 +15,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `OpenIdLoginAuthenticator::validateClaims()` no longer collapses library
+  exceptions into a generic `ValidationException`. Specific subtypes
+  (`HttpException`, `CodeException`, `ClaimsException`, `JsonException`,
+  `CacheException`, etc.) bubble up unchanged so callers can react to the
+  actual failure mode (e.g., timeout vs. nonce mismatch). All subtypes
+  already extend `ItkOpenIdConnectException`, which the method's `@throws`
+  declaration already covered, so any caller catching the parent keeps
+  working.
+- `OpenIdLoginAuthenticator::onAuthenticationFailure()` now chains the
+  original exception via `previous` and includes its message, so logs and
+  error reporters retain the cause. Symfony's security still renders only
+  the safe message key to the user.
 - Bumped actions/checkout from v5 to v6 in all GitHub workflows
 - Renamed PHP_EXEC variable to PHP in Taskfile
 - Added lint:composer task to Taskfile

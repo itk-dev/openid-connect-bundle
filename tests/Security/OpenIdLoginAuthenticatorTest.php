@@ -3,6 +3,7 @@
 namespace ItkDev\OpenIdConnectBundle\Tests\Security;
 
 use ItkDev\OpenIdConnect\Exception\ClaimsException;
+use ItkDev\OpenIdConnect\Exception\HttpException;
 use ItkDev\OpenIdConnect\Exception\ValidationException;
 use ItkDev\OpenIdConnect\Security\OpenIdConfigurationProvider;
 use ItkDev\OpenIdConnectBundle\Security\OpenIdConfigurationProviderManager;
@@ -39,14 +40,18 @@ class OpenIdLoginAuthenticatorTest extends TestCase
         $this->assertTrue($this->authenticator->supports($request));
     }
 
-    public function testOnAuthenticationFailure(): void
+    public function testOnAuthenticationFailurePreservesCause(): void
     {
-        $this->expectException(AuthenticationException::class);
-
         $stubRequest = $this->createStub(Request::class);
-        $exception = new AuthenticationException();
+        $cause = new AuthenticationException('Original cause message');
 
-        $this->authenticator->onAuthenticationFailure($stubRequest, $exception);
+        try {
+            $this->authenticator->onAuthenticationFailure($stubRequest, $cause);
+            $this->fail('Expected AuthenticationException');
+        } catch (AuthenticationException $thrown) {
+            $this->assertSame($cause, $thrown->getPrevious(), 'Original exception must be chained as previous');
+            $this->assertStringContainsString('Original cause message', $thrown->getMessage(), 'Cause message must be preserved for logs');
+        }
     }
 
     public function testValidateClaimsWrongState(): void
@@ -85,10 +90,10 @@ class OpenIdLoginAuthenticatorTest extends TestCase
         $this->authenticator->authenticate($request);
     }
 
-    public function testValidateClaimsCodeDoesNotValidate(): void
+    public function testValidateClaimsBubblesClaimsExceptionUnchanged(): void
     {
         $stubProvider = $this->createStub(OpenIdConfigurationProvider::class);
-        $stubProvider->method('validateIdToken')->willThrowException(new ClaimsException('test message'));
+        $stubProvider->method('validateIdToken')->willThrowException(new ClaimsException('ID token has incorrect nonce'));
         $this->stubProviderManager->method('getProvider')->willReturn($stubProvider);
 
         $request = $this->createStub(Request::class);
@@ -96,8 +101,27 @@ class OpenIdLoginAuthenticatorTest extends TestCase
 
         $this->setupStubSessionOnRequest($request);
 
-        $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage('test message');
+        // ClaimsException must reach the caller as itself, not collapsed into the
+        // base ItkOpenIdConnectException or ValidationException, so consumers can
+        // distinguish a bad nonce/issuer/audience from a network failure.
+        $this->expectException(ClaimsException::class);
+        $this->expectExceptionMessage('ID token has incorrect nonce');
+        $this->authenticator->authenticate($request);
+    }
+
+    public function testValidateClaimsBubblesHttpExceptionUnchanged(): void
+    {
+        $stubProvider = $this->createStub(OpenIdConfigurationProvider::class);
+        $stubProvider->method('getIdToken')->willThrowException(new HttpException('Connection timed out'));
+        $this->stubProviderManager->method('getProvider')->willReturn($stubProvider);
+
+        $request = $this->createStub(Request::class);
+        $request->query = new InputBag(['state' => 'test_state', 'code' => 'test_code']);
+
+        $this->setupStubSessionOnRequest($request);
+
+        $this->expectException(HttpException::class);
+        $this->expectExceptionMessage('Connection timed out');
         $this->authenticator->authenticate($request);
     }
 
