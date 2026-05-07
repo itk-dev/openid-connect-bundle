@@ -115,6 +115,36 @@ OIDC_CLI_LOGIN_ROUTE=OIDC_CLI_LOGIN_ROUTE
 
 Set the actual values your `env.local` file to ensure they are not committed to Git.
 
+#### Configuring the HTTP client
+
+Each provider accepts an optional `http_client_options` block that is forwarded
+to the underlying Guzzle HTTP client used by `league/oauth2-client`. This is
+useful for setting a request timeout so a slow IdP cannot block worker
+processes indefinitely.
+
+```yaml
+itkdev_openid_connect:
+  openid_providers:
+    user:
+      options:
+        # ... existing keys ...
+        http_client_options:
+          timeout: 5 # seconds; default unset (no timeout)
+          proxy: "%env(string:HTTP_PROXY)%"
+          verify: true # only consulted by Guzzle when proxy is set
+```
+
+Only the keys whitelisted by `league/oauth2-client` are forwarded: `timeout`,
+`proxy`, and `verify` (the last only when `proxy` is set).
+
+> **Why Guzzle and not Symfony HttpClient?**
+> `league/oauth2-client`, which the underlying `itk-dev/openid-connect`
+> library extends, hard-types its HTTP client as `GuzzleHttp\ClientInterface`.
+> Symfony HttpClient implements PSR-18 / HTTPlug, not Guzzle's interface, and
+> no maintained adapter goes Symfony → Guzzle. Configure Guzzle via the
+> options above; full transport replacement is not currently possible without
+> a custom adapter we are not yet shipping.
+
 In `/config/routes/` you need a similar `itkdev_openid_connect.yaml` file for
 configuring the routing
 
