@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Per-provider `http_client_options` block (`timeout`, `proxy`, `verify`)
+  forwarded to the underlying Guzzle HTTP client used by league/oauth2-client.
+  Closes the long-standing inability to bound HTTP requests to the IdP.
+
 ### Changed
 
 - Expanded README note on Symfony native OIDC support (7.3 features,

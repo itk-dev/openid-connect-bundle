@@ -109,6 +109,55 @@ class ConfigurationTest extends TestCase
         );
     }
 
+    public function testHttpClientOptionsAccepted(): void
+    {
+        $input = $this->getMinimalConfig();
+        $input['openid_providers']['provider1']['options']['http_client_options'] = [
+            'timeout' => 2.5,
+            'proxy' => 'http://proxy:8080',
+            'verify' => true,
+        ];
+
+        $config = $this->processor->processConfiguration(
+            $this->configuration,
+            [$input]
+        );
+
+        $httpClientOptions = $config['openid_providers']['provider1']['options']['http_client_options'];
+        $this->assertSame(2.5, $httpClientOptions['timeout']);
+        $this->assertSame('http://proxy:8080', $httpClientOptions['proxy']);
+        $this->assertTrue($httpClientOptions['verify']);
+    }
+
+    public function testHttpClientOptionsAbsentByDefault(): void
+    {
+        $config = $this->processor->processConfiguration(
+            $this->configuration,
+            [$this->getMinimalConfig()]
+        );
+
+        $providerOptions = $config['openid_providers']['provider1']['options'];
+        // The block has no default value, so an omitted input must produce no
+        // http_client_options key in the processed config — otherwise an empty
+        // array would still be merged into the provider options.
+        $this->assertArrayNotHasKey('http_client_options', $providerOptions);
+    }
+
+    public function testHttpClientOptionsRejectsUnknownKey(): void
+    {
+        $input = $this->getMinimalConfig();
+        $input['openid_providers']['provider1']['options']['http_client_options'] = [
+            'foo' => 1,
+        ];
+
+        $this->expectException(InvalidConfigurationException::class);
+
+        $this->processor->processConfiguration(
+            $this->configuration,
+            [$input]
+        );
+    }
+
     public function testMultipleProviders(): void
     {
         $input = $this->getMinimalConfig();

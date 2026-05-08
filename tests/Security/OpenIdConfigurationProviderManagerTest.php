@@ -2,6 +2,7 @@
 
 namespace ItkDev\OpenIdConnectBundle\Tests\Security;
 
+use GuzzleHttp\Client as GuzzleClient;
 use ItkDev\OpenIdConnect\Security\OpenIdConfigurationProvider;
 use ItkDev\OpenIdConnectBundle\Exception\InvalidProviderException;
 use ItkDev\OpenIdConnectBundle\Security\OpenIdConfigurationProviderManager;
@@ -117,6 +118,60 @@ class OpenIdConfigurationProviderManagerTest extends TestCase
 
         $provider = $manager->getProvider('test');
         $this->assertInstanceOf(OpenIdConfigurationProvider::class, $provider);
+    }
+
+    /**
+     * Read a Guzzle 7 client option.
+     *
+     * Guzzle's getConfig() carries a @deprecated tag for the planned v8 removal,
+     * but it remains the only public way to introspect a Client's effective
+     * config in v7 — which is what league/oauth2-client mandates. The tests
+     * below assert effective config, so we intentionally call the deprecated
+     * accessor and silence the single phpstan diagnostic it produces.
+     */
+    private function getGuzzleConfig(GuzzleClient $client, string $option): mixed
+    {
+        // @phpstan-ignore method.deprecated (see docblock above)
+        return $client->getConfig($option);
+    }
+
+    public function testGetProviderForwardsHttpClientOptions(): void
+    {
+        $manager = $this->createManager([
+            'test' => $this->getBaseProviderConfig() + [
+                'redirect_uri' => 'https://app.com/callback',
+                'http_client_options' => [
+                    'timeout' => 1.5,
+                    'proxy' => 'http://proxy:8080',
+                    'verify' => false,
+                ],
+            ],
+        ]);
+
+        $provider = $manager->getProvider('test');
+        $httpClient = $provider->getHttpClient();
+
+        $this->assertInstanceOf(GuzzleClient::class, $httpClient);
+        $this->assertSame(1.5, $this->getGuzzleConfig($httpClient, 'timeout'));
+        $this->assertSame('http://proxy:8080', $this->getGuzzleConfig($httpClient, 'proxy'));
+        // verify is only forwarded by league when proxy is set.
+        $this->assertFalse($this->getGuzzleConfig($httpClient, 'verify'));
+    }
+
+    public function testGetProviderWithoutHttpClientOptionsLeavesGuzzleDefaults(): void
+    {
+        $manager = $this->createManager([
+            'test' => $this->getBaseProviderConfig() + [
+                'redirect_uri' => 'https://app.com/callback',
+            ],
+        ]);
+
+        $provider = $manager->getProvider('test');
+        $httpClient = $provider->getHttpClient();
+
+        $this->assertInstanceOf(GuzzleClient::class, $httpClient);
+        // No timeout configured ⇒ Guzzle's getConfig returns null. Asserts no leak from our pass-through.
+        $this->assertNull($this->getGuzzleConfig($httpClient, 'timeout'));
     }
 
     public function testGetProviderCachesInstance(): void

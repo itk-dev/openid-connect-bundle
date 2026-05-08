@@ -25,6 +25,11 @@ class OpenIdConfigurationProviderManager
      *         redirect_route_parameters?: array<string, string>,
      *         leeway?: int,
      *         allow_http?: bool,
+     *         http_client_options?: array{
+     *             timeout?: float,
+     *             proxy?: string,
+     *             verify?: bool,
+     *         },
      *     }>,
      * } $config
      */
@@ -76,6 +81,10 @@ class OpenIdConfigurationProviderManager
 
             if (isset($options['allow_http'])) {
                 $providerOptions['allowHttp'] = $options['allow_http'];
+            }
+
+            if (!empty($options['http_client_options'])) {
+                $providerOptions += $options['http_client_options'];
             }
 
             $this->providers[$key] = new OpenIdConfigurationProvider($providerOptions);
