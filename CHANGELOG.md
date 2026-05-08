@@ -15,6 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Expanded README note on Symfony native OIDC support (7.3 features,
+  comparison table, link to upstream authorization-code-flow issue)
 - Bumped actions/checkout from v5 to v6 in all GitHub workflows
 - Renamed PHP_EXEC variable to PHP in Taskfile
 - Added lint:composer task to Taskfile
