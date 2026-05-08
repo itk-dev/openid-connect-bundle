@@ -24,6 +24,7 @@ class OpenIdConfigurationProviderManager
      *         redirect_route?: string,
      *         redirect_route_parameters?: array<string, string>,
      *         leeway?: int,
+     *         cache_duration?: int,
      *         allow_http?: bool,
      *     }>,
      * } $config
@@ -72,6 +73,10 @@ class OpenIdConfigurationProviderManager
 
             if (isset($options['leeway'])) {
                 $providerOptions['leeway'] = $options['leeway'];
+            }
+
+            if (isset($options['cache_duration'])) {
+                $providerOptions['cacheDuration'] = $options['cache_duration'];
             }
 
             if (isset($options['allow_http'])) {

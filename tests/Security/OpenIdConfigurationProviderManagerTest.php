@@ -106,6 +106,19 @@ class OpenIdConfigurationProviderManagerTest extends TestCase
         $this->assertInstanceOf(OpenIdConfigurationProvider::class, $provider);
     }
 
+    public function testGetProviderWithCacheDuration(): void
+    {
+        $manager = $this->createManager([
+            'test' => $this->getBaseProviderConfig() + [
+                'redirect_uri' => 'https://app.com/callback',
+                'cache_duration' => 3600,
+            ],
+        ]);
+
+        $provider = $manager->getProvider('test');
+        $this->assertInstanceOf(OpenIdConfigurationProvider::class, $provider);
+    }
+
     public function testGetProviderWithAllowHttp(): void
     {
         $manager = $this->createManager([

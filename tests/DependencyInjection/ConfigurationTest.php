@@ -56,6 +56,7 @@ class ConfigurationTest extends TestCase
         $this->assertSame('my_id', $provider['client_id']);
         $this->assertSame('my_secret', $provider['client_secret']);
         $this->assertSame(10, $provider['leeway']);
+        $this->assertSame(86400, $provider['cache_duration']);
         $this->assertFalse($provider['allow_http']);
     }
 
@@ -64,6 +65,7 @@ class ConfigurationTest extends TestCase
         $input = $this->getMinimalConfig();
         $input['user_provider'] = 'my_user_provider';
         $input['openid_providers']['provider1']['options']['leeway'] = 30;
+        $input['openid_providers']['provider1']['options']['cache_duration'] = 3600;
         $input['openid_providers']['provider1']['options']['redirect_uri'] = 'https://app.com/callback';
         $input['openid_providers']['provider1']['options']['allow_http'] = true;
 
@@ -76,6 +78,7 @@ class ConfigurationTest extends TestCase
 
         $provider = $config['openid_providers']['provider1']['options'];
         $this->assertSame(30, $provider['leeway']);
+        $this->assertSame(3600, $provider['cache_duration']);
         $this->assertSame('https://app.com/callback', $provider['redirect_uri']);
         $this->assertTrue($provider['allow_http']);
     }

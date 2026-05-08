@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Per-provider `cache_duration` option (seconds) forwarded to the
+  underlying library; lets consumers tighten or extend the 24h default
+  TTL for the cached OIDC discovery document and JWKS
+
 ### Changed
 
 - Expanded README note on Symfony native OIDC support (7.3 features,
