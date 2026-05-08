@@ -112,8 +112,9 @@ class OpenIdLoginAuthenticatorTest extends TestCase
 
     public function testValidateClaimsBubblesHttpExceptionUnchanged(): void
     {
+        $httpMessage = 'Connection timed out';
         $stubProvider = $this->createStub(OpenIdConfigurationProvider::class);
-        $stubProvider->method('getIdToken')->willThrowException(new HttpException('Connection timed out'));
+        $stubProvider->method('getIdToken')->willThrowException(new HttpException($httpMessage));
         $this->stubProviderManager->method('getProvider')->willReturn($stubProvider);
 
         $request = $this->createStub(Request::class);
@@ -122,7 +123,7 @@ class OpenIdLoginAuthenticatorTest extends TestCase
         $this->setupStubSessionOnRequest($request);
 
         $this->expectException(HttpException::class);
-        $this->expectExceptionMessage('Connection timed out');
+        $this->expectExceptionMessage($httpMessage);
         $this->authenticator->authenticate($request);
     }
 
