@@ -138,8 +138,10 @@ itkdev_openid_connect:
           verify: true 
 ```
 
-Only the keys whitelisted by `league/oauth2-client` are forwarded: `timeout`,
-`proxy`, and `verify` (the last only when `proxy` is set).
+The bundle accepts only `timeout`, `proxy`, and `verify` under
+`http_client_options` — these are the keys `league/oauth2-client` forwards to
+Guzzle (`verify` is consulted only when `proxy` is set). Any other key causes
+an `InvalidConfigurationException` at container compile time.
 
 > **Why Guzzle and not Symfony HttpClient?**
 > `league/oauth2-client`, which the underlying `itk-dev/openid-connect`
