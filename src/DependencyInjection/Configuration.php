@@ -80,6 +80,24 @@ class Configuration implements ConfigurationInterface
                                         ->info('Whether to allow http or not (default: false)')
                                         ->defaultValue(false)
                                     ->end()
+                                    // Uses Guzzle under the hood through itk-dev/openid-connect -> league/oauth2-client -> guzzlehttp/guzzle
+                                    ->arrayNode('http_client_options')
+                                        ->info('Options forwarded to the underlying Guzzle HTTP client. league/oauth2-client only forwards: timeout, proxy, verify (verify is only consulted when proxy is set).')
+                                        ->children()
+                                            // @see https://docs.guzzlephp.org/en/stable/request-options.html#timeout
+                                            ->floatNode('timeout')
+                                                ->info('Total request timeout in seconds')
+                                            ->end()
+                                            // @see https://docs.guzzlephp.org/en/stable/request-options.html#proxy
+                                            ->scalarNode('proxy')
+                                                ->info('HTTP proxy URI')
+                                            ->end()
+                                            // @see https://docs.guzzlephp.org/en/stable/request-options.html#verify
+                                            ->booleanNode('verify')
+                                                ->info('Verify TLS certificates (only consulted by Guzzle when proxy is set)')
+                                            ->end()
+                                        ->end()
+                                    ->end()
                                 ->end()
                                 ->validate()
                                     ->ifTrue(static fn (array $v) => isset($v['redirect_uri'], $v['redirect_route']))
