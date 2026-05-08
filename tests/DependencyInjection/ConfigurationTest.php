@@ -137,8 +137,10 @@ class ConfigurationTest extends TestCase
         );
 
         $providerOptions = $config['openid_providers']['provider1']['options'];
-        // Block must either be absent or empty so nothing leaks into Guzzle.
-        $this->assertSame([], $providerOptions['http_client_options'] ?? []);
+        // The block has no default value, so an omitted input must produce no
+        // http_client_options key in the processed config — otherwise an empty
+        // array would still be merged into the provider options.
+        $this->assertArrayNotHasKey('http_client_options', $providerOptions);
     }
 
     public function testHttpClientOptionsRejectsUnknownKey(): void
