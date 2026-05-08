@@ -128,10 +128,14 @@ itkdev_openid_connect:
     user:
       options:
         # ... existing keys ...
+        # @see https://docs.guzzlephp.org/en/stable/request-options.html
         http_client_options:
-          timeout: 5 # seconds; default unset (no timeout)
+          # Float describing the total timeout of the request in seconds. Use 0 to wait indefinitely (the default behavior).
+          timeout: 5.0 
+          # Pass a string to specify an HTTP proxy, or an array to specify different proxies for different protocols. (Default: none)
           proxy: "%env(string:HTTP_PROXY)%"
-          verify: true # only consulted by Guzzle when proxy is set
+          # Describes the SSL certificate verification behavior of a request. (Default: true)
+          verify: true 
 ```
 
 Only the keys whitelisted by `league/oauth2-client` are forwarded: `timeout`,
