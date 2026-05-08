@@ -42,14 +42,15 @@ class OpenIdLoginAuthenticatorTest extends TestCase
 
     public function testOnAuthenticationFailurePreservesCause(): void
     {
+        $causeMessage = 'Original cause message';
         $stubRequest = $this->createStub(Request::class);
-        $cause = new AuthenticationException('Original cause message');
+        $cause = new AuthenticationException($causeMessage);
 
         try {
             $this->authenticator->onAuthenticationFailure($stubRequest, $cause);
         } catch (AuthenticationException $thrown) {
             $this->assertSame($cause, $thrown->getPrevious(), 'Original exception must be chained as previous');
-            $this->assertStringContainsString('Original cause message', $thrown->getMessage(), 'Cause message must be preserved for logs');
+            $this->assertStringContainsString($causeMessage, $thrown->getMessage(), 'Cause message must be preserved for logs');
         }
     }
 
