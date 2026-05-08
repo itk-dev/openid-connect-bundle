@@ -92,8 +92,9 @@ class OpenIdLoginAuthenticatorTest extends TestCase
 
     public function testValidateClaimsBubblesClaimsExceptionUnchanged(): void
     {
+        $claimsMessage = 'ID token has incorrect nonce';
         $stubProvider = $this->createStub(OpenIdConfigurationProvider::class);
-        $stubProvider->method('validateIdToken')->willThrowException(new ClaimsException('ID token has incorrect nonce'));
+        $stubProvider->method('validateIdToken')->willThrowException(new ClaimsException($claimsMessage));
         $this->stubProviderManager->method('getProvider')->willReturn($stubProvider);
 
         $request = $this->createStub(Request::class);
@@ -105,7 +106,7 @@ class OpenIdLoginAuthenticatorTest extends TestCase
         // base ItkOpenIdConnectException or ValidationException, so consumers can
         // distinguish a bad nonce/issuer/audience from a network failure.
         $this->expectException(ClaimsException::class);
-        $this->expectExceptionMessage('ID token has incorrect nonce');
+        $this->expectExceptionMessage($claimsMessage);
         $this->authenticator->authenticate($request);
     }
 
