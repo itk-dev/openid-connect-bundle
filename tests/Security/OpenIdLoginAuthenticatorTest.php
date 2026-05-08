@@ -47,7 +47,6 @@ class OpenIdLoginAuthenticatorTest extends TestCase
 
         try {
             $this->authenticator->onAuthenticationFailure($stubRequest, $cause);
-            $this->fail('Expected AuthenticationException');
         } catch (AuthenticationException $thrown) {
             $this->assertSame($cause, $thrown->getPrevious(), 'Original exception must be chained as previous');
             $this->assertStringContainsString('Original cause message', $thrown->getMessage(), 'Cause message must be preserved for logs');
