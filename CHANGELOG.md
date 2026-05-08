@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Mapped LoginController failures to 404 (unknown provider) or 503
+  (upstream/cache) instead of a generic 500; cause chained via `previous`
 - Expanded README note on Symfony native OIDC support (7.3 features,
   comparison table, link to upstream authorization-code-flow issue)
 - Bumped actions/checkout from v5 to v6 in all GitHub workflows
