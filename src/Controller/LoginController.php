@@ -27,10 +27,8 @@ class LoginController extends AbstractController
      *
      * @throws NotFoundHttpException           Provider key not configured (404)
      * @throws ServiceUnavailableHttpException IdP unreachable, returned a non-200, served malformed JSON, or local cache failed (503)
-     *
-     * Other ItkOpenIdConnectException subtypes raised during provider init
-     * (e.g. BadUrlException for a misconfigured metadata_url) are server-side
-     * configuration bugs and intentionally bubble as 500.
+     * @throws ItkOpenIdConnectException       Other provider-init failures (e.g. BadUrlException for a misconfigured metadata_url) — server-side configuration bugs that intentionally bubble as 500
+     * @throws \InvalidArgumentException       Declared by league\AbstractProvider::getAuthorizationUrl for missing scope/state. Unreachable in this flow (state always provided, getDefaultScopes() implemented in upstream OpenIdConfigurationProvider). Bubbles as 500 if it ever fires — programmer error.
      */
     public function login(Request $request, SessionInterface $session, string $providerKey): RedirectResponse
     {
