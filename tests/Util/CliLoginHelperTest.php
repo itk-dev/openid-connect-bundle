@@ -83,16 +83,21 @@ class CliLoginHelperTest extends TestCase
 
     public function testCreateTokenThrowsCacheExceptionOnGetItem(): void
     {
+        $cause = new TestInvalidArgumentException('Cache error');
         $stubCache = $this->createStub(CacheItemPoolInterface::class);
-        $stubCache->method('getItem')
-            ->willThrowException(new TestInvalidArgumentException('Cache error'));
+        $stubCache->method('getItem')->willThrowException($cause);
 
         $cliHelper = new CliLoginHelper($stubCache);
 
-        $this->expectException(CacheException::class);
-        $this->expectExceptionMessage('Cache error');
+        try {
+            $cliHelper->createToken('test_user');
+        } catch (CacheException $thrown) {
+            $this->assertSame('Cache error', $thrown->getMessage());
+            $this->assertSame($cause, $thrown->getPrevious(), 'Original cause must be chained');
 
-        $cliHelper->createToken('test_user');
+            return;
+        }
+        $this->fail('Expected CacheException');
     }
 
     public function testCreateTokenThrowsCacheExceptionOnSecondGetItem(): void
@@ -101,38 +106,49 @@ class CliLoginHelperTest extends TestCase
         $stubCacheItem->method('isHit')->willReturn(false);
         $stubCacheItem->method('get')->willReturn(null);
 
+        $cause = new TestInvalidArgumentException('Second cache error');
         $stubCache = $this->createStub(CacheItemPoolInterface::class);
         $callCount = 0;
         $stubCache->method('getItem')
-            ->willReturnCallback(function () use ($stubCacheItem, &$callCount) {
+            ->willReturnCallback(function () use ($stubCacheItem, $cause, &$callCount) {
                 ++$callCount;
                 if (1 === $callCount) {
                     return $stubCacheItem;
                 }
-                throw new TestInvalidArgumentException('Second cache error');
+                throw $cause;
             });
         $stubCache->method('save')->willReturn(true);
 
         $cliHelper = new CliLoginHelper($stubCache);
 
-        $this->expectException(CacheException::class);
-        $this->expectExceptionMessage('Second cache error');
+        try {
+            $cliHelper->createToken('another_user');
+        } catch (CacheException $thrown) {
+            $this->assertSame('Second cache error', $thrown->getMessage());
+            $this->assertSame($cause, $thrown->getPrevious(), 'Original cause must be chained');
 
-        $cliHelper->createToken('another_user');
+            return;
+        }
+        $this->fail('Expected CacheException');
     }
 
     public function testGetUsernameThrowsCacheExceptionOnGetItem(): void
     {
+        $cause = new TestInvalidArgumentException('Cache error');
         $stubCache = $this->createStub(CacheItemPoolInterface::class);
-        $stubCache->method('getItem')
-            ->willThrowException(new TestInvalidArgumentException('Cache error'));
+        $stubCache->method('getItem')->willThrowException($cause);
 
         $cliHelper = new CliLoginHelper($stubCache);
 
-        $this->expectException(CacheException::class);
-        $this->expectExceptionMessage('Cache error');
+        try {
+            $cliHelper->getUsername('some-token');
+        } catch (CacheException $thrown) {
+            $this->assertSame('Cache error', $thrown->getMessage());
+            $this->assertSame($cause, $thrown->getPrevious(), 'Original cause must be chained');
 
-        $cliHelper->getUsername('some-token');
+            return;
+        }
+        $this->fail('Expected CacheException');
     }
 
     public function testCreateTokenThrowsCacheExceptionOnNonStringCachedToken(): void
@@ -175,16 +191,21 @@ class CliLoginHelperTest extends TestCase
         $stubCacheItem->method('isHit')->willReturn(true);
         $stubCacheItem->method('get')->willReturn('encoded_username');
 
+        $cause = new TestInvalidArgumentException('Delete error');
         $stubCache = $this->createStub(CacheItemPoolInterface::class);
         $stubCache->method('getItem')->willReturn($stubCacheItem);
-        $stubCache->method('deleteItem')
-            ->willThrowException(new TestInvalidArgumentException('Delete error'));
+        $stubCache->method('deleteItem')->willThrowException($cause);
 
         $cliHelper = new CliLoginHelper($stubCache);
 
-        $this->expectException(CacheException::class);
-        $this->expectExceptionMessage('Delete error');
+        try {
+            $cliHelper->getUsername('some-token');
+        } catch (CacheException $thrown) {
+            $this->assertSame('Delete error', $thrown->getMessage());
+            $this->assertSame($cause, $thrown->getPrevious(), 'Original cause must be chained');
 
-        $cliHelper->getUsername('some-token');
+            return;
+        }
+        $this->fail('Expected CacheException');
     }
 }

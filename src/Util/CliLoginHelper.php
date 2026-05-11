@@ -34,7 +34,7 @@ class CliLoginHelper
         try {
             $revCacheItem = $this->cache->getItem($encodedUsername);
         } catch (InvalidArgumentException $e) {
-            throw new CacheException($e->getMessage());
+            throw new CacheException($e->getMessage(), previous: $e);
         }
 
         if ($revCacheItem->isHit()) {
@@ -53,7 +53,7 @@ class CliLoginHelper
         try {
             $cacheItem = $this->cache->getItem($token);
         } catch (InvalidArgumentException $e) {
-            throw new CacheException($e->getMessage());
+            throw new CacheException($e->getMessage(), previous: $e);
         }
 
         $cacheItem->set($encodedUsername);
@@ -73,7 +73,7 @@ class CliLoginHelper
         try {
             $usernameItem = $this->cache->getItem($token);
         } catch (InvalidArgumentException $e) {
-            throw new CacheException($e->getMessage());
+            throw new CacheException($e->getMessage(), previous: $e);
         }
 
         if (!$usernameItem->isHit()) {
@@ -91,7 +91,7 @@ class CliLoginHelper
             $this->cache->deleteItem($token);
             $this->cache->deleteItem($username);
         } catch (InvalidArgumentException $e) {
-            throw new CacheException($e->getMessage());
+            throw new CacheException($e->getMessage(), previous: $e);
         }
 
         return $this->decodeKey($username);
