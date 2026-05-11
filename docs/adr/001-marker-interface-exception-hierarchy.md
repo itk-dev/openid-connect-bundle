@@ -10,6 +10,15 @@
 
 ## Context
 
+The principles this ADR proposes — cross-package marker interfaces,
+concrete exceptions extending SPL types, wrap-at-boundary discipline with
+`$previous` chained — are the intended design of the bundle's and
+library's exception layer. This is not a change in design direction. It
+is a course correction: the implementation has drifted from the intent on
+several specific points, and the migration below closes those gaps and
+adds the static-analysis guardrails needed to keep the implementation
+aligned going forward.
+
 This bundle and its upstream `itk-dev/openid-connect` library expose
 exception types that consuming applications catch in production code. The
 shape of that exception hierarchy is part of the public API: a consumer
