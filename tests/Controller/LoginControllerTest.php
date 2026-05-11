@@ -80,12 +80,14 @@ class LoginControllerTest extends TestCase
 
         try {
             $controller->login($this->createStub(Request::class), $this->createStub(SessionInterface::class), 'bogus');
-            $this->fail('Expected NotFoundHttpException');
         } catch (NotFoundHttpException $thrown) {
             $this->assertSame(404, $thrown->getStatusCode());
             $this->assertStringContainsString('bogus', $thrown->getMessage());
             $this->assertSame($cause, $thrown->getPrevious(), 'Original exception must be chained');
+
+            return;
         }
+        $this->fail('Expected NotFoundHttpException');
     }
 
     /**
@@ -110,12 +112,14 @@ class LoginControllerTest extends TestCase
 
         try {
             $controller->login($this->createStub(Request::class), $this->createStub(SessionInterface::class), 'test');
-            $this->fail('Expected ServiceUnavailableHttpException');
         } catch (ServiceUnavailableHttpException $thrown) {
             $this->assertSame(503, $thrown->getStatusCode());
             $this->assertStringContainsString('test', $thrown->getMessage());
             $this->assertSame($cause, $thrown->getPrevious(), 'Original exception must be chained');
+
+            return;
         }
+        $this->fail('Expected ServiceUnavailableHttpException');
     }
 
     private function createController(OpenIdConfigurationProvider $provider): LoginController

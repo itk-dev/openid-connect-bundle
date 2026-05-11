@@ -2,9 +2,7 @@
 
 namespace ItkDev\OpenIdConnectBundle\Controller;
 
-use ItkDev\OpenIdConnect\Exception\CacheException;
-use ItkDev\OpenIdConnect\Exception\HttpException;
-use ItkDev\OpenIdConnect\Exception\JsonException;
+use ItkDev\OpenIdConnect\Exception\ItkOpenIdConnectException;
 use ItkDev\OpenIdConnectBundle\Exception\InvalidProviderException;
 use ItkDev\OpenIdConnectBundle\Security\OpenIdConfigurationProviderManager;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -29,6 +27,10 @@ class LoginController extends AbstractController
      *
      * @throws NotFoundHttpException           Provider key not configured (404)
      * @throws ServiceUnavailableHttpException IdP unreachable, returned a non-200, served malformed JSON, or local cache failed (503)
+     *
+     * Other ItkOpenIdConnectException subtypes raised during provider init
+     * (e.g. BadUrlException for a misconfigured metadata_url) are server-side
+     * configuration bugs and intentionally bubble as 500.
      */
     public function login(Request $request, SessionInterface $session, string $providerKey): RedirectResponse
     {
@@ -53,10 +55,10 @@ class LoginController extends AbstractController
                 'response_type' => 'code',
                 'scope' => 'openid email profile',
             ]);
-        } catch (HttpException|JsonException|CacheException $e) {
+        } catch (ItkOpenIdConnectException $e) {
             // Building the authorization URL fetches the IdP's discovery
-            // document. Surface upstream/transport failures as 503 with the
-            // cause chained, rather than an unhandled 500.
+            // document. Surface upstream/transport/cache failures as 503 with
+            // the cause chained, rather than an unhandled 500.
             throw new ServiceUnavailableHttpException(null, sprintf('Cannot reach OIDC provider "%s"', $providerKey), $e);
         }
 
