@@ -16,6 +16,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   forwarded to the underlying Guzzle HTTP client used by league/oauth2-client.
   Closes the long-standing inability to bound HTTP requests to the IdP.
 
+### Fixed
+
+- Preserve original cause via `$previous` in `CliLoginHelper` and
+  `OpenIdLoginAuthenticator::validateClaims` exception wraps. Previously
+  the message was copied but the chain to the originating PSR cache or
+  upstream OIDC failure was lost, making logs harder to debug.
+
 ### Changed
 
 - Mapped LoginController failures to 404 (unknown provider) or 503
