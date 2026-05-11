@@ -87,8 +87,9 @@ class OpenIdLoginAuthenticatorTest extends TestCase
 
     public function testValidateClaimsCodeDoesNotValidate(): void
     {
+        $cause = new ClaimsException('test message');
         $stubProvider = $this->createStub(OpenIdConfigurationProvider::class);
-        $stubProvider->method('validateIdToken')->willThrowException(new ClaimsException('test message'));
+        $stubProvider->method('validateIdToken')->willThrowException($cause);
         $this->stubProviderManager->method('getProvider')->willReturn($stubProvider);
 
         $request = $this->createStub(Request::class);
@@ -96,9 +97,15 @@ class OpenIdLoginAuthenticatorTest extends TestCase
 
         $this->setupStubSessionOnRequest($request);
 
-        $this->expectException(ValidationException::class);
-        $this->expectExceptionMessage('test message');
-        $this->authenticator->authenticate($request);
+        try {
+            $this->authenticator->authenticate($request);
+        } catch (ValidationException $thrown) {
+            $this->assertSame('test message', $thrown->getMessage());
+            $this->assertSame($cause, $thrown->getPrevious(), 'Original cause must be chained');
+
+            return;
+        }
+        $this->fail('Expected ValidationException');
     }
 
     public function testValidateClaimsSuccess(): void

@@ -72,7 +72,7 @@ abstract class OpenIdLoginAuthenticator extends AbstractAuthenticator implements
             // Authentication successful
         } catch (ItkOpenIdConnectException $exception) {
             // Handle failed authentication
-            throw new ValidationException($exception->getMessage());
+            throw new ValidationException($exception->getMessage(), previous: $exception);
         }
 
         /** @var array<string, string> $claimsArray */

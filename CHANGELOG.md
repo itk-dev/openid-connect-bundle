@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.2.0] - 2026-05-11
+
+### Added
+
+- Per-provider `cache_duration` option (seconds) forwarded to the
+  underlying library; lets consumers tighten or extend the 24h default
+  TTL for the cached OIDC discovery document and JWKS
+- Per-provider `http_client_options` block (`timeout`, `proxy`, `verify`)
+  forwarded to the underlying Guzzle HTTP client used by league/oauth2-client.
+  Closes the long-standing inability to bound HTTP requests to the IdP.
+
+### Fixed
+
+- Preserve original cause via `$previous` in `CliLoginHelper` and
+  `OpenIdLoginAuthenticator::validateClaims` exception wraps. Previously
+  the message was copied but the chain to the originating PSR cache or
+  upstream OIDC failure was lost, making logs harder to debug.
+
+### Changed
+
+- Mapped LoginController failures to 404 (unknown provider) or 503
+  (upstream/cache) instead of a generic 500; cause chained via `previous`
+- Expanded README note on Symfony native OIDC support (7.3 features,
+  comparison table, link to upstream authorization-code-flow issue)
+- Bumped actions/checkout from v5 to v6 in all GitHub workflows
+- Renamed PHP_EXEC variable to PHP in Taskfile
+- Added lint:composer task to Taskfile
+- Improved test:coverage to enable XDEBUG_MODE and add text output
+- Fixed test:matrix:reset to include CI profile when removing volumes
+- Fixed test:run to remove stale composer.lock before updating dependencies
+
 ## [4.1.0] - 2026-03-20
 
 ### Added
@@ -123,7 +154,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `itk-dev/openid-connect` 1.0.0 to 2.1.0
 - OpenId Connect Bundle: Added CLI login feature.
 
-[unreleased]: https://github.com/itk-dev/openid-connect-bundle/compare/4.1.0...HEAD
+[unreleased]: https://github.com/itk-dev/openid-connect-bundle/compare/4.2.0...HEAD
+[4.2.0]: https://github.com/itk-dev/openid-connect-bundle/compare/4.1.0...4.2.0
 [4.1.0]: https://github.com/itk-dev/openid-connect-bundle/compare/4.0.1...4.1.0
 [4.0.1]: https://github.com/itk-dev/openid-connect-bundle/compare/4.0.0...4.0.1
 [4.0.0]: https://github.com/itk-dev/openid-connect-bundle/compare/3.1.0...4.0.0

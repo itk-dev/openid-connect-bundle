@@ -56,6 +56,7 @@ class ConfigurationTest extends TestCase
         $this->assertSame('my_id', $provider['client_id']);
         $this->assertSame('my_secret', $provider['client_secret']);
         $this->assertSame(10, $provider['leeway']);
+        $this->assertSame(86400, $provider['cache_duration']);
         $this->assertFalse($provider['allow_http']);
     }
 
@@ -64,6 +65,7 @@ class ConfigurationTest extends TestCase
         $input = $this->getMinimalConfig();
         $input['user_provider'] = 'my_user_provider';
         $input['openid_providers']['provider1']['options']['leeway'] = 30;
+        $input['openid_providers']['provider1']['options']['cache_duration'] = 3600;
         $input['openid_providers']['provider1']['options']['redirect_uri'] = 'https://app.com/callback';
         $input['openid_providers']['provider1']['options']['allow_http'] = true;
 
@@ -76,6 +78,7 @@ class ConfigurationTest extends TestCase
 
         $provider = $config['openid_providers']['provider1']['options'];
         $this->assertSame(30, $provider['leeway']);
+        $this->assertSame(3600, $provider['cache_duration']);
         $this->assertSame('https://app.com/callback', $provider['redirect_uri']);
         $this->assertTrue($provider['allow_http']);
     }
@@ -102,6 +105,55 @@ class ConfigurationTest extends TestCase
 
         $this->expectException(InvalidConfigurationException::class);
         $this->expectExceptionMessage('Only one of redirect_uri or redirect_route must be set.');
+
+        $this->processor->processConfiguration(
+            $this->configuration,
+            [$input]
+        );
+    }
+
+    public function testHttpClientOptionsAccepted(): void
+    {
+        $input = $this->getMinimalConfig();
+        $input['openid_providers']['provider1']['options']['http_client_options'] = [
+            'timeout' => 2.5,
+            'proxy' => 'http://proxy:8080',
+            'verify' => true,
+        ];
+
+        $config = $this->processor->processConfiguration(
+            $this->configuration,
+            [$input]
+        );
+
+        $httpClientOptions = $config['openid_providers']['provider1']['options']['http_client_options'];
+        $this->assertSame(2.5, $httpClientOptions['timeout']);
+        $this->assertSame('http://proxy:8080', $httpClientOptions['proxy']);
+        $this->assertTrue($httpClientOptions['verify']);
+    }
+
+    public function testHttpClientOptionsAbsentByDefault(): void
+    {
+        $config = $this->processor->processConfiguration(
+            $this->configuration,
+            [$this->getMinimalConfig()]
+        );
+
+        $providerOptions = $config['openid_providers']['provider1']['options'];
+        // The block has no default value, so an omitted input must produce no
+        // http_client_options key in the processed config — otherwise an empty
+        // array would still be merged into the provider options.
+        $this->assertArrayNotHasKey('http_client_options', $providerOptions);
+    }
+
+    public function testHttpClientOptionsRejectsUnknownKey(): void
+    {
+        $input = $this->getMinimalConfig();
+        $input['openid_providers']['provider1']['options']['http_client_options'] = [
+            'foo' => 1,
+        ];
+
+        $this->expectException(InvalidConfigurationException::class);
 
         $this->processor->processConfiguration(
             $this->configuration,
