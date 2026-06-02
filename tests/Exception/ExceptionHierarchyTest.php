@@ -15,7 +15,8 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Locks the bundle's exception contract documented in `CLAUDE.md` "Exceptions":
+ * Locks the bundle's exception contract (see
+ * docs/adr/001-marker-interface-exception-hierarchy.md):
  *
  * - Every concrete bundle exception implements {@see OpenIdConnectBundleExceptionInterface}
  *   (and therefore {@see OpenIdConnectExceptionInterface} from the upstream library).
