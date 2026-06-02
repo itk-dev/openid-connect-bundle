@@ -2,6 +2,6 @@
 
 namespace ItkDev\OpenIdConnectBundle\Exception;
 
-class TokenNotFoundException extends ItkOpenIdConnectBundleException
+class TokenNotFoundException extends \RuntimeException implements OpenIdConnectBundleExceptionInterface
 {
 }

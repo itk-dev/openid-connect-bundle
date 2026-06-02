@@ -7,12 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed (BREAKING)
+
+- **Exception hierarchy reworked.** Every exception thrown from a public
+  method now implements `OpenIdConnectBundleExceptionInterface` (which
+  extends `\ItkDev\OpenIdConnect\Exception\OpenIdConnectExceptionInterface`
+  from the upstream library). Concrete exceptions now extend the SPL type
+  that best describes the failure category (`\RuntimeException`,
+  `\InvalidArgumentException`); they no longer extend
+  `ItkOpenIdConnectBundleException`. Consumers catching the abstract base
+  must migrate to `OpenIdConnectBundleExceptionInterface` — the abstract
+  class is kept for this release as a documented alias and is
+  `@deprecated`, but `catch (ItkOpenIdConnectBundleException $e)` blocks
+  will no longer match any concrete thrown by the bundle.
+- Bumped `itk-dev/openid-connect` requirement to `^5.0` for the matching
+  upstream contract.
+- `OpenIdLoginAuthenticator::validateClaims` now catches on the marker
+  interface (`OpenIdConnectExceptionInterface`) instead of the deprecated
+  upstream abstract. The `$previous`-chain behaviour is preserved.
+- `LoginController::login` catches on the marker interface before mapping
+  to `ServiceUnavailableHttpException`. No consumer-visible behaviour
+  change.
+
+### Added
+
+- `ItkDev\OpenIdConnectBundle\Exception\OpenIdConnectBundleExceptionInterface`
+  marker for catching all bundle-thrown OIDC failures.
+
 ### Changed
 
 - Hardened static analysis. PHPStan now analyses `tests/` in addition to
   `src/`, runs the strict, deprecation, PHPUnit and Symfony rule packs, and
   requires a comment on every ignore (`reportIgnoresWithoutComments`). Pinned
   `phpstan/phpstan` to `^2.1.41`. No public-API or behavioural change.
+
+### Deprecated
+
+- `ItkDev\OpenIdConnectBundle\Exception\ItkOpenIdConnectBundleException`
+  abstract class (catch `OpenIdConnectBundleExceptionInterface` instead).
+  Will be removed in 6.0.
 
 ### Fixed
 
