@@ -1,0 +1,9 @@
+services:
+    -
+        class: ItkDev\OpenIdConnectBundle\PHPStan\Rule\ThrownExceptionImplementsBundleMarker
+        tags:
+            - phpstan.rules.rule
+    -
+        class: ItkDev\OpenIdConnectBundle\PHPStan\Rule\WrappedExceptionChainsPrevious
+        tags:
+            - phpstan.rules.rule

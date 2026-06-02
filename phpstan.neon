@@ -5,12 +5,14 @@ includes:
 	- vendor/phpstan/phpstan-phpunit/rules.neon
 	- vendor/phpstan/phpstan-symfony/extension.neon
 	- vendor/phpstan/phpstan-symfony/rules.neon
+	- phpstan/exception-contract.neon
 
 parameters:
 	level: max
 	paths:
 		- src
 		- tests
+		- phpstan/Rule
 	reportIgnoresWithoutComments: true
 
 	ignoreErrors:

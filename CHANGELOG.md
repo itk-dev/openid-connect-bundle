@@ -33,6 +33,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `ItkDev\OpenIdConnectBundle\Exception\OpenIdConnectBundleExceptionInterface`
   marker for catching all bundle-thrown OIDC failures.
+- Custom PHPStan rules (`ThrownExceptionImplementsBundleMarker`,
+  `WrappedExceptionChainsPrevious`) that lock the exception contract on every
+  CI run — thrown exceptions must implement the marker (with documented
+  controller/authenticator carve-outs), and wraps inside a catch must chain
+  the caught cause as `$previous`.
 
 ### Changed
 
