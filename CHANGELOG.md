@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.0.0] - 2026-06-02
+
 ### Changed (BREAKING)
 
 - **Exception hierarchy reworked.** Every exception thrown from a public
@@ -38,6 +40,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   CI run — thrown exceptions must implement the marker (with documented
   controller/authenticator carve-outs), and wraps inside a catch must chain
   the caught cause as `$previous`.
+- `UPGRADE-5.0.md` migration guide for consumers.
 
 ### Changed
 
@@ -204,7 +207,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `itk-dev/openid-connect` 1.0.0 to 2.1.0
 - OpenId Connect Bundle: Added CLI login feature.
 
-[unreleased]: https://github.com/itk-dev/openid-connect-bundle/compare/4.2.0...HEAD
+[unreleased]: https://github.com/itk-dev/openid-connect-bundle/compare/5.0.0...HEAD
+[5.0.0]: https://github.com/itk-dev/openid-connect-bundle/compare/4.2.0...5.0.0
 [4.2.0]: https://github.com/itk-dev/openid-connect-bundle/compare/4.1.0...4.2.0
 [4.1.0]: https://github.com/itk-dev/openid-connect-bundle/compare/4.0.1...4.1.0
 [4.0.1]: https://github.com/itk-dev/openid-connect-bundle/compare/4.0.0...4.0.1
