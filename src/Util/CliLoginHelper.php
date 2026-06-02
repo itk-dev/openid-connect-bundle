@@ -105,7 +105,10 @@ class CliLoginHelper
 
     public function decodeKey(string $encodedKey): string
     {
-        $decodedKeyWithNamespace = base64_decode($encodedKey);
+        $decodedKeyWithNamespace = base64_decode($encodedKey, true);
+        if (false === $decodedKeyWithNamespace) {
+            return $encodedKey;
+        }
 
         // Remove namespace
         $key = str_replace(self::ITK_NAMESPACE, '', $decodedKeyWithNamespace);

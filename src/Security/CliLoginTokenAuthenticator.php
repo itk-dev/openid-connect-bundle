@@ -41,7 +41,7 @@ class CliLoginTokenAuthenticator extends AbstractAuthenticator
     public function authenticate(Request $request): Passport
     {
         $token = (string) $request->query->get('loginToken');
-        if (empty($token)) {
+        if ('' === $token) {
             // The token header was empty, authentication fails with HTTP Status
             // Code 401 "Unauthorized"
             throw new CustomUserMessageAuthenticationException('No login token provided');

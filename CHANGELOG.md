@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Hardened static analysis. PHPStan now analyses `tests/` in addition to
+  `src/`, runs the strict, deprecation, PHPUnit and Symfony rule packs, and
+  requires a comment on every ignore (`reportIgnoresWithoutComments`). Pinned
+  `phpstan/phpstan` to `^2.1.41`. No public-API or behavioural change.
+
+### Fixed
+
+- Tests build real `Request` instances instead of stubbing `Request`, which
+  fails under Symfony 8.1 (where `InputBag` is `final`) with recent PHPUnit.
+
 ## [4.2.0] - 2026-05-11
 
 ### Added

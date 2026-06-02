@@ -26,6 +26,18 @@ class CliLoginHelperTest extends TestCase
         $this->assertEquals($randomUsername, $decodedUsername);
     }
 
+    public function testDecodeKeyReturnsInputWhenNotValidBase64(): void
+    {
+        $cache = new ArrayAdapter();
+        $cliHelper = new CliLoginHelper($cache);
+
+        // Strict base64_decode() rejects input with characters outside the
+        // base64 alphabet; decodeKey() then returns the value unchanged.
+        $notBase64 = 'not valid base64 !!@@';
+
+        $this->assertSame($notBase64, $cliHelper->decodeKey($notBase64));
+    }
+
     public function testThrowExceptionIfTokenDoesNotExist(): void
     {
         $this->expectException(ItkOpenIdConnectBundleException::class);

@@ -7,8 +7,8 @@ use ItkDev\OpenIdConnectBundle\Exception\TokenNotFoundException;
 use ItkDev\OpenIdConnectBundle\Exception\UsernameDoesNotExistException;
 use ItkDev\OpenIdConnectBundle\Security\CliLoginTokenAuthenticator;
 use ItkDev\OpenIdConnectBundle\Util\CliLoginHelper;
+use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
-use Symfony\Component\HttpFoundation\InputBag;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
@@ -20,7 +20,9 @@ use Symfony\Component\Security\Http\Authenticator\Passport\Badge\UserBadge;
 class CliLoginTokenAuthenticatorTest extends TestCase
 {
     private CliLoginTokenAuthenticator $authenticator;
+    /** @var CliLoginHelper&Stub */
     private CliLoginHelper $stubCliLoginHelper;
+    /** @var UrlGeneratorInterface&Stub */
     private UrlGeneratorInterface $stubRouter;
 
     protected function setUp(): void
@@ -37,24 +39,21 @@ class CliLoginTokenAuthenticatorTest extends TestCase
 
     public function testSupportsWithLoginToken(): void
     {
-        $request = $this->createStub(Request::class);
-        $request->query = new InputBag(['loginToken' => 'some-token']);
+        $request = new Request(query: ['loginToken' => 'some-token']);
 
         $this->assertTrue($this->authenticator->supports($request));
     }
 
     public function testSupportsWithoutLoginToken(): void
     {
-        $request = $this->createStub(Request::class);
-        $request->query = new InputBag();
+        $request = new Request();
 
         $this->assertFalse($this->authenticator->supports($request));
     }
 
     public function testAuthenticateWithEmptyToken(): void
     {
-        $request = $this->createStub(Request::class);
-        $request->query = new InputBag(['loginToken' => '']);
+        $request = new Request(query: ['loginToken' => '']);
 
         $this->expectException(CustomUserMessageAuthenticationException::class);
         $this->expectExceptionMessage('No login token provided');
@@ -68,8 +67,7 @@ class CliLoginTokenAuthenticatorTest extends TestCase
             ->method('getUsername')
             ->willThrowException(new TokenNotFoundException('Token does not exist'));
 
-        $request = $this->createStub(Request::class);
-        $request->query = new InputBag(['loginToken' => 'invalid-token']);
+        $request = new Request(query: ['loginToken' => 'invalid-token']);
 
         $this->expectException(CustomUserMessageAuthenticationException::class);
         $this->expectExceptionMessage('Cannot get username');
@@ -83,8 +81,7 @@ class CliLoginTokenAuthenticatorTest extends TestCase
             ->method('getUsername')
             ->willThrowException(new CacheException('Cache error'));
 
-        $request = $this->createStub(Request::class);
-        $request->query = new InputBag(['loginToken' => 'some-token']);
+        $request = new Request(query: ['loginToken' => 'some-token']);
 
         $this->expectException(CustomUserMessageAuthenticationException::class);
         $this->expectExceptionMessage('Cannot get username');
@@ -98,8 +95,7 @@ class CliLoginTokenAuthenticatorTest extends TestCase
             ->method('getUsername')
             ->willReturn(null);
 
-        $request = $this->createStub(Request::class);
-        $request->query = new InputBag(['loginToken' => 'some-token']);
+        $request = new Request(query: ['loginToken' => 'some-token']);
 
         $this->expectException(UsernameDoesNotExistException::class);
 
@@ -112,12 +108,12 @@ class CliLoginTokenAuthenticatorTest extends TestCase
             ->method('getUsername')
             ->willReturn('test@example.com');
 
-        $request = $this->createStub(Request::class);
-        $request->query = new InputBag(['loginToken' => 'valid-token']);
+        $request = new Request(query: ['loginToken' => 'valid-token']);
 
         $passport = $this->authenticator->authenticate($request);
 
         $userBadge = $passport->getBadge(UserBadge::class);
+        $this->assertNotNull($userBadge, 'Passport must carry a UserBadge for a valid token.');
         $this->assertSame('test@example.com', $userBadge->getUserIdentifier());
     }
 
@@ -127,10 +123,9 @@ class CliLoginTokenAuthenticatorTest extends TestCase
             ->method('generate')
             ->willReturn('/login');
 
-        $request = $this->createStub(Request::class);
         $token = $this->createStub(TokenInterface::class);
 
-        $response = $this->authenticator->onAuthenticationSuccess($request, $token, 'main');
+        $response = $this->authenticator->onAuthenticationSuccess(new Request(), $token, 'main');
 
         $this->assertInstanceOf(RedirectResponse::class, $response);
         $this->assertSame('/login', $response->getTargetUrl());
@@ -138,12 +133,11 @@ class CliLoginTokenAuthenticatorTest extends TestCase
 
     public function testOnAuthenticationFailure(): void
     {
-        $request = $this->createStub(Request::class);
         $exception = new AuthenticationException();
 
         $this->expectException(AuthenticationException::class);
         $this->expectExceptionMessage('Error occurred validating login token');
 
-        $this->authenticator->onAuthenticationFailure($request, $exception);
+        $this->authenticator->onAuthenticationFailure(new Request(), $exception);
     }
 }

@@ -20,6 +20,9 @@ use Symfony\Component\HttpKernel\Kernel;
  */
 class ItkDevOpenIdConnectBundleTestingKernel extends Kernel
 {
+    /**
+     * @param list<string> $pathToConfigs
+     */
     public function __construct(
         private readonly array $pathToConfigs,
     ) {

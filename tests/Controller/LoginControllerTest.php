@@ -11,8 +11,6 @@ use ItkDev\OpenIdConnectBundle\Exception\InvalidProviderException;
 use ItkDev\OpenIdConnectBundle\Security\OpenIdConfigurationProviderManager;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
-use Symfony\Component\HttpFoundation\InputBag;
-use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Session\SessionInterface;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
@@ -39,8 +37,7 @@ class LoginControllerTest extends TestCase
 
         $controller = $this->createController($mockProvider);
 
-        $stubRequest = $this->createStub(Request::class);
-        $stubRequest->query = new InputBag(['provider' => 'test']);
+        $request = new Request(query: ['provider' => 'test']);
         $mockSession = $this->createMock(SessionInterface::class);
         $matcher = $this->exactly(3);
         $mockSession
@@ -60,8 +57,7 @@ class LoginControllerTest extends TestCase
                 }
             });
 
-        $response = $controller->login($stubRequest, $mockSession, 'test');
-        $this->assertInstanceOf(RedirectResponse::class, $response);
+        $response = $controller->login($request, $mockSession, 'test');
         $this->assertSame('https://test.com', $response->getTargetUrl());
     }
 
@@ -79,7 +75,7 @@ class LoginControllerTest extends TestCase
         $controller = new LoginController($mockProviderManager);
 
         try {
-            $controller->login($this->createStub(Request::class), $this->createStub(SessionInterface::class), 'bogus');
+            $controller->login(new Request(), $this->createStub(SessionInterface::class), 'bogus');
         } catch (NotFoundHttpException $thrown) {
             $this->assertSame(404, $thrown->getStatusCode());
             $this->assertStringContainsString('bogus', $thrown->getMessage());
@@ -111,7 +107,7 @@ class LoginControllerTest extends TestCase
         $controller = $this->createController($stubProvider);
 
         try {
-            $controller->login($this->createStub(Request::class), $this->createStub(SessionInterface::class), 'test');
+            $controller->login(new Request(), $this->createStub(SessionInterface::class), 'test');
         } catch (ServiceUnavailableHttpException $thrown) {
             $this->assertSame(503, $thrown->getStatusCode());
             $this->assertStringContainsString('test', $thrown->getMessage());

@@ -6,12 +6,14 @@ use GuzzleHttp\Client as GuzzleClient;
 use ItkDev\OpenIdConnect\Security\OpenIdConfigurationProvider;
 use ItkDev\OpenIdConnectBundle\Exception\InvalidProviderException;
 use ItkDev\OpenIdConnectBundle\Security\OpenIdConfigurationProviderManager;
+use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Cache\Adapter\ArrayAdapter;
 use Symfony\Component\Routing\RouterInterface;
 
 class OpenIdConfigurationProviderManagerTest extends TestCase
 {
+    /** @var RouterInterface&Stub */
     private RouterInterface $stubRouter;
 
     protected function setUp(): void
@@ -19,6 +21,9 @@ class OpenIdConfigurationProviderManagerTest extends TestCase
         $this->stubRouter = $this->createStub(RouterInterface::class);
     }
 
+    /**
+     * @return array{metadata_url: string, client_id: string, client_secret: string}
+     */
     private function getBaseProviderConfig(): array
     {
         return [
@@ -28,6 +33,14 @@ class OpenIdConfigurationProviderManagerTest extends TestCase
         ];
     }
 
+    /**
+     * Test helper: callers build provider arrays from {@see getBaseProviderConfig()}
+     * plus optional fields, so the parameter is intentionally typed loosely. The
+     * production manager constructor has the precise array shape.
+     *
+     * @param array<string, array<string, mixed>> $providers
+     * @param array<string, mixed>                $defaultOptions
+     */
     private function createManager(array $providers, array $defaultOptions = []): OpenIdConfigurationProviderManager
     {
         $config = [
@@ -38,6 +51,7 @@ class OpenIdConfigurationProviderManagerTest extends TestCase
             'providers' => $providers,
         ];
 
+        // @phpstan-ignore argument.type (test helper relaxes the strict provider shape declared by the production constructor — callers build configs ad-hoc from getBaseProviderConfig() plus optional fields)
         return new OpenIdConfigurationProviderManager($this->stubRouter, $config);
     }
 
