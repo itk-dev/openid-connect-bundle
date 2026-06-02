@@ -15,7 +15,7 @@ use PHPStan\Rules\RuleErrorBuilder;
 /**
  * When a catch block rethrows by constructing a new exception, the caught
  * exception must be chained as `$previous` (positional 3rd argument or named
- * `previous:`). This enforces the "wrap at the boundary" rule in CLAUDE.md
+ * `previous:`). This enforces the "wrap at the boundary" rule in ADR 001,
  * preserving `getPrevious()` traversal for logs and debugging.
  *
  * Escape hatch: add "phpstan-ignore throw.unchainedPrevious" on the throw line

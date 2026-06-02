@@ -17,7 +17,7 @@ use Symfony\Component\Security\Core\Exception\AuthenticationException;
 /**
  * Every exception thrown from `src/` must implement the bundle or library marker.
  *
- * Two framework-boundary carve-outs (documented in `CLAUDE.md`):
+ * Two framework-boundary carve-outs (documented in ADR 001):
  *
  *  - HTTP controllers may throw Symfony `HttpExceptionInterface` subclasses; the
  *    kernel reads the status code off them to render the response.
@@ -110,7 +110,7 @@ final class ThrownExceptionImplementsBundleMarker implements Rule
 
         return [
             RuleErrorBuilder::message(sprintf(
-                'Thrown exception %s does not satisfy the bundle exception contract; expected an implementation of %s. See "Exceptions" in CLAUDE.md.',
+                'Thrown exception %s does not satisfy the bundle exception contract; expected an implementation of %s. See docs/adr/001-marker-interface-exception-hierarchy.md.',
                 $className,
                 $expected,
             ))

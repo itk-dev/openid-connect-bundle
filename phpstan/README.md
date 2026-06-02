@@ -1,8 +1,8 @@
 # PHPStan exception-contract rules
 
 Two custom PHPStan rules lock the exception contract documented in
-[`CLAUDE.md`](../CLAUDE.md). They run automatically as part of
-`task analyze:php` (and therefore `task pr:actions`).
+[ADR 001](../docs/adr/001-marker-interface-exception-hierarchy.md). They run
+automatically as part of `task analyze:php` (and therefore `task pr:actions`).
 
 ## `ThrownExceptionImplementsBundleMarker`
 
@@ -12,7 +12,7 @@ that implements:
 - `ItkDev\OpenIdConnectBundle\Exception\OpenIdConnectBundleExceptionInterface`, or
 - `ItkDev\OpenIdConnect\Exception\OpenIdConnectExceptionInterface` (the upstream marker).
 
-Two framework-boundary carve-outs apply, matching the prose in CLAUDE.md:
+Two framework-boundary carve-outs apply, matching ADR 001:
 
 | Path                                | Additionally allowed                                                    | Why                                                                |
 | ----------------------------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------ |
