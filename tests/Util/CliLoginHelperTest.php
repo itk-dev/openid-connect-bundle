@@ -3,7 +3,7 @@
 namespace ItkDev\OpenIdConnectBundle\Tests\Util;
 
 use ItkDev\OpenIdConnectBundle\Exception\CacheException;
-use ItkDev\OpenIdConnectBundle\Exception\ItkOpenIdConnectBundleException;
+use ItkDev\OpenIdConnectBundle\Exception\OpenIdConnectBundleExceptionInterface;
 use ItkDev\OpenIdConnectBundle\Util\CliLoginHelper;
 use PHPUnit\Framework\TestCase;
 use Psr\Cache\CacheItemInterface;
@@ -40,7 +40,7 @@ class CliLoginHelperTest extends TestCase
 
     public function testThrowExceptionIfTokenDoesNotExist(): void
     {
-        $this->expectException(ItkOpenIdConnectBundleException::class);
+        $this->expectException(OpenIdConnectBundleExceptionInterface::class);
 
         $cache = new ArrayAdapter();
 
@@ -74,7 +74,7 @@ class CliLoginHelperTest extends TestCase
         $username = $cliHelper->getUsername($token);
         $this->assertEquals($testUser, $username);
 
-        $this->expectException(ItkOpenIdConnectBundleException::class);
+        $this->expectException(OpenIdConnectBundleExceptionInterface::class);
 
         $cliHelper->getUsername($token);
     }

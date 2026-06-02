@@ -10,3 +10,5 @@ web/*.md
 web/core/
 web/libraries/
 web/*/contrib/
+# Claude Code guidance — verbose narrative prose, intentionally long lines.
+CLAUDE.md

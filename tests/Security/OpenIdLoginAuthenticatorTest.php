@@ -3,6 +3,7 @@
 namespace ItkDev\OpenIdConnectBundle\Tests\Security;
 
 use ItkDev\OpenIdConnect\Exception\ClaimsException;
+use ItkDev\OpenIdConnect\Exception\OpenIdConnectExceptionInterface;
 use ItkDev\OpenIdConnect\Exception\ValidationException;
 use ItkDev\OpenIdConnect\Security\OpenIdConfigurationProvider;
 use ItkDev\OpenIdConnectBundle\Security\OpenIdConfigurationProviderManager;
@@ -93,6 +94,11 @@ class OpenIdLoginAuthenticatorTest extends TestCase
         } catch (ValidationException $thrown) {
             $this->assertSame('test message', $thrown->getMessage());
             $this->assertSame($cause, $thrown->getPrevious(), 'Original cause must be chained');
+            $this->assertInstanceOf(
+                OpenIdConnectExceptionInterface::class,
+                $thrown->getPrevious(),
+                'Wrapped cause must satisfy the library marker contract',
+            );
 
             return;
         }

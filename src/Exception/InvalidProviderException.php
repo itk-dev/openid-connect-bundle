@@ -2,6 +2,6 @@
 
 namespace ItkDev\OpenIdConnectBundle\Exception;
 
-class InvalidProviderException extends ItkOpenIdConnectBundleException
+class InvalidProviderException extends \InvalidArgumentException implements OpenIdConnectBundleExceptionInterface
 {
 }

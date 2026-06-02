@@ -2,6 +2,6 @@
 
 namespace ItkDev\OpenIdConnectBundle\Exception;
 
-class UsernameDoesNotExistException extends ItkOpenIdConnectBundleException
+class UsernameDoesNotExistException extends \InvalidArgumentException implements OpenIdConnectBundleExceptionInterface
 {
 }
