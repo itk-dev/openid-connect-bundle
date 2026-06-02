@@ -87,10 +87,12 @@ class Configuration implements ConfigurationInterface
                                     // Uses Guzzle under the hood through itk-dev/openid-connect -> league/oauth2-client -> guzzlehttp/guzzle
                                     ->arrayNode('http_client_options')
                                         ->info('Options forwarded to the underlying Guzzle HTTP client. league/oauth2-client only forwards: timeout, proxy, verify (verify is only consulted when proxy is set).')
+                                        ->addDefaultsIfNotSet()
                                         ->children()
                                             // @see https://docs.guzzlephp.org/en/stable/request-options.html#timeout
                                             ->floatNode('timeout')
-                                                ->info('Total request timeout in seconds')
+                                                ->info('Total request timeout in seconds. Defaults to 30; set to 0 to wait indefinitely (Guzzle\'s own default).')
+                                                ->defaultValue(30.0)
                                             ->end()
                                             // @see https://docs.guzzlephp.org/en/stable/request-options.html#proxy
                                             ->scalarNode('proxy')

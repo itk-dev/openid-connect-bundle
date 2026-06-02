@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- `http_client_options.timeout` now defaults to `30` seconds when not set,
+  so a slow or hung identity provider can no longer block worker processes
+  indefinitely. Previously no timeout was applied and Guzzle's own default
+  (`0` — wait forever) was used. Set `timeout: 0` to restore the old
+  behaviour, or override per provider.
+
 ## [5.0.0] - 2026-06-02
 
 ### Changed (BREAKING)
