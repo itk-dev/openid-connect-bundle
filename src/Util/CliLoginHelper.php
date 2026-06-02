@@ -3,6 +3,7 @@
 namespace ItkDev\OpenIdConnectBundle\Util;
 
 use ItkDev\OpenIdConnectBundle\Exception\CacheException;
+use ItkDev\OpenIdConnectBundle\Exception\OpenIdConnectBundleExceptionInterface;
 use ItkDev\OpenIdConnectBundle\Exception\TokenNotFoundException;
 use Psr\Cache\CacheItemPoolInterface;
 use Psr\Cache\InvalidArgumentException;
@@ -23,7 +24,7 @@ class CliLoginHelper
     /**
      * Creates login token for CLI login.
      *
-     * @throws CacheException
+     * @throws OpenIdConnectBundleExceptionInterface
      */
     public function createToken(string $username): string
     {
@@ -65,8 +66,11 @@ class CliLoginHelper
     /**
      * Gets username from login token.
      *
+     * `TokenNotFoundException` is part of the public contract — {@see CliLoginTokenAuthenticator}
+     * catches it specifically to distinguish "no such token" from other cache failures.
+     *
      * @throws TokenNotFoundException
-     * @throws CacheException
+     * @throws OpenIdConnectBundleExceptionInterface
      */
     public function getUsername(string $token): ?string
     {
@@ -105,7 +109,10 @@ class CliLoginHelper
 
     public function decodeKey(string $encodedKey): string
     {
-        $decodedKeyWithNamespace = base64_decode($encodedKey);
+        $decodedKeyWithNamespace = base64_decode($encodedKey, true);
+        if (false === $decodedKeyWithNamespace) {
+            return $encodedKey;
+        }
 
         // Remove namespace
         $key = str_replace(self::ITK_NAMESPACE, '', $decodedKeyWithNamespace);

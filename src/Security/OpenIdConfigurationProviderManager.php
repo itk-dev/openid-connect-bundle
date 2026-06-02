@@ -2,7 +2,7 @@
 
 namespace ItkDev\OpenIdConnectBundle\Security;
 
-use ItkDev\OpenIdConnect\Exception\ItkOpenIdConnectException;
+use ItkDev\OpenIdConnect\Exception\OpenIdConnectExceptionInterface;
 use ItkDev\OpenIdConnect\Security\OpenIdConfigurationProvider;
 use ItkDev\OpenIdConnectBundle\Exception\InvalidProviderException;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
@@ -53,8 +53,7 @@ class OpenIdConfigurationProviderManager
     /**
      * Get a provider by key.
      *
-     * @throws InvalidProviderException
-     * @throws ItkOpenIdConnectException
+     * @throws OpenIdConnectExceptionInterface
      */
     public function getProvider(string $key): OpenIdConfigurationProvider
     {
@@ -88,10 +87,11 @@ class OpenIdConfigurationProviderManager
                 $providerOptions['allowHttp'] = $options['allow_http'];
             }
 
-            if (!empty($options['http_client_options'])) {
+            if (isset($options['http_client_options']) && [] !== $options['http_client_options']) {
                 $providerOptions += $options['http_client_options'];
             }
 
+            // @phpstan-ignore argument.type (library 5.0 narrowed $options to a strict array shape; the incremental build above is verified by the manager's tests but PHPStan can't track its evolution to the final shape)
             $this->providers[$key] = new OpenIdConfigurationProvider($providerOptions);
         }
 

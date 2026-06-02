@@ -7,6 +7,59 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.0.0] - 2026-06-02
+
+### Changed (BREAKING)
+
+- **Exception hierarchy reworked.** Every exception thrown from a public
+  method now implements `OpenIdConnectBundleExceptionInterface` (which
+  extends `\ItkDev\OpenIdConnect\Exception\OpenIdConnectExceptionInterface`
+  from the upstream library). Concrete exceptions now extend the SPL type
+  that best describes the failure category (`\RuntimeException`,
+  `\InvalidArgumentException`); they no longer extend
+  `ItkOpenIdConnectBundleException`. Consumers catching the abstract base
+  must migrate to `OpenIdConnectBundleExceptionInterface` — the abstract
+  class is kept for this release as a documented alias and is
+  `@deprecated`, but `catch (ItkOpenIdConnectBundleException $e)` blocks
+  will no longer match any concrete thrown by the bundle.
+- Bumped `itk-dev/openid-connect` requirement to `^5.0` for the matching
+  upstream contract.
+- `OpenIdLoginAuthenticator::validateClaims` now catches on the marker
+  interface (`OpenIdConnectExceptionInterface`) instead of the deprecated
+  upstream abstract. The `$previous`-chain behaviour is preserved.
+- `LoginController::login` catches on the marker interface before mapping
+  to `ServiceUnavailableHttpException`. No consumer-visible behaviour
+  change.
+
+### Added
+
+- `ItkDev\OpenIdConnectBundle\Exception\OpenIdConnectBundleExceptionInterface`
+  marker for catching all bundle-thrown OIDC failures.
+- Custom PHPStan rules (`ThrownExceptionImplementsBundleMarker`,
+  `WrappedExceptionChainsPrevious`) that lock the exception contract on every
+  CI run — thrown exceptions must implement the marker (with documented
+  controller/authenticator carve-outs), and wraps inside a catch must chain
+  the caught cause as `$previous`.
+- `UPGRADE-5.0.md` migration guide for consumers.
+
+### Changed
+
+- Hardened static analysis. PHPStan now analyses `tests/` in addition to
+  `src/`, runs the strict, deprecation, PHPUnit and Symfony rule packs, and
+  requires a comment on every ignore (`reportIgnoresWithoutComments`). Pinned
+  `phpstan/phpstan` to `^2.1.41`. No public-API or behavioural change.
+
+### Deprecated
+
+- `ItkDev\OpenIdConnectBundle\Exception\ItkOpenIdConnectBundleException`
+  abstract class (catch `OpenIdConnectBundleExceptionInterface` instead).
+  Will be removed in 6.0.
+
+### Fixed
+
+- Tests build real `Request` instances instead of stubbing `Request`, which
+  fails under Symfony 8.1 (where `InputBag` is `final`) with recent PHPUnit.
+
 ## [4.2.0] - 2026-05-11
 
 ### Added
@@ -154,7 +207,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `itk-dev/openid-connect` 1.0.0 to 2.1.0
 - OpenId Connect Bundle: Added CLI login feature.
 
-[unreleased]: https://github.com/itk-dev/openid-connect-bundle/compare/4.2.0...HEAD
+[unreleased]: https://github.com/itk-dev/openid-connect-bundle/compare/5.0.0...HEAD
+[5.0.0]: https://github.com/itk-dev/openid-connect-bundle/compare/4.2.0...5.0.0
 [4.2.0]: https://github.com/itk-dev/openid-connect-bundle/compare/4.1.0...4.2.0
 [4.1.0]: https://github.com/itk-dev/openid-connect-bundle/compare/4.0.1...4.1.0
 [4.0.1]: https://github.com/itk-dev/openid-connect-bundle/compare/4.0.0...4.0.1

@@ -20,18 +20,18 @@ class TestAuthenticator extends OpenIdLoginAuthenticator
         return new SelfValidatingPassport(
             new UserBadge(
                 $claims['email'],
-                fn ($email) => new TestUser($email)
+                fn (string $email) => new TestUser($email)
             )
         );
     }
 
     public function onAuthenticationSuccess(Request $request, TokenInterface $token, string $firewallName): ?Response
     {
-        // TODO: Implement onAuthenticationSuccess() method.
+        return null;
     }
 
     public function start(Request $request, ?AuthenticationException $authException = null): Response
     {
-        // TODO: Implement start() method.
+        throw new \LogicException('Test stub: start() is not implemented for this fixture.');
     }
 }

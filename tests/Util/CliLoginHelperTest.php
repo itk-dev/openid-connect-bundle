@@ -3,7 +3,7 @@
 namespace ItkDev\OpenIdConnectBundle\Tests\Util;
 
 use ItkDev\OpenIdConnectBundle\Exception\CacheException;
-use ItkDev\OpenIdConnectBundle\Exception\ItkOpenIdConnectBundleException;
+use ItkDev\OpenIdConnectBundle\Exception\OpenIdConnectBundleExceptionInterface;
 use ItkDev\OpenIdConnectBundle\Util\CliLoginHelper;
 use PHPUnit\Framework\TestCase;
 use Psr\Cache\CacheItemInterface;
@@ -26,9 +26,21 @@ class CliLoginHelperTest extends TestCase
         $this->assertEquals($randomUsername, $decodedUsername);
     }
 
+    public function testDecodeKeyReturnsInputWhenNotValidBase64(): void
+    {
+        $cache = new ArrayAdapter();
+        $cliHelper = new CliLoginHelper($cache);
+
+        // Strict base64_decode() rejects input with characters outside the
+        // base64 alphabet; decodeKey() then returns the value unchanged.
+        $notBase64 = 'not valid base64 !!@@';
+
+        $this->assertSame($notBase64, $cliHelper->decodeKey($notBase64));
+    }
+
     public function testThrowExceptionIfTokenDoesNotExist(): void
     {
-        $this->expectException(ItkOpenIdConnectBundleException::class);
+        $this->expectException(OpenIdConnectBundleExceptionInterface::class);
 
         $cache = new ArrayAdapter();
 
@@ -62,7 +74,7 @@ class CliLoginHelperTest extends TestCase
         $username = $cliHelper->getUsername($token);
         $this->assertEquals($testUser, $username);
 
-        $this->expectException(ItkOpenIdConnectBundleException::class);
+        $this->expectException(OpenIdConnectBundleExceptionInterface::class);
 
         $cliHelper->getUsername($token);
     }

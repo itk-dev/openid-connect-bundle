@@ -6,19 +6,24 @@ use Symfony\Component\Security\Core\User\UserInterface;
 
 class TestUser implements UserInterface
 {
-    public function __construct(
-        private readonly string $email,
-    ) {
+    /** @var non-empty-string */
+    private readonly string $email;
+
+    public function __construct(string $email)
+    {
+        if ('' === $email) {
+            throw new \InvalidArgumentException('TestUser requires a non-empty email.');
+        }
+        $this->email = $email;
     }
 
     public function getRoles(): array
     {
-        // TODO: Implement getRoles() method.
+        return [];
     }
 
     public function eraseCredentials(): void
     {
-        // TODO: Implement eraseCredentials() method.
     }
 
     public function getUserIdentifier(): string
