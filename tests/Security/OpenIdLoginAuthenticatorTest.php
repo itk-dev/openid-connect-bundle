@@ -7,8 +7,8 @@ use ItkDev\OpenIdConnect\Exception\ValidationException;
 use ItkDev\OpenIdConnect\Security\OpenIdConfigurationProvider;
 use ItkDev\OpenIdConnectBundle\Security\OpenIdConfigurationProviderManager;
 use ItkDev\OpenIdConnectBundle\Security\OpenIdLoginAuthenticator;
+use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
-use Symfony\Component\HttpFoundation\InputBag;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Session\SessionInterface;
 use Symfony\Component\Security\Core\Exception\AuthenticationException;
@@ -16,6 +16,7 @@ use Symfony\Component\Security\Core\Exception\AuthenticationException;
 class OpenIdLoginAuthenticatorTest extends TestCase
 {
     private OpenIdLoginAuthenticator $authenticator;
+    /** @var OpenIdConfigurationProviderManager&Stub */
     private OpenIdConfigurationProviderManager $stubProviderManager;
 
     protected function setUp(): void
@@ -27,8 +28,7 @@ class OpenIdLoginAuthenticatorTest extends TestCase
 
     public function testSupports(): void
     {
-        $request = $this->createStub(Request::class);
-        $request->query = new InputBag();
+        $request = new Request();
 
         $this->assertFalse($this->authenticator->supports($request));
 
@@ -43,18 +43,15 @@ class OpenIdLoginAuthenticatorTest extends TestCase
     {
         $this->expectException(AuthenticationException::class);
 
-        $stubRequest = $this->createStub(Request::class);
         $exception = new AuthenticationException();
 
-        $this->authenticator->onAuthenticationFailure($stubRequest, $exception);
+        $this->authenticator->onAuthenticationFailure(new Request(), $exception);
     }
 
     public function testValidateClaimsWrongState(): void
     {
-        $request = $this->createStub(Request::class);
-        $request->query = new InputBag(['state' => 'wrong_test_state']);
-
-        $this->setupStubSessionOnRequest($request);
+        $request = new Request(query: ['state' => 'wrong_test_state']);
+        $this->setSessionOnRequest($request);
 
         $this->expectException(ValidationException::class);
         $this->expectExceptionMessage('Invalid state');
@@ -63,10 +60,8 @@ class OpenIdLoginAuthenticatorTest extends TestCase
 
     public function testValidateClaimsEmptyNonce(): void
     {
-        $request = $this->createStub(Request::class);
-        $request->query = new InputBag(['state' => 'test_state']);
-
-        $this->setupStubSessionOnRequest($request, nonce: null);
+        $request = new Request(query: ['state' => 'test_state']);
+        $this->setSessionOnRequest($request, nonce: null);
 
         $this->expectException(ValidationException::class);
         $this->expectExceptionMessage('Nonce empty or not found');
@@ -75,10 +70,8 @@ class OpenIdLoginAuthenticatorTest extends TestCase
 
     public function testValidateClaimsMissingCode(): void
     {
-        $request = $this->createStub(Request::class);
-        $request->query = new InputBag(['state' => 'test_state']);
-
-        $this->setupStubSessionOnRequest($request);
+        $request = new Request(query: ['state' => 'test_state']);
+        $this->setSessionOnRequest($request);
 
         $this->expectException(ValidationException::class);
         $this->expectExceptionMessage('Missing or invalid code');
@@ -92,10 +85,8 @@ class OpenIdLoginAuthenticatorTest extends TestCase
         $stubProvider->method('validateIdToken')->willThrowException($cause);
         $this->stubProviderManager->method('getProvider')->willReturn($stubProvider);
 
-        $request = $this->createStub(Request::class);
-        $request->query = new InputBag(['state' => 'test_state', 'code' => 'test_code']);
-
-        $this->setupStubSessionOnRequest($request);
+        $request = new Request(query: ['state' => 'test_state', 'code' => 'test_code']);
+        $this->setSessionOnRequest($request);
 
         try {
             $this->authenticator->authenticate($request);
@@ -119,17 +110,15 @@ class OpenIdLoginAuthenticatorTest extends TestCase
 
         $this->stubProviderManager->method('getProvider')->willReturn($stubProvider);
 
-        $request = $this->createStub(Request::class);
-        $request->query = new InputBag(['state' => 'test_state', 'code' => 'test_code']);
-
-        $this->setupStubSessionOnRequest($request);
+        $request = new Request(query: ['state' => 'test_state', 'code' => 'test_code']);
+        $this->setSessionOnRequest($request);
 
         $passport = $this->authenticator->authenticate($request);
 
         $this->assertSame('test@test.com', $passport->getUser()->getUserIdentifier());
     }
 
-    private function setupStubSessionOnRequest(Request $request, ?string $nonce = 'test_nonce'): void
+    private function setSessionOnRequest(Request $request, ?string $nonce = 'test_nonce'): void
     {
         $stubSession = $this->createStub(SessionInterface::class);
         $map = [
@@ -139,6 +128,6 @@ class OpenIdLoginAuthenticatorTest extends TestCase
         ];
         $stubSession->method('remove')->willReturnMap($map);
 
-        $request->method('getSession')->willReturn($stubSession);
+        $request->setSession($stubSession);
     }
 }

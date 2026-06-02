@@ -4,6 +4,7 @@ namespace ItkDev\OpenIdConnectBundle\Tests\Command;
 
 use ItkDev\OpenIdConnectBundle\Command\UserLoginCommand;
 use ItkDev\OpenIdConnectBundle\Util\CliLoginHelper;
+use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Tester\CommandTester;
@@ -13,8 +14,11 @@ use Symfony\Component\Security\Core\User\UserProviderInterface;
 
 class UserLoginCommandTest extends TestCase
 {
+    /** @var CliLoginHelper&Stub */
     private CliLoginHelper $stubCliLoginHelper;
+    /** @var UrlGeneratorInterface&Stub */
     private UrlGeneratorInterface $stubUrlGenerator;
+    /** @var UserProviderInterface&Stub */
     private UserProviderInterface $stubUserProvider;
     private UserLoginCommand $command;
 

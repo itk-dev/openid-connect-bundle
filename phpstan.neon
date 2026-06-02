@@ -1,4 +1,63 @@
+includes:
+	- vendor/phpstan/phpstan-strict-rules/rules.neon
+	- vendor/phpstan/phpstan-deprecation-rules/rules.neon
+	- vendor/phpstan/phpstan-phpunit/extension.neon
+	- vendor/phpstan/phpstan-phpunit/rules.neon
+	- vendor/phpstan/phpstan-symfony/extension.neon
+	- vendor/phpstan/phpstan-symfony/rules.neon
+
 parameters:
 	level: max
 	paths:
 		- src
+		- tests
+	reportIgnoresWithoutComments: true
+
+	ignoreErrors:
+		# PHPUnit declares assertions as static methods on `Assert`, but the
+		# pervasive idiom is `$this->assertX()`. phpstan-phpunit handles type
+		# narrowing for these but doesn't override strict-rules' judgment that
+		# this is a dynamic call to a static method.
+		-
+			identifier: staticMethod.dynamicCall
+			path: tests/*
+
+		# Test fixture/helper PHPDoc completeness — out of scope for the static
+		# analysis hardening; can be tightened as a follow-up.
+		-
+			identifier: missingType.generics
+			path: tests/*
+		-
+			identifier: missingType.iterableValue
+			path: tests/*
+		-
+			identifier: missingType.return
+			path: tests/*
+
+		# Symfony's Processor returns an untyped array; phpstan-symfony narrows
+		# many other Symfony APIs but does not type processConfiguration's result
+		# from a Configuration definition. The tests probe specific keys precisely
+		# *because* the production code does.
+		-
+			identifier: argument.type
+			path: tests/DependencyInjection/ConfigurationTest.php
+		-
+			identifier: offsetAccess.nonOffsetAccessible
+			path: tests/DependencyInjection/ConfigurationTest.php
+
+		# `validateClaims` throws `ValidationException`, but the throw happens behind
+		# the abstract `authenticate()` the test fixture overrides, so PHPStan's
+		# throw-type analysis can't see it reach the catch. The test deliberately
+		# asserts the wrap behaviour by catching the concrete type.
+		-
+			identifier: catch.neverThrown
+			path: tests/Security/OpenIdLoginAuthenticatorTest.php
+
+		# Manager tests assert `getProvider()` returns an `OpenIdConfigurationProvider`
+		# as a "didn't throw on construction" smoke check. The return type already
+		# guarantees the class, so phpstan-phpunit flags the assertion as redundant.
+		# A follow-up should replace these with behavioural assertions on the
+		# constructed provider; until then the assertion documents intent.
+		-
+			identifier: method.alreadyNarrowedType
+			path: tests/Security/OpenIdConfigurationProviderManagerTest.php

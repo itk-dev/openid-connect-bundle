@@ -88,7 +88,7 @@ class OpenIdConfigurationProviderManager
                 $providerOptions['allowHttp'] = $options['allow_http'];
             }
 
-            if (!empty($options['http_client_options'])) {
+            if (isset($options['http_client_options']) && [] !== $options['http_client_options']) {
                 $providerOptions += $options['http_client_options'];
             }
 
