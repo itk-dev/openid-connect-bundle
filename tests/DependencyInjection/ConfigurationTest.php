@@ -132,7 +132,7 @@ class ConfigurationTest extends TestCase
         $this->assertTrue($httpClientOptions['verify']);
     }
 
-    public function testHttpClientOptionsAbsentByDefault(): void
+    public function testHttpClientOptionsDefaultsApplied(): void
     {
         $config = $this->processor->processConfiguration(
             $this->configuration,
@@ -140,10 +140,12 @@ class ConfigurationTest extends TestCase
         );
 
         $providerOptions = $config['openid_providers']['provider1']['options'];
-        // The block has no default value, so an omitted input must produce no
-        // http_client_options key in the processed config — otherwise an empty
-        // array would still be merged into the provider options.
-        $this->assertArrayNotHasKey('http_client_options', $providerOptions);
+        // The block carries a sensible default timeout so an omitted input still
+        // protects workers from a hung IdP. proxy/verify have no default and so
+        // stay absent (Guzzle's own defaults apply).
+        $this->assertSame(30.0, $providerOptions['http_client_options']['timeout']);
+        $this->assertArrayNotHasKey('proxy', $providerOptions['http_client_options']);
+        $this->assertArrayNotHasKey('verify', $providerOptions['http_client_options']);
     }
 
     public function testHttpClientOptionsRejectsUnknownKey(): void

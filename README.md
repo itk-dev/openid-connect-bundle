@@ -154,9 +154,10 @@ Set the actual values your `env.local` file to ensure they are not committed to 
 #### Configuring the HTTP client
 
 Each provider accepts an optional `http_client_options` block that is forwarded
-to the underlying Guzzle HTTP client used by `league/oauth2-client`. This is
-useful for setting a request timeout so a slow IdP cannot block worker
-processes indefinitely.
+to the underlying Guzzle HTTP client used by `league/oauth2-client`. The bundle
+applies a sensible default `timeout` of `30` seconds so a slow IdP cannot block
+worker processes indefinitely (Guzzle's own default is `0`, i.e. wait forever).
+Override it per provider, or set it to `0` to opt back into Guzzle's behaviour.
 
 ```yaml
 itkdev_openid_connect:
@@ -166,7 +167,7 @@ itkdev_openid_connect:
         # ... existing keys ...
         # @see https://docs.guzzlephp.org/en/stable/request-options.html
         http_client_options:
-          # Float describing the total timeout of the request in seconds. Use 0 to wait indefinitely (the default behavior).
+          # Float describing the total timeout of the request in seconds. Defaults to 30; set to 0 to wait indefinitely.
           timeout: 5.0 
           # Pass a string to specify an HTTP proxy, or an array to specify different proxies for different protocols. (Default: none)
           proxy: "%env(string:HTTP_PROXY)%"
