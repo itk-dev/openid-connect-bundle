@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- CI: bumped `codecov/codecov-action` from `v5` to `v7` (restores Codecov's
+  GPG signing key after the `codecovsecurity` account was removed, and moves
+  the bundled `github-script` to Node 24) and set `fail_ci_if_error: false`
+  so a Codecov outage no longer fails the build. No effect on the published
+  package.
 - `http_client_options.timeout` now defaults to `30` seconds when not set,
   so a slow or hung identity provider can no longer block worker processes
   indefinitely. Previously no timeout was applied and Guzzle's own default
