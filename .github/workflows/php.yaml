@@ -77,9 +77,11 @@ jobs:
 
       - name: Upload coverage to Codecov
         if: matrix.service == 'phpfpm' && matrix.prefer == 'prefer-stable'
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v7
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ./coverage/unit.xml
-          fail_ci_if_error: true
+          # Coverage upload is informational; a Codecov outage (e.g. its CLI
+          # binary's GPG signature endpoint failing) must not fail the build.
+          fail_ci_if_error: false
           flags: unittests
