@@ -18,6 +18,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- CI: the mutation-tests job declares its PHP version and dependency set
+  via a single-entry matrix (`Mutation tests (8.3, prefer-stable)`), so
+  the job name makes explicit what mutation testing runs on. No effect on
+  the published package.
 - Dev: strengthened CLI login flow tests based on mutation testing
   findings — redeeming an unknown token is asserted to throw
   `TokenNotFoundException` specifically, both cache entries (token and

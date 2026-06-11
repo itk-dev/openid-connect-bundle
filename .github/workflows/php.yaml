@@ -87,8 +87,14 @@ jobs:
           flags: unittests
 
   mutation-tests:
-    name: Mutation tests
+    name: Mutation tests (${{ matrix.php }}, ${{ matrix.prefer }})
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - service: phpfpm
+            php: "8.3"
+            prefer: prefer-stable
     steps:
       - uses: actions/checkout@v6
 
@@ -106,7 +112,7 @@ jobs:
         env:
           STRYKER_DASHBOARD_API_KEY: ${{ secrets.STRYKER_DASHBOARD_API_KEY }}
         run: |
-          docker compose run --rm phpfpm composer install
+          docker compose run --rm ${{ matrix.service }} composer install
           docker compose run --rm \
             -e XDEBUG_MODE=coverage \
             -e GITHUB_ACTIONS \
@@ -118,4 +124,4 @@ jobs:
             -e GITHUB_RUN_ID \
             -e GITHUB_SERVER_URL \
             -e STRYKER_DASHBOARD_API_KEY \
-            phpfpm vendor/bin/infection --logger-github
+            ${{ matrix.service }} vendor/bin/infection --logger-github
