@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Dev: mutation testing with [Infection](https://infection.github.io/)
+  (`task test:mutation`). The minimum mutation score is configured in
+  `infection.json5` and enforced in CI; escaped mutants are annotated inline
+  on pull requests, and results for `develop` are published to the Stryker
+  dashboard (mutation score badge in the README). No effect on the published
+  package.
+
 ### Changed
 
 - CI: bumped `codecov/codecov-action` from `v5` to `v7` (restores Codecov's
