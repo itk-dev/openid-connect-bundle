@@ -85,3 +85,37 @@ jobs:
           # binary's GPG signature endpoint failing) must not fail the build.
           fail_ci_if_error: false
           flags: unittests
+
+  mutation-tests:
+    name: Mutation tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Create docker network
+        run: |
+          docker network create frontend
+
+      # The GITHUB_* variables are passed into the container so Infection's
+      # CI detection works: --logger-github emits inline PR annotations for
+      # escaped mutants, and the Stryker dashboard logger (configured in
+      # infection.json5) publishes the report on pushes to develop. The
+      # minimum mutation score is enforced via minCoveredMsi in
+      # infection.json5.
+      - name: Run Infection
+        env:
+          STRYKER_DASHBOARD_API_KEY: ${{ secrets.STRYKER_DASHBOARD_API_KEY }}
+        run: |
+          docker compose run --rm phpfpm composer install
+          docker compose run --rm \
+            -e XDEBUG_MODE=coverage \
+            -e GITHUB_ACTIONS \
+            -e GITHUB_REF \
+            -e GITHUB_HEAD_REF \
+            -e GITHUB_SHA \
+            -e GITHUB_REPOSITORY \
+            -e GITHUB_EVENT_NAME \
+            -e GITHUB_RUN_ID \
+            -e GITHUB_SERVER_URL \
+            -e STRYKER_DASHBOARD_API_KEY \
+            phpfpm vendor/bin/infection --logger-github
