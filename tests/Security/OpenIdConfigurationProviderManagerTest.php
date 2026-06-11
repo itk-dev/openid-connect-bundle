@@ -9,6 +9,7 @@ use ItkDev\OpenIdConnectBundle\Security\OpenIdConfigurationProviderManager;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Cache\Adapter\ArrayAdapter;
+use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Routing\RouterInterface;
 
 class OpenIdConfigurationProviderManagerTest extends TestCase
@@ -77,9 +78,14 @@ class OpenIdConfigurationProviderManagerTest extends TestCase
 
     public function testGetProviderWithRedirectRoute(): void
     {
-        $this->stubRouter
+        // Expect the exact arguments so dropping the route parameters (or the
+        // route itself) when building the redirect URI fails the test.
+        $mockRouter = $this->createMock(RouterInterface::class);
+        $mockRouter->expects($this->once())
             ->method('generate')
+            ->with('my_route', ['param' => 'value'], UrlGeneratorInterface::ABSOLUTE_URL)
             ->willReturn('https://app.example.org/callback');
+        $this->stubRouter = $mockRouter;
 
         $manager = $this->createManager([
             'test' => $this->getBaseProviderConfig() + [

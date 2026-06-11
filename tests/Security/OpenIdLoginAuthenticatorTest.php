@@ -114,14 +114,26 @@ class OpenIdLoginAuthenticatorTest extends TestCase
         $claims->name = 'Test Tester';
         $stubProvider->method('validateIdToken')->willReturn($claims);
 
-        $this->stubProviderManager->method('getProvider')->willReturn($stubProvider);
+        // Expect the exact provider key from the session, so a lookup with a
+        // mangled key fails the test instead of silently matching any key.
+        $mockProviderManager = $this->createMock(OpenIdConfigurationProviderManager::class);
+        $mockProviderManager->expects($this->once())
+            ->method('getProvider')
+            ->with('test_provider_1')
+            ->willReturn($stubProvider);
+        $authenticator = new TestAuthenticator($mockProviderManager);
 
         $request = new Request(query: ['state' => 'test_state', 'code' => 'test_code']);
         $this->setSessionOnRequest($request);
 
-        $passport = $this->authenticator->authenticate($request);
+        $passport = $authenticator->authenticate($request);
 
         $this->assertSame('test@example.org', $passport->getUser()->getUserIdentifier());
+
+        // The claims contract: the IdP claims plus the provider key that
+        // authenticated the user.
+        $this->assertSame('Test Tester', $authenticator->lastClaims['name'] ?? null);
+        $this->assertSame('test_provider_1', $authenticator->lastClaims['open_id_connect_provider'] ?? null);
     }
 
     private function setSessionOnRequest(Request $request, ?string $nonce = 'test_nonce'): void
