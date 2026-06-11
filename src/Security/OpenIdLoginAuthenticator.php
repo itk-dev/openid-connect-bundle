@@ -78,6 +78,9 @@ abstract class OpenIdLoginAuthenticator extends AbstractAuthenticator implements
 
     public function onAuthenticationFailure(Request $request, AuthenticationException $exception): ?Response
     {
-        throw new AuthenticationException('Error occurred validating openid login');
+        // Preserve the cause so logs and error reporters can see what actually
+        // failed (timeout, signature mismatch, wrong nonce, etc.). Symfony's
+        // security component renders only the safe message key to the user.
+        throw new AuthenticationException(sprintf('Error occurred validating openid login: %s', $exception->getMessage()), $exception->getCode(), $exception);
     }
 }

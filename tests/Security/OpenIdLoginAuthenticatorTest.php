@@ -40,13 +40,17 @@ class OpenIdLoginAuthenticatorTest extends TestCase
         $this->assertTrue($this->authenticator->supports($request));
     }
 
-    public function testOnAuthenticationFailure(): void
+    public function testOnAuthenticationFailurePreservesCause(): void
     {
-        $this->expectException(AuthenticationException::class);
+        $cause = new AuthenticationException('Original cause message');
 
-        $exception = new AuthenticationException();
-
-        $this->authenticator->onAuthenticationFailure(new Request(), $exception);
+        try {
+            $this->authenticator->onAuthenticationFailure(new Request(), $cause);
+            $this->fail('Expected AuthenticationException');
+        } catch (AuthenticationException $thrown) {
+            $this->assertSame($cause, $thrown->getPrevious(), 'Original exception must be chained as previous');
+            $this->assertStringContainsString('Original cause message', $thrown->getMessage(), 'Cause message must be preserved for logs');
+        }
     }
 
     public function testValidateClaimsWrongState(): void
