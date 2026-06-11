@@ -18,6 +18,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Dev: strengthened Security tests based on mutation testing findings —
+  the redirect-route parameters are asserted to reach the router when
+  building a provider redirect URI, `validateClaims` is asserted to look
+  up the exact provider key from the session and to merge
+  `open_id_connect_provider` into the returned claims, and a request
+  without any `loginToken` parameter is asserted to be rejected as
+  unauthorized. No effect on the published package.
 - Dev: strengthened CLI login flow tests based on mutation testing
   findings — redeeming an unknown token is asserted to throw
   `TokenNotFoundException` specifically, both cache entries (token and

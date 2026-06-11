@@ -13,9 +13,18 @@ use Symfony\Component\Security\Http\Authenticator\Passport\SelfValidatingPasspor
 
 class TestAuthenticator extends OpenIdLoginAuthenticator
 {
+    /**
+     * Claims returned by the last validateClaims() call, exposed so tests
+     * can assert on the full claims array (validateClaims is protected).
+     *
+     * @var array<string, string>
+     */
+    public array $lastClaims = [];
+
     public function authenticate(Request $request): Passport
     {
         $claims = $this->validateClaims($request);
+        $this->lastClaims = $claims;
 
         return new SelfValidatingPassport(
             new UserBadge(

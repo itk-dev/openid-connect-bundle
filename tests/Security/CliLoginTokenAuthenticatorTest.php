@@ -61,6 +61,19 @@ class CliLoginTokenAuthenticatorTest extends TestCase
         $this->authenticator->authenticate($request);
     }
 
+    public function testAuthenticateWithMissingToken(): void
+    {
+        // No loginToken query parameter at all: the null from query->get()
+        // must be coerced to '' and rejected as "no token provided", not
+        // passed on to the login helper.
+        $request = new Request();
+
+        $this->expectException(CustomUserMessageAuthenticationException::class);
+        $this->expectExceptionMessage('No login token provided');
+
+        $this->authenticator->authenticate($request);
+    }
+
     public function testAuthenticateWithInvalidToken(): void
     {
         $this->stubCliLoginHelper
