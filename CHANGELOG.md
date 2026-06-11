@@ -18,6 +18,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Dev: added a test for `ItkDevOpenIdConnectBundle::getContainerExtension()`
+  asserting the custom extension is created and memoized (same instance on
+  repeated calls), prompted by mutation testing findings. No effect on the
+  published package.
 - Dev: strengthened DependencyInjection tests based on mutation testing
   findings — the extension's container wiring (cache pool reference,
   provider options mapping, CLI login route arguments) is now asserted
