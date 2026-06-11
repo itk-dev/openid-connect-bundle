@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Dev: mutation testing with [Infection](https://infection.github.io/)
+  (`task test:mutation`). The minimum mutation score is configured in
+  `infection.json5` and enforced in CI; escaped mutants are annotated inline
+  on pull requests, and results for `develop` are published to the Stryker
+  dashboard (mutation score badge in the README). No effect on the published
+  package.
+
 ### Changed
 
 - Dev: strengthened Security tests based on mutation testing findings —
@@ -16,6 +25,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `open_id_connect_provider` into the returned claims, and a request
   without any `loginToken` parameter is asserted to be rejected as
   unauthorized. No effect on the published package.
+- Dev: strengthened CLI login flow tests based on mutation testing
+  findings — redeeming an unknown token is asserted to throw
+  `TokenNotFoundException` specifically, both cache entries (token and
+  reverse username entry) are asserted removed after a token is used,
+  `encodeKey` asserts the exact namespaced encoding instead of only an
+  encode/decode roundtrip, and the CLI login URL is asserted to receive
+  the login token and route. No effect on the published package.
+- Dev: added a test for `ItkDevOpenIdConnectBundle::getContainerExtension()`
+  asserting the custom extension is created and memoized (same instance on
+  repeated calls), prompted by mutation testing findings. No effect on the
+  published package.
+- Dev: strengthened DependencyInjection tests based on mutation testing
+  findings — the extension's container wiring (cache pool reference,
+  provider options mapping, CLI login route arguments) is now asserted
+  explicitly, and the documented invariant that provider keys are not
+  normalized (`my-provider` ≠ `my_provider`) is covered by a test. No
+  effect on the published package.
 
 - CI: bumped `codecov/codecov-action` from `v5` to `v7` (restores Codecov's
   GPG signing key after the `codecovsecurity` account was removed, and moves

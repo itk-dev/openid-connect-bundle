@@ -144,6 +144,11 @@ tasks:
     cmds:
       - "{{.DOCKER_COMPOSE}} exec -e XDEBUG_MODE=coverage phpfpm vendor/bin/phpunit --coverage-text --coverage-clover=coverage/unit.xml"
 
+  test:mutation:
+    desc: Run Infection mutation testing (threshold configured in infection.json5)
+    cmds:
+      - "{{.DOCKER_COMPOSE}} exec -e XDEBUG_MODE=coverage phpfpm vendor/bin/infection"
+
   test:run:
     desc: "Run tests for a PHP version and dependency set (e.g. task test:run PHP=8.4 DEPS=lowest)"
     vars:
@@ -250,3 +255,4 @@ tasks:
       - task: lint
       - task: analyze:php
       - task: test:matrix
+      - task: test:mutation

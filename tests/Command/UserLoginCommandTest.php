@@ -44,13 +44,36 @@ class UserLoginCommandTest extends TestCase
 
         $this->stubUrlGenerator
             ->method('generate')
-            ->willReturn('https://app.com/login?loginToken=generated-token');
+            ->willReturn('https://app.example.org/login?loginToken=generated-token');
 
         $tester = new CommandTester($this->command);
         $result = $tester->execute(['username' => 'testuser']);
 
         $this->assertSame(Command::SUCCESS, $result);
-        $this->assertStringContainsString('https://app.com/login?loginToken=generated-token', $tester->getDisplay());
+        $this->assertStringContainsString('https://app.example.org/login?loginToken=generated-token', $tester->getDisplay());
+    }
+
+    public function testExecutePassesTokenAndRouteToUrlGenerator(): void
+    {
+        $this->stubCliLoginHelper
+            ->method('createToken')
+            ->willReturn('generated-token');
+
+        $urlGenerator = $this->createMock(UrlGeneratorInterface::class);
+        $urlGenerator->expects($this->once())
+            ->method('generate')
+            ->with('cli_login_route', ['loginToken' => 'generated-token'], UrlGeneratorInterface::ABSOLUTE_URL)
+            ->willReturn('https://app.example.org/login?loginToken=generated-token');
+
+        $command = new UserLoginCommand(
+            $this->stubCliLoginHelper,
+            'cli_login_route',
+            $urlGenerator,
+            $this->stubUserProvider
+        );
+
+        $tester = new CommandTester($command);
+        $this->assertSame(Command::SUCCESS, $tester->execute(['username' => 'testuser']));
     }
 
     public function testExecuteUserNotFound(): void

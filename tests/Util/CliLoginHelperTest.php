@@ -4,6 +4,7 @@ namespace ItkDev\OpenIdConnectBundle\Tests\Util;
 
 use ItkDev\OpenIdConnectBundle\Exception\CacheException;
 use ItkDev\OpenIdConnectBundle\Exception\OpenIdConnectBundleExceptionInterface;
+use ItkDev\OpenIdConnectBundle\Exception\TokenNotFoundException;
 use ItkDev\OpenIdConnectBundle\Util\CliLoginHelper;
 use PHPUnit\Framework\TestCase;
 use Psr\Cache\CacheItemInterface;
@@ -40,7 +41,10 @@ class CliLoginHelperTest extends TestCase
 
     public function testThrowExceptionIfTokenDoesNotExist(): void
     {
-        $this->expectException(OpenIdConnectBundleExceptionInterface::class);
+        // TokenNotFoundException (not just the marker interface) is part of
+        // the public contract: CliLoginTokenAuthenticator catches it
+        // specifically to distinguish "no such token" from cache failures.
+        $this->expectException(TokenNotFoundException::class);
 
         $cache = new ArrayAdapter();
 
@@ -77,6 +81,37 @@ class CliLoginHelperTest extends TestCase
         $this->expectException(OpenIdConnectBundleExceptionInterface::class);
 
         $cliHelper->getUsername($token);
+    }
+
+    public function testBothCacheEntriesAreRemovedAfterUse(): void
+    {
+        $cache = new ArrayAdapter();
+
+        $cliHelper = new CliLoginHelper($cache);
+
+        $testUser = 'test_user';
+        $token = $cliHelper->createToken($testUser);
+
+        $this->assertEquals($testUser, $cliHelper->getUsername($token));
+
+        // The reverse entry (username => token) must be gone too; otherwise
+        // createToken() would hand out the already-redeemed token again.
+        $this->assertFalse($cache->hasItem($cliHelper->encodeKey($testUser)));
+
+        $newToken = $cliHelper->createToken($testUser);
+        $this->assertNotSame($token, $newToken);
+        $this->assertEquals($testUser, $cliHelper->getUsername($newToken));
+    }
+
+    public function testEncodeKeyPrependsNamespace(): void
+    {
+        $cache = new ArrayAdapter();
+        $cliHelper = new CliLoginHelper($cache);
+
+        // Assert the exact encoding, not just an encode/decode roundtrip:
+        // the namespace prefix guards against cache key collisions with the
+        // consuming application, and a roundtrip is blind to losing it.
+        $this->assertSame(base64_encode('itk-dev-cli-logintest_user'), $cliHelper->encodeKey('test_user'));
     }
 
     public function testCreateTokenAndGetUsername(): void
