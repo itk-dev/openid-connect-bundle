@@ -48,6 +48,48 @@ class ItkDevOpenIdConnectExtensionTest extends TestCase
         $this->assertTrue($container->hasDefinition(CliLoginTokenAuthenticator::class));
     }
 
+    public function testLoadWiresProviderManagerConfig(): void
+    {
+        $extension = new ItkDevOpenIdConnectExtension();
+        $container = new ContainerBuilder();
+
+        $extension->load([$this->getBaseConfig()], $container);
+
+        $config = $container->getDefinition(OpenIdConfigurationProviderManager::class)->getArgument('$config');
+        $this->assertIsArray($config);
+
+        $defaultOptions = $config['default_providers_options'] ?? null;
+        $this->assertIsArray($defaultOptions);
+        $cacheItemPool = $defaultOptions['cacheItemPool'] ?? null;
+        $this->assertInstanceOf(Reference::class, $cacheItemPool);
+        $this->assertSame('cache.app', (string) $cacheItemPool);
+
+        // Provider options must be keyed by provider name with the
+        // intermediate 'options' level stripped.
+        $providers = $config['providers'] ?? null;
+        $this->assertIsArray($providers);
+        $this->assertSame(['test_provider'], array_keys($providers));
+        $provider = $providers['test_provider'];
+        $this->assertIsArray($provider);
+        $this->assertArrayNotHasKey('options', $provider);
+        $this->assertSame('test_id', $provider['client_id']);
+    }
+
+    public function testLoadWiresCacheAndCliLoginRoute(): void
+    {
+        $extension = new ItkDevOpenIdConnectExtension();
+        $container = new ContainerBuilder();
+
+        $extension->load([$this->getBaseConfig()], $container);
+
+        $cache = $container->getDefinition(CliLoginHelper::class)->getArgument('$cache');
+        $this->assertInstanceOf(Reference::class, $cache);
+        $this->assertSame('cache.app', (string) $cache);
+
+        $this->assertSame('test_route', $container->getDefinition(UserLoginCommand::class)->getArgument('$cliLoginRoute'));
+        $this->assertSame('test_route', $container->getDefinition(CliLoginTokenAuthenticator::class)->getArgument('$cliLoginRoute'));
+    }
+
     public function testLoadWithUserProvider(): void
     {
         $extension = new ItkDevOpenIdConnectExtension();

@@ -4,6 +4,8 @@ namespace ItkDev\OpenIdConnectBundle\Tests;
 
 use ItkDev\OpenIdConnectBundle\Command\UserLoginCommand;
 use ItkDev\OpenIdConnectBundle\Controller\LoginController;
+use ItkDev\OpenIdConnectBundle\DependencyInjection\ItkDevOpenIdConnectExtension;
+use ItkDev\OpenIdConnectBundle\ItkDevOpenIdConnectBundle;
 use ItkDev\OpenIdConnectBundle\Security\CliLoginTokenAuthenticator;
 use ItkDev\OpenIdConnectBundle\Security\OpenIdConfigurationProviderManager;
 use ItkDev\OpenIdConnectBundle\Security\OpenIdLoginAuthenticator;
@@ -56,5 +58,19 @@ class ItkDevOpenIdConnectBundleTest extends TestCase
         $this->assertTrue($container->has(CliLoginTokenAuthenticator::class));
         $authenticator = $container->get(CliLoginTokenAuthenticator::class);
         $this->assertInstanceOf(CliLoginTokenAuthenticator::class, $authenticator);
+    }
+
+    /**
+     * Test that the custom container extension is created and memoized.
+     */
+    public function testGetContainerExtension(): void
+    {
+        $bundle = new ItkDevOpenIdConnectBundle();
+
+        $extension = $bundle->getContainerExtension();
+        $this->assertInstanceOf(ItkDevOpenIdConnectExtension::class, $extension);
+
+        // Repeated calls must return the same instance, not recreate it.
+        $this->assertSame($extension, $bundle->getContainerExtension());
     }
 }
