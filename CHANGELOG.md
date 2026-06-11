@@ -18,6 +18,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Dev: strengthened CLI login flow tests based on mutation testing
+  findings — redeeming an unknown token is asserted to throw
+  `TokenNotFoundException` specifically, both cache entries (token and
+  reverse username entry) are asserted removed after a token is used,
+  `encodeKey` asserts the exact namespaced encoding instead of only an
+  encode/decode roundtrip, and the CLI login URL is asserted to receive
+  the login token and route. No effect on the published package.
 - Dev: added a test for `ItkDevOpenIdConnectBundle::getContainerExtension()`
   asserting the custom extension is created and memoized (same instance on
   repeated calls), prompted by mutation testing findings. No effect on the
