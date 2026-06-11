@@ -15,6 +15,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `OpenIdLoginAuthenticator::onAuthenticationFailure()` now chains the
+  original exception via `previous` and includes its message, so logs and
+  error reporters retain the cause (timeout vs. signature mismatch vs.
+  wrong nonce). Symfony's security component still renders only the safe
+  message key to the user.
 - Strengthened tests guided by mutation testing; mutation score raised to
   100% with a CI threshold of 95 (`minCoveredMsi` in `infection.json5`)
 - Test fixtures use RFC 2606 reserved domains (`provider.example.org`,
