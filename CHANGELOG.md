@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Dev: strengthened CLI login flow tests based on mutation testing
+  findings — redeeming an unknown token is asserted to throw
+  `TokenNotFoundException` specifically, both cache entries (token and
+  reverse username entry) are asserted removed after a token is used,
+  `encodeKey` asserts the exact namespaced encoding instead of only an
+  encode/decode roundtrip, and the CLI login URL is asserted to receive
+  the login token and route. No effect on the published package.
+
 - CI: bumped `codecov/codecov-action` from `v5` to `v7` (restores Codecov's
   GPG signing key after the `codecovsecurity` account was removed, and moves
   the bundled `github-script` to Node 24) and set `fail_ci_if_error: false`
