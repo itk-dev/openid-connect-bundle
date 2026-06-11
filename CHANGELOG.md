@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Dev: added a test for `ItkDevOpenIdConnectBundle::getContainerExtension()`
+  asserting the custom extension is created and memoized (same instance on
+  repeated calls), prompted by mutation testing findings. No effect on the
+  published package.
+
 - CI: bumped `codecov/codecov-action` from `v5` to `v7` (restores Codecov's
   GPG signing key after the `codecovsecurity` account was removed, and moves
   the bundled `github-script` to Node 24) and set `fail_ci_if_error: false`
