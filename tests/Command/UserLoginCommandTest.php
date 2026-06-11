@@ -44,13 +44,13 @@ class UserLoginCommandTest extends TestCase
 
         $this->stubUrlGenerator
             ->method('generate')
-            ->willReturn('https://app.com/login?loginToken=generated-token');
+            ->willReturn('https://example.org/login?loginToken=generated-token');
 
         $tester = new CommandTester($this->command);
         $result = $tester->execute(['username' => 'testuser']);
 
         $this->assertSame(Command::SUCCESS, $result);
-        $this->assertStringContainsString('https://app.com/login?loginToken=generated-token', $tester->getDisplay());
+        $this->assertStringContainsString('https://example.org/login?loginToken=generated-token', $tester->getDisplay());
     }
 
     public function testExecutePassesTokenAndRouteToUrlGenerator(): void
@@ -63,7 +63,7 @@ class UserLoginCommandTest extends TestCase
         $urlGenerator->expects($this->once())
             ->method('generate')
             ->with('cli_login_route', ['loginToken' => 'generated-token'], UrlGeneratorInterface::ABSOLUTE_URL)
-            ->willReturn('https://app.com/login?loginToken=generated-token');
+            ->willReturn('https://example.org/login?loginToken=generated-token');
 
         $command = new UserLoginCommand(
             $this->stubCliLoginHelper,
