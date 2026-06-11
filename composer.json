@@ -52,8 +52,8 @@
     "config": {
         "allow-plugins": {
             "ergebnis/composer-normalize": true,
-            "symfony/runtime": true,
-            "infection/extension-installer": true
+            "infection/extension-installer": true,
+            "symfony/runtime": true
         },
         "sort-packages": true
     },
