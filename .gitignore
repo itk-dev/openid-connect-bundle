@@ -21,3 +21,8 @@ unit.xml
 
 # Local Claude Code instructions (not part of the published package)
 /CLAUDE.md
+
+###> infection/infection ###
+/infection.log
+/infection.html
+###< infection/infection ###
