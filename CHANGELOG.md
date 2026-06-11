@@ -18,6 +18,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Dev: strengthened DependencyInjection tests based on mutation testing
+  findings — the extension's container wiring (cache pool reference,
+  provider options mapping, CLI login route arguments) is now asserted
+  explicitly, and the documented invariant that provider keys are not
+  normalized (`my-provider` ≠ `my_provider`) is covered by a test. No
+  effect on the published package.
+
 - CI: bumped `codecov/codecov-action` from `v5` to `v7` (restores Codecov's
   GPG signing key after the `codecovsecurity` account was removed, and moves
   the bundled `github-script` to Node 24) and set `fail_ci_if_error: false`

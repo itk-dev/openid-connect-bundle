@@ -163,6 +163,24 @@ class ConfigurationTest extends TestCase
         );
     }
 
+    public function testProviderKeysAreNotNormalized(): void
+    {
+        $input = $this->getMinimalConfig();
+        $input['openid_providers']['my-provider'] = $input['openid_providers']['provider1'];
+        unset($input['openid_providers']['provider1']);
+
+        $config = $this->processor->processConfiguration(
+            $this->configuration,
+            [$input]
+        );
+
+        // Provider keys are part of the public contract ('my-provider' and
+        // 'my_provider' are distinct providers), so dashes must survive
+        // config processing instead of being normalized to underscores.
+        $this->assertArrayHasKey('my-provider', $config['openid_providers']);
+        $this->assertArrayNotHasKey('my_provider', $config['openid_providers']);
+    }
+
     public function testMultipleProviders(): void
     {
         $input = $this->getMinimalConfig();
