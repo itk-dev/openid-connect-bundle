@@ -5,8 +5,9 @@
     },
     "threads": "max",
     // Minimum mutation score for covered code; enforced locally and in CI.
-    // Baseline measured at 80% — ratchet up as surviving mutants are killed.
-    "minCoveredMsi": 78,
+    // The suite currently kills all mutants (100%); 95 leaves headroom for
+    // run-to-run variance without letting real test-quality erosion through.
+    "minCoveredMsi": 95,
     "logs": {
         "text": "infection.log",
         "html": "infection.html",
