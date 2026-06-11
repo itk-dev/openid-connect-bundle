@@ -7,14 +7,14 @@ itkdev_openid_connect:
   openid_providers:
     test_provider_1:
       options:
-        metadata_url: "https://provider.com/openid-configuration"
+        metadata_url: "https://provider.example.org/openid-configuration"
         client_id: "test_id"
         client_secret: "test_secret"
-        redirect_uri: "https://app.com/callback_uri"
+        redirect_uri: "https://app.example.org/callback_uri"
     test_provider_2:
       options:
-        metadata_url: "https://provider.com/openid-configuration"
+        metadata_url: "https://provider.example.org/openid-configuration"
         client_id: "test_id"
         leeway: 5
         client_secret: "test_secret"
-        redirect_uri: "https://app.com/callback_uri"
+        redirect_uri: "https://app.example.org/callback_uri"

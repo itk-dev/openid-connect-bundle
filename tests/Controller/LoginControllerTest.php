@@ -33,7 +33,7 @@ class LoginControllerTest extends TestCase
             ->expects($this->exactly(1))
             ->method('getAuthorizationUrl')
             ->with(['state' => 'abcd', 'nonce' => '1234', 'response_type' => 'code', 'scope' => 'openid email profile'])
-            ->willReturn('https://test.com');
+            ->willReturn('https://provider.example.org/authorize');
 
         $controller = $this->createController($mockProvider);
 
@@ -58,7 +58,7 @@ class LoginControllerTest extends TestCase
             });
 
         $response = $controller->login($request, $mockSession, 'test');
-        $this->assertSame('https://test.com', $response->getTargetUrl());
+        $this->assertSame('https://provider.example.org/authorize', $response->getTargetUrl());
     }
 
     public function testUnknownProviderKeyMapsTo404(): void

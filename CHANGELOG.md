@@ -18,6 +18,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Dev: test fixtures use RFC 2606 reserved domains only —
+  `provider.example.org` for IdP-side URLs (metadata, authorization) and
+  `app.example.org` for application-side URLs (redirect/callback, CLI
+  login), replacing real registrable domains (`app.com`, `provider.com`,
+  `other.com`, `test.com`). No effect on the published package.
 - Dev: strengthened Security tests based on mutation testing findings —
   the redirect-route parameters are asserted to reach the router when
   building a provider redirect URI, `validateClaims` is asserted to look

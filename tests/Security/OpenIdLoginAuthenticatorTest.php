@@ -110,7 +110,7 @@ class OpenIdLoginAuthenticatorTest extends TestCase
         $stubProvider = $this->createStub(OpenIdConfigurationProvider::class);
 
         $claims = new \stdClass();
-        $claims->email = 'test@test.com';
+        $claims->email = 'test@example.org';
         $claims->name = 'Test Tester';
         $stubProvider->method('validateIdToken')->willReturn($claims);
 
@@ -128,7 +128,7 @@ class OpenIdLoginAuthenticatorTest extends TestCase
 
         $passport = $authenticator->authenticate($request);
 
-        $this->assertSame('test@test.com', $passport->getUser()->getUserIdentifier());
+        $this->assertSame('test@example.org', $passport->getUser()->getUserIdentifier());
 
         // The claims contract: the IdP claims plus the provider key that
         // authenticated the user.
