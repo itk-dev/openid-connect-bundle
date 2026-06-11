@@ -1,0 +1,23 @@
+{
+    "$schema": "vendor/infection/infection/resources/schema.json",
+    "source": {
+        "directories": ["src"]
+    },
+    "threads": "max",
+    // Minimum mutation score for covered code; enforced locally and in CI.
+    // Baseline measured at 80% — ratchet up as surviving mutants are killed.
+    "minCoveredMsi": 78,
+    "logs": {
+        "text": "infection.log",
+        "html": "infection.html",
+        // Publishes results for the develop branch to the Stryker dashboard
+        // (feeds the README badge). Requires STRYKER_DASHBOARD_API_KEY; only
+        // active on CI, skipped locally and on non-matching branches.
+        "stryker": {
+            "report": "develop"
+        }
+    },
+    "mutators": {
+        "@default": true
+    }
+}
