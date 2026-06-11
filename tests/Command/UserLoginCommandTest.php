@@ -44,13 +44,13 @@ class UserLoginCommandTest extends TestCase
 
         $this->stubUrlGenerator
             ->method('generate')
-            ->willReturn('https://app.com/login?loginToken=generated-token');
+            ->willReturn('https://app.example.org/login?loginToken=generated-token');
 
         $tester = new CommandTester($this->command);
         $result = $tester->execute(['username' => 'testuser']);
 
         $this->assertSame(Command::SUCCESS, $result);
-        $this->assertStringContainsString('https://app.com/login?loginToken=generated-token', $tester->getDisplay());
+        $this->assertStringContainsString('https://app.example.org/login?loginToken=generated-token', $tester->getDisplay());
     }
 
     public function testExecuteUserNotFound(): void

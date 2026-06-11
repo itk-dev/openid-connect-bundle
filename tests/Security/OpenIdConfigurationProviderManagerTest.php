@@ -79,7 +79,7 @@ class OpenIdConfigurationProviderManagerTest extends TestCase
     {
         $this->stubRouter
             ->method('generate')
-            ->willReturn('https://app.com/callback');
+            ->willReturn('https://app.example.org/callback');
 
         $manager = $this->createManager([
             'test' => $this->getBaseProviderConfig() + [
@@ -96,7 +96,7 @@ class OpenIdConfigurationProviderManagerTest extends TestCase
     {
         $this->stubRouter
             ->method('generate')
-            ->willReturn('https://app.com/callback');
+            ->willReturn('https://app.example.org/callback');
 
         $manager = $this->createManager([
             'test' => $this->getBaseProviderConfig() + [
@@ -112,7 +112,7 @@ class OpenIdConfigurationProviderManagerTest extends TestCase
     {
         $manager = $this->createManager([
             'test' => $this->getBaseProviderConfig() + [
-                'redirect_uri' => 'https://app.com/callback',
+                'redirect_uri' => 'https://app.example.org/callback',
                 'leeway' => 30,
             ],
         ]);
@@ -125,7 +125,7 @@ class OpenIdConfigurationProviderManagerTest extends TestCase
     {
         $manager = $this->createManager([
             'test' => $this->getBaseProviderConfig() + [
-                'redirect_uri' => 'https://app.com/callback',
+                'redirect_uri' => 'https://app.example.org/callback',
                 'cache_duration' => 3600,
             ],
         ]);
@@ -138,7 +138,7 @@ class OpenIdConfigurationProviderManagerTest extends TestCase
     {
         $manager = $this->createManager([
             'test' => $this->getBaseProviderConfig() + [
-                'redirect_uri' => 'https://app.com/callback',
+                'redirect_uri' => 'https://app.example.org/callback',
                 'allow_http' => true,
             ],
         ]);
@@ -166,7 +166,7 @@ class OpenIdConfigurationProviderManagerTest extends TestCase
     {
         $manager = $this->createManager([
             'test' => $this->getBaseProviderConfig() + [
-                'redirect_uri' => 'https://app.com/callback',
+                'redirect_uri' => 'https://app.example.org/callback',
                 'http_client_options' => [
                     'timeout' => 1.5,
                     'proxy' => 'http://proxy:8080',
@@ -189,7 +189,7 @@ class OpenIdConfigurationProviderManagerTest extends TestCase
     {
         $manager = $this->createManager([
             'test' => $this->getBaseProviderConfig() + [
-                'redirect_uri' => 'https://app.com/callback',
+                'redirect_uri' => 'https://app.example.org/callback',
             ],
         ]);
 
@@ -205,7 +205,7 @@ class OpenIdConfigurationProviderManagerTest extends TestCase
     {
         $manager = $this->createManager([
             'test' => $this->getBaseProviderConfig() + [
-                'redirect_uri' => 'https://app.com/callback',
+                'redirect_uri' => 'https://app.example.org/callback',
             ],
         ]);
 

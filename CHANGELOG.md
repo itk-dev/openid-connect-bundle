@@ -18,6 +18,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Dev: test fixtures use RFC 2606 reserved domains only —
+  `provider.example.org` for IdP-side URLs (metadata, authorization) and
+  `app.example.org` for application-side URLs (redirect/callback, CLI
+  login), replacing real registrable domains (`app.com`, `provider.com`,
+  `other.com`, `test.com`). No effect on the published package.
 - Dev: added a test for `ItkDevOpenIdConnectBundle::getContainerExtension()`
   asserting the custom extension is created and memoized (same instance on
   repeated calls), prompted by mutation testing findings. No effect on the
