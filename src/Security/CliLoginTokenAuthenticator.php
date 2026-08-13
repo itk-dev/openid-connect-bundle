@@ -36,7 +36,8 @@ class CliLoginTokenAuthenticator extends AbstractAuthenticator
     }
 
     /**
-     * @throws UsernameDoesNotExistException
+     * @throws CustomUserMessageAuthenticationException No token provided, or the token could not be resolved to a username
+     * @throws UsernameDoesNotExistException            Token resolved to a null username
      */
     public function authenticate(Request $request): Passport
     {
@@ -49,8 +50,8 @@ class CliLoginTokenAuthenticator extends AbstractAuthenticator
 
         try {
             $username = $this->cliLoginHelper->getUsername($token);
-        } catch (CacheException|TokenNotFoundException) {
-            throw new CustomUserMessageAuthenticationException('Cannot get username');
+        } catch (CacheException|TokenNotFoundException $e) {
+            throw new CustomUserMessageAuthenticationException('Cannot get username', previous: $e);
         }
 
         if (null === $username) {
@@ -67,6 +68,9 @@ class CliLoginTokenAuthenticator extends AbstractAuthenticator
 
     public function onAuthenticationFailure(Request $request, AuthenticationException $exception): ?Response
     {
-        throw new AuthenticationException('Error occurred validating login token');
+        // Preserve the cause so logs and error reporters can see what actually
+        // failed (empty token, cache miss, unknown username, etc.). Symfony's
+        // security component renders only the safe message key to the user.
+        throw new AuthenticationException(sprintf('Error occurred validating login token: %s', $exception->getMessage()), $exception->getCode(), $exception);
     }
 }
