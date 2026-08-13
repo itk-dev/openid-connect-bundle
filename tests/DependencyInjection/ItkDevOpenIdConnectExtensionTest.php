@@ -3,11 +3,14 @@
 namespace ItkDev\OpenIdConnectBundle\Tests\DependencyInjection;
 
 use ItkDev\OpenIdConnectBundle\Command\UserLoginCommand;
+use ItkDev\OpenIdConnectBundle\Controller\LoginController;
 use ItkDev\OpenIdConnectBundle\DependencyInjection\ItkDevOpenIdConnectExtension;
 use ItkDev\OpenIdConnectBundle\Security\CliLoginTokenAuthenticator;
 use ItkDev\OpenIdConnectBundle\Security\OpenIdConfigurationProviderManager;
+use ItkDev\OpenIdConnectBundle\Security\OpenIdLoginAuthenticator;
 use ItkDev\OpenIdConnectBundle\Util\CliLoginHelper;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\LogLevel;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Reference;
 
@@ -46,6 +49,76 @@ class ItkDevOpenIdConnectExtensionTest extends TestCase
         $this->assertTrue($container->hasDefinition(CliLoginHelper::class));
         $this->assertTrue($container->hasDefinition(UserLoginCommand::class));
         $this->assertTrue($container->hasDefinition(CliLoginTokenAuthenticator::class));
+    }
+
+    public function testLoggingDefaultsToApplicationLoggerAtErrorLevel(): void
+    {
+        $extension = new ItkDevOpenIdConnectExtension();
+        $container = new ContainerBuilder();
+
+        $extension->load([$this->getBaseConfig()], $container);
+
+        foreach ([LoginController::class, CliLoginTokenAuthenticator::class] as $id) {
+            $arguments = $container->getDefinition($id)->getArguments();
+            $this->assertSame(LogLevel::ERROR, $arguments['$logLevel']);
+            $this->assertArrayNotHasKey('$logger', $arguments, 'Without a configured logger the autowired one is used.');
+        }
+    }
+
+    public function testLoggingOptionsAreWiredToServices(): void
+    {
+        $extension = new ItkDevOpenIdConnectExtension();
+        $container = new ContainerBuilder();
+
+        $config = $this->getBaseConfig();
+        $config['logging_options'] = [
+            'logger' => 'monolog.logger.openid_connect',
+            'level' => LogLevel::CRITICAL,
+        ];
+
+        $extension->load([$config], $container);
+
+        foreach ([LoginController::class, CliLoginTokenAuthenticator::class] as $id) {
+            $arguments = $container->getDefinition($id)->getArguments();
+            $this->assertSame(LogLevel::CRITICAL, $arguments['$logLevel']);
+            $this->assertEquals(new Reference('monolog.logger.openid_connect'), $arguments['$logger']);
+        }
+    }
+
+    public function testAuthenticatorSubclassesGetLoggingViaAutoconfiguration(): void
+    {
+        $extension = new ItkDevOpenIdConnectExtension();
+        $container = new ContainerBuilder();
+
+        $config = $this->getBaseConfig();
+        $config['logging_options'] = [
+            'logger' => 'monolog.logger.openid_connect',
+            'level' => LogLevel::WARNING,
+        ];
+
+        $extension->load([$config], $container);
+
+        // Consumer subclasses are services this extension cannot name, so the
+        // configuration has to reach them through autoconfiguration.
+        $autoconfigured = $container->getAutoconfiguredInstanceof();
+        $this->assertArrayHasKey(OpenIdLoginAuthenticator::class, $autoconfigured);
+
+        $calls = $autoconfigured[OpenIdLoginAuthenticator::class]->getMethodCalls();
+        $this->assertEquals([
+            ['setLogLevel', [LogLevel::WARNING]],
+            ['setLogger', [new Reference('monolog.logger.openid_connect')]],
+        ], $calls);
+    }
+
+    public function testAuthenticatorSubclassesGetLevelOnlyWhenNoLoggerConfigured(): void
+    {
+        $extension = new ItkDevOpenIdConnectExtension();
+        $container = new ContainerBuilder();
+
+        $extension->load([$this->getBaseConfig()], $container);
+
+        $calls = $container->getAutoconfiguredInstanceof()[OpenIdLoginAuthenticator::class]->getMethodCalls();
+        $this->assertSame([['setLogLevel', [LogLevel::ERROR]]], $calls);
     }
 
     public function testLoadWiresProviderManagerConfig(): void

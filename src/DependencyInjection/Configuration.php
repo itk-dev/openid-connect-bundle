@@ -2,6 +2,7 @@
 
 namespace ItkDev\OpenIdConnectBundle\DependencyInjection;
 
+use Psr\Log\LogLevel;
 use Symfony\Component\Config\Definition\Builder\TreeBuilder;
 use Symfony\Component\Config\Definition\ConfigurationInterface;
 
@@ -40,6 +41,30 @@ class Configuration implements ConfigurationInterface
                     ->defaultNull()
                     ->info('The User Provider to inject')
                 ->end()
+                ->arrayNode('logging_options')
+                    ->addDefaultsIfNotSet()
+                    ->children()
+                        ->scalarNode('logger')
+                            ->info('Service id of the PSR-3 logger to receive this bundle\'s failure logs, e.g. "monolog.logger.openid_connect". Defaults to the application logger.')
+                            ->defaultNull()
+                            ->cannotBeEmpty()
+                        ->end() // logger
+                        ->enumNode('level')
+                            ->info('PSR-3 level the bundle logs failures at (default: error)')
+                            ->values([
+                                LogLevel::EMERGENCY,
+                                LogLevel::ALERT,
+                                LogLevel::CRITICAL,
+                                LogLevel::ERROR,
+                                LogLevel::WARNING,
+                                LogLevel::NOTICE,
+                                LogLevel::INFO,
+                                LogLevel::DEBUG,
+                            ])
+                            ->defaultValue(LogLevel::ERROR)
+                        ->end() // level
+                    ->end()
+                ->end() // logging_options
                 ->arrayNode('openid_providers')
                     ->isRequired()
                     ->requiresAtLeastOneElement()

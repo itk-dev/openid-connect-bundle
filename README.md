@@ -93,6 +93,12 @@ itkdev_openid_connect:
   cli_login_options:
     route: '%env(string:OIDC_CLI_LOGIN_ROUTE)%' # Redirect route for CLI login
   user_provider: ~ #
+  logging_options:
+    # Optional: service id of the PSR-3 logger to receive failure logs.
+    #           Defaults to the application logger.
+    logger: 'monolog.logger.openid_connect'
+    # Optional: PSR-3 level failures are logged at. Defaults to error.
+    level: error
   openid_providers:
     # Define one or more providers
     # [providerKey]:

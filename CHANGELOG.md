@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Failure logging through a PSR-3 logger. `logging_options.logger` picks the
+  logger service (defaults to the application logger) and `logging_options.level`
+  the level (defaults to `error`).
 - Mutation testing with [Infection](https://infection.github.io/)
   (`task test:mutation`), run in CI and reported to the Stryker dashboard
   (mutation score badge in README)

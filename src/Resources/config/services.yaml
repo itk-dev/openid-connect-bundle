@@ -12,9 +12,15 @@ services:
 
   ItkDev\OpenIdConnectBundle\Controller\LoginController:
     public: true
+    tags:
+      # Routes this bundle's logs to a dedicated Monolog channel so consumers can
+      # filter or alert on them. Inert when MonologBundle is not installed.
+      - { name: monolog.logger, channel: openid_connect }
 
   ItkDev\OpenIdConnectBundle\Security\OpenIdLoginAuthenticator:
     public: true
+    tags:
+      - { name: monolog.logger, channel: openid_connect }
 
   ItkDev\OpenIdConnectBundle\Util\CliLoginHelper:
     public: true
