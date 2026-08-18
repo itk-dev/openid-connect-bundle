@@ -11,6 +11,7 @@ use ItkDev\OpenIdConnectBundle\Security\OpenIdLoginAuthenticator;
 use ItkDev\OpenIdConnectBundle\Util\CliLoginHelper;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LogLevel;
+use Psr\Log\NullLogger;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Reference;
 
@@ -63,6 +64,25 @@ class ItkDevOpenIdConnectExtensionTest extends TestCase
             $this->assertSame(LogLevel::ERROR, $arguments['$logLevel']);
             $this->assertArrayNotHasKey('$logger', $arguments, 'Without a configured logger the autowired one is used.');
         }
+    }
+
+    public function testNullLoggerServiceIsAvailableToDisableLogging(): void
+    {
+        $extension = new ItkDevOpenIdConnectExtension();
+        $container = new ContainerBuilder();
+
+        $config = $this->getBaseConfig();
+        $config['logging_options'] = ['logger' => 'itkdev_openid_connect.null_logger'];
+
+        $extension->load([$config], $container);
+
+        // The README documents this service id as the way to turn logging off,
+        // so it must keep existing and be a NullLogger.
+        $this->assertTrue($container->hasDefinition('itkdev_openid_connect.null_logger'));
+        $this->assertSame(NullLogger::class, $container->getDefinition('itkdev_openid_connect.null_logger')->getClass());
+
+        $arguments = $container->getDefinition(LoginController::class)->getArguments();
+        $this->assertEquals(new Reference('itkdev_openid_connect.null_logger'), $arguments['$logger']);
     }
 
     public function testLoggingOptionsAreWiredToServices(): void

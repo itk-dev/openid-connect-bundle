@@ -6,6 +6,7 @@ use ItkDev\OpenIdConnect\Exception\ClaimsException;
 use ItkDev\OpenIdConnect\Exception\OpenIdConnectExceptionInterface;
 use ItkDev\OpenIdConnect\Exception\ValidationException;
 use ItkDev\OpenIdConnect\Security\OpenIdConfigurationProvider;
+use ItkDev\OpenIdConnectBundle\Exception\InvalidProviderException;
 use ItkDev\OpenIdConnectBundle\Security\OpenIdConfigurationProviderManager;
 use ItkDev\OpenIdConnectBundle\Security\OpenIdLoginAuthenticator;
 use ItkDev\OpenIdConnectBundle\Tests\TestLogger;
@@ -82,6 +83,30 @@ class OpenIdLoginAuthenticatorTest extends TestCase
             $record = $this->logger->singleRecord();
             $this->assertSame('invalid_client: client secret expired', $record['context']['cause'] ?? null);
         }
+    }
+
+    public function testUnknownProviderIsLoggedAndRethrown(): void
+    {
+        $cause = new InvalidProviderException('Invalid provider: test_provider_1');
+        $this->stubProviderManager->method('getProvider')->willThrowException($cause);
+
+        $request = new Request(query: ['state' => 'test_state', 'code' => 'test_code']);
+        $this->setSessionOnRequest($request);
+
+        try {
+            $this->authenticator->authenticate($request);
+        } catch (InvalidProviderException $thrown) {
+            $this->assertSame($cause, $thrown, 'The provider exception must propagate unchanged');
+
+            $record = $this->logger->singleRecord();
+            $this->assertSame(LogLevel::ERROR, $record['level']);
+            $this->assertStringContainsString('provider not configured', $record['message']);
+            $this->assertSame('test_provider_1', $record['context']['provider'] ?? null);
+            $this->assertSame($cause, $record['context']['exception'] ?? null);
+
+            return;
+        }
+        $this->fail('Expected InvalidProviderException');
     }
 
     public function testValidateClaimsWrongState(): void

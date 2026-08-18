@@ -95,7 +95,7 @@ itkdev_openid_connect:
   user_provider: ~ #
   logging_options:
     # Optional: service id of the PSR-3 logger to receive failure logs.
-    #           Defaults to the application logger.
+    #           Defaults to the application logger. See "Logging" below.
     logger: 'monolog.logger.openid_connect'
     # Optional: PSR-3 level failures are logged at. Defaults to error.
     level: error
@@ -157,6 +157,55 @@ OIDC_CLI_LOGIN_ROUTE=OIDC_CLI_LOGIN_ROUTE
 ```
 
 Set the actual values your `env.local` file to ensure they are not committed to Git.
+
+#### Logging
+
+The bundle logs every login failure — invalid state, empty nonce, a failed token
+exchange, an unknown or unreachable provider, and the CLI login token paths — at
+`error` by default. This is how a problem like an expired `client_secret` becomes
+visible: the IdP's own message is logged, and the causing exception is attached
+to the record as `context['exception']`.
+
+Both the logger and the level are configurable:
+
+```yaml
+itkdev_openid_connect:
+  logging_options:
+    logger: 'monolog.logger.openid_connect'
+    level: warning
+```
+
+`logger` takes any PSR-3 service id. Left unset, the bundle uses the
+application's `logger` service — Symfony always provides one, even without
+MonologBundle, so logging is on by default. The bundle's own services are tagged
+with the `openid_connect` Monolog channel, so the logs can be routed or alerted
+on separately:
+
+```yaml
+monolog:
+  handlers:
+    openid_connect:
+      type: stream
+      path: '%kernel.logs_dir%/openid_connect.log'
+      channels: ['openid_connect']
+```
+
+##### Disabling logging
+
+Point `logger` at the `NullLogger` the bundle registers for this purpose:
+
+```yaml
+itkdev_openid_connect:
+  logging_options:
+    logger: 'itkdev_openid_connect.null_logger'
+```
+
+Your authenticator also needs to be an autoconfigured service to receive the
+configured logger and level, since both are applied through
+`registerForAutoconfiguration()`. That is the default for services in
+`config/services.yaml`. With autoconfiguration disabled the authenticator falls
+back to a `NullLogger` and logs nothing, while the rest of the bundle keeps
+logging.
 
 #### Configuring the HTTP client
 

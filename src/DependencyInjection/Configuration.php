@@ -45,22 +45,13 @@ class Configuration implements ConfigurationInterface
                     ->addDefaultsIfNotSet()
                     ->children()
                         ->scalarNode('logger')
-                            ->info('Service id of the PSR-3 logger to receive this bundle\'s failure logs, e.g. "monolog.logger.openid_connect". Defaults to the application logger.')
+                            ->info('Service id of the PSR-3 logger to receive this bundle\'s failure logs, e.g. "monolog.logger.openid_connect". Defaults to the application logger, which Symfony always provides. Set "itkdev_openid_connect.null_logger" to turn logging off.')
                             ->defaultNull()
                             ->cannotBeEmpty()
                         ->end() // logger
                         ->enumNode('level')
                             ->info('PSR-3 level the bundle logs failures at (default: error)')
-                            ->values([
-                                LogLevel::EMERGENCY,
-                                LogLevel::ALERT,
-                                LogLevel::CRITICAL,
-                                LogLevel::ERROR,
-                                LogLevel::WARNING,
-                                LogLevel::NOTICE,
-                                LogLevel::INFO,
-                                LogLevel::DEBUG,
-                            ])
+                            ->values($this->psrLogLevels())
                             ->defaultValue(LogLevel::ERROR)
                         ->end() // level
                     ->end()
@@ -141,5 +132,21 @@ class Configuration implements ConfigurationInterface
         ->end();
 
         return $treeBuilder;
+    }
+
+    /**
+     * The PSR-3 levels, taken from `LogLevel` so the list cannot drift.
+     *
+     * Keys are irrelevant to `enumNode()->values()`, so the constant map is
+     * returned as-is.
+     *
+     * @return array<string, string>
+     */
+    private function psrLogLevels(): array
+    {
+        /** @var array<string, string> $levels */
+        $levels = (new \ReflectionClass(LogLevel::class))->getConstants();
+
+        return $levels;
     }
 }

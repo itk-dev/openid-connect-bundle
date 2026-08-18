@@ -5,6 +5,12 @@ services:
     autowire: true # Automatically injects dependencies in your services.
     autoconfigure: true # Automatically registers your services as commands, event subscribers, etc.
 
+  # Point `logging_options.logger` at this to turn the bundle's logging off.
+  # Symfony's own `logger` service is always present, so there is no "no logger"
+  # state to fall back to.
+  itkdev_openid_connect.null_logger:
+    class: Psr\Log\NullLogger
+
   ItkDev\OpenIdConnectBundle\Security\OpenIdConfigurationProviderManager:
     public: true
     arguments:

@@ -80,7 +80,20 @@ abstract class OpenIdLoginAuthenticator extends AbstractAuthenticator implements
         $session = $request->getSession();
         $providerKey = $session->remove('oauth2provider');
         $providerKey = is_string($providerKey) ? $providerKey : '';
-        $provider = $this->providerManager->getProvider($providerKey);
+
+        try {
+            $provider = $this->providerManager->getProvider($providerKey);
+        } catch (OpenIdConnectExceptionInterface $exception) {
+            // A callback whose session lost (or never had) the provider key
+            // would otherwise fail here with nothing recorded. Rethrown
+            // unchanged — this only adds the log line.
+            $this->logger->log($this->logLevel, 'OIDC login failed: provider not configured', [
+                'provider' => $providerKey,
+                'exception' => $exception,
+            ]);
+
+            throw $exception;
+        }
 
         // Make sure state and oauth2state are the same
         $oauth2state = $session->remove('oauth2state');
