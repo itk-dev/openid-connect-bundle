@@ -35,6 +35,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (`0` — wait forever) was used. Set `timeout: 0` to restore the old
   behaviour, or override per provider.
 
+### Fixed
+
+- `CliLoginTokenAuthenticator` now chains the cause via `previous` in
+  `onAuthenticationFailure()` and in the `CacheException`/`TokenNotFoundException`
+  catch, instead of discarding it. Mirrors `OpenIdLoginAuthenticator`.
+
 ## [5.0.0] - 2026-06-02
 
 ### Changed (BREAKING)

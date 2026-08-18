@@ -76,30 +76,42 @@ class CliLoginTokenAuthenticatorTest extends TestCase
 
     public function testAuthenticateWithInvalidToken(): void
     {
+        $cause = new TokenNotFoundException('Token does not exist');
         $this->stubCliLoginHelper
             ->method('getUsername')
-            ->willThrowException(new TokenNotFoundException('Token does not exist'));
+            ->willThrowException($cause);
 
         $request = new Request(query: ['loginToken' => 'invalid-token']);
 
-        $this->expectException(CustomUserMessageAuthenticationException::class);
-        $this->expectExceptionMessage('Cannot get username');
+        try {
+            $this->authenticator->authenticate($request);
+        } catch (CustomUserMessageAuthenticationException $thrown) {
+            $this->assertSame('Cannot get username', $thrown->getMessage());
+            $this->assertSame($cause, $thrown->getPrevious(), 'Original cause must be chained');
 
-        $this->authenticator->authenticate($request);
+            return;
+        }
+        $this->fail('Expected CustomUserMessageAuthenticationException');
     }
 
     public function testAuthenticateWithCacheException(): void
     {
+        $cause = new CacheException('Cache error');
         $this->stubCliLoginHelper
             ->method('getUsername')
-            ->willThrowException(new CacheException('Cache error'));
+            ->willThrowException($cause);
 
         $request = new Request(query: ['loginToken' => 'some-token']);
 
-        $this->expectException(CustomUserMessageAuthenticationException::class);
-        $this->expectExceptionMessage('Cannot get username');
+        try {
+            $this->authenticator->authenticate($request);
+        } catch (CustomUserMessageAuthenticationException $thrown) {
+            $this->assertSame('Cannot get username', $thrown->getMessage());
+            $this->assertSame($cause, $thrown->getPrevious(), 'Original cause must be chained');
 
-        $this->authenticator->authenticate($request);
+            return;
+        }
+        $this->fail('Expected CustomUserMessageAuthenticationException');
     }
 
     public function testAuthenticateWithNullUsername(): void
@@ -144,13 +156,20 @@ class CliLoginTokenAuthenticatorTest extends TestCase
         $this->assertSame('/login', $response->getTargetUrl());
     }
 
-    public function testOnAuthenticationFailure(): void
+    public function testOnAuthenticationFailurePreservesCause(): void
     {
-        $exception = new AuthenticationException();
+        $cause = new AuthenticationException('Original cause message', 42);
 
-        $this->expectException(AuthenticationException::class);
-        $this->expectExceptionMessage('Error occurred validating login token');
+        try {
+            $this->authenticator->onAuthenticationFailure(new Request(), $cause);
+        } catch (AuthenticationException $thrown) {
+            $this->assertSame($cause, $thrown->getPrevious(), 'Original exception must be chained as previous');
+            $this->assertStringContainsString('Error occurred validating login token', $thrown->getMessage());
+            $this->assertStringContainsString('Original cause message', $thrown->getMessage(), 'Cause message must be preserved for logs');
+            $this->assertSame(42, $thrown->getCode(), 'Cause code must be preserved');
 
-        $this->authenticator->onAuthenticationFailure(new Request(), $exception);
+            return;
+        }
+        $this->fail('Expected AuthenticationException');
     }
 }
