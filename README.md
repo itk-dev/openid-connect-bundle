@@ -210,11 +210,12 @@ What the bundle does with each state, when a login is attempted:
 | `expiring_soon` | a `warning` record; the login proceeds |
 | `ok`, `unknown` | nothing logged |
 
-**Nothing here blocks a login.** The check trusts a date somebody typed, so
-refusing logins on that basis would turn a stale date — a secret rotated without
-updating the configuration — into a self-inflicted outage. The identity provider
-remains the authority on whether a secret still works; these records exist so that
-when it stops working, the reason is already in the log.
+**Nothing here blocks a login.** The status depends on a manually maintained date,
+which can fall out of step with the secret it describes: rotate a secret without
+updating `client_secret_expires_at` and the date reads `expired` while the secret
+works perfectly. The date is therefore an indicator, not authority — the identity
+provider is what decides whether a secret still works. These records exist so that
+when it does stop working, the reason is already in the log.
 
 For a genuinely expired secret that means the login still fails, at the callback,
 with `invalid_client` — but the `critical` record here and the failure record from

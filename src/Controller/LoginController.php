@@ -82,12 +82,14 @@ class LoginController extends AbstractController
     /**
      * Report on the client secret's expiry without standing in the way.
      *
-     * Deliberately non-fatal, even once expired. The check trusts a date someone
-     * typed, and refusing logins on that basis turns a stale date — a secret
-     * rotated without updating the configuration — into a self-inflicted outage.
-     * The identity provider is the authority on whether the secret still works;
-     * this only makes sure that when it stops working, the reason is already in
-     * the log rather than something to be worked out later.
+     * Deliberately non-fatal, even once expired. The status depends on a manually
+     * maintained date, which can fall out of step with the secret it describes:
+     * rotate a secret without updating `client_secret_expires_at` and the date
+     * reads "expired" while the secret works perfectly. So the date is treated as
+     * an indicator rather than as authority — the identity provider is what
+     * actually decides whether a secret still works. These records exist so that
+     * when it does stop working, the reason is already in the log rather than
+     * something to be worked out afterwards.
      */
     private function checkClientSecretExpiry(string $providerKey): void
     {

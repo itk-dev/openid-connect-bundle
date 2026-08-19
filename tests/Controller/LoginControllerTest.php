@@ -167,9 +167,9 @@ class LoginControllerTest extends TestCase
 
         $response = $controller->login(new Request(), $this->createStub(SessionInterface::class), 'test');
 
-        // Fail open: the configured date is someone's typing, and a stale one — a
-        // secret rotated without updating the config — must not block logins that
-        // work. The identity provider decides; this only records why.
+        // Fail open: the date is maintained by hand and can be out of step with
+        // the secret, so a stale one must not block logins that work. The identity
+        // provider decides; this only records why.
         $this->assertSame('https://provider.example.org/authorize', $response->getTargetUrl());
 
         $record = $this->logger->singleRecord();
