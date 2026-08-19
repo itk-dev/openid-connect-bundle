@@ -299,11 +299,20 @@ not the same as healthy. Collapsing that into another library's pass/fail result
 would throw the distinction away, whereas an application mapping it itself can
 decide whether "nobody is tracking this secret" counts as degraded.
 
-This composes with whatever health system is in use, including
-`macpaw/symfony-health-check-bundle` (checks are registered by service id in its
-configuration) and `liip/monitor-bundle` (checks are auto-discovered from an
-interface). Should several applications end up writing the same adapter, shipping
-one here as an optional integration would be worth revisiting.
+This composes with whatever health system is in use:
+
+* a bespoke aggregator, as in the example above;
+* `macpaw/symfony-health-check-bundle`, where checks implement its own
+  `CheckInterface` and are listed by service id in configuration;
+* `liip/monitor-bundle`, which auto-discovers any class implementing
+  `Laminas\Diagnostics\Check\CheckInterface`.
+
+If an adapter is ever shipped from here, that last one is the target: the
+`laminas/laminas-diagnostics` contract depends on nothing but PHP, and its
+`Success`/`Warning`/`Failure`/`Skip` results map onto this bundle's four states
+almost exactly — including `Skip` for a provider with no date configured. It is not
+shipped today because no consuming application uses it yet, and a dependency added
+for hypothetical reach is a dependency to carry for nothing.
 
 #### Logging
 
