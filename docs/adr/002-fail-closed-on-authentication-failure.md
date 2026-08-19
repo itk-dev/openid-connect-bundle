@@ -2,10 +2,10 @@
 
 - **Created By:** Ture Gjørup
 - **Date:** 2026-08-19
-- **Decision Maker:** Ture Gjørup (draft — awaits team review)
+- **Decision Maker:** Ture Gjørup
 - **Stakeholders:** Bundle consumers; operators of those applications; bundle
   maintainers
-- **Status:** Draft
+- **Status:** Accepted
 
 ## Context
 

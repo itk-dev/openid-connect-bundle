@@ -124,6 +124,13 @@ class OpenIdLoginAuthenticatorTest extends TestCase
         yield 'library cause is kept' => [$root, $root];
         // The firewall wraps more than once in places, so one skip is not enough.
         yield 'reached past nested security exceptions' => [new AuthenticationException('inner', 0, $root), $root];
+        // A library exception is not safe merely by being one: skipping only the
+        // leading security exceptions would keep this outer cause and leave an
+        // AuthenticationException reachable one level further down.
+        yield 'library cause hiding a security exception is skipped too' => [
+            new ValidationException('outer', 0, new AuthenticationException('inner', 0, $root)),
+            $root,
+        ];
         yield 'nothing left to keep' => [new AuthenticationException('inner'), null];
     }
 

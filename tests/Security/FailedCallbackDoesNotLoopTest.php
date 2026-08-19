@@ -92,6 +92,11 @@ class FailedCallbackDoesNotLoopTest extends TestCase
             $this->kernel->handle($request, catch: false);
             $this->fail('A failed callback should not be handled silently.');
         } catch (AuthenticationFailedException $exception) {
+            // Catching the concrete type narrows it statically, which the unit test
+            // in OpenIdLoginAuthenticatorTest deliberately avoids. That guard belongs
+            // there and this test does not repeat it: what is under test here is the
+            // chain, and catching the type is how we get hold of it. Do not "align"
+            // the two tests by moving the narrowing into that one.
             $this->assertTheAuthenticatorRejectedTheCallback($request);
 
             for ($cause = $exception; null !== $cause; $cause = $cause->getPrevious()) {

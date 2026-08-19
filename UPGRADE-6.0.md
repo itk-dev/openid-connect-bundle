@@ -34,6 +34,10 @@ reintroduces the loop.
 #[AsEventListener]
 final class LoginFailureListener
 {
+    public function __construct(private Environment $twig)
+    {
+    }
+
     public function __invoke(ExceptionEvent $event): void
     {
         if ($event->getThrowable() instanceof AuthenticationFailedException) {
@@ -42,6 +46,10 @@ final class LoginFailureListener
     }
 }
 ```
+
+Render your own template, as above, rather than `getMessage()`. The message carries
+the identity provider's error text, which the security component used to reduce to
+a safe message key before anything could display it.
 
 ## CLI login is unchanged
 

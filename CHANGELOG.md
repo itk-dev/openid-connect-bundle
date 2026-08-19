@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+> **Note**
+> Do not tag from here until `client_secret_expires_at` is required. The breaking
+> changes below are 6.0.0 and incomplete on their own.
+
 ### Changed (BREAKING)
 
 - A failed OpenID Connect callback now throws
