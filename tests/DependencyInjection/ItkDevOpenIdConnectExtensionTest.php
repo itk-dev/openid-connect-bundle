@@ -251,14 +251,17 @@ class ItkDevOpenIdConnectExtensionTest extends TestCase
         $container = new ContainerBuilder();
 
         $deprecations = [];
-        $previous = set_error_handler(static function (int $level, string $message) use (&$deprecations, &$previous) {
+        // All four arguments must be forwarded: the handler being wrapped is
+        // PHPUnit's, whose __invoke() requires file and line. Passing two worked
+        // only while nothing else raised an error during the call.
+        $previous = set_error_handler(static function (int $level, string $message, string $file = '', int $line = 0) use (&$deprecations, &$previous): bool {
             if (\E_USER_DEPRECATED === $level) {
                 $deprecations[] = $message;
 
                 return true;
             }
 
-            return null !== $previous && ($previous)($level, $message);
+            return null !== $previous && false !== ($previous)($level, $message, $file, $line);
         });
 
         try {
