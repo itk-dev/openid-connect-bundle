@@ -10,9 +10,11 @@ use ItkDev\OpenIdConnectBundle\Controller\LoginController;
 use ItkDev\OpenIdConnectBundle\Exception\InvalidProviderException;
 use ItkDev\OpenIdConnectBundle\Security\OpenIdConfigurationProviderManager;
 use ItkDev\OpenIdConnectBundle\Tests\TestLogger;
+use ItkDev\OpenIdConnectBundle\Util\ClientSecretExpiryChecker;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LogLevel;
+use Symfony\Component\Clock\MockClock;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Session\SessionInterface;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
@@ -20,11 +22,25 @@ use Symfony\Component\HttpKernel\Exception\ServiceUnavailableHttpException;
 
 class LoginControllerTest extends TestCase
 {
+    private const string NOW = '2026-08-19 09:00:00';
+
     private TestLogger $logger;
 
     protected function setUp(): void
     {
         $this->logger = new TestLogger();
+    }
+
+    /**
+     * @param array<string, string|null> $expiryDates
+     */
+    private function createExpiryChecker(array $expiryDates = ['test' => null], int $warningDays = 30): ClientSecretExpiryChecker
+    {
+        return new ClientSecretExpiryChecker(
+            new MockClock(new \DateTimeImmutable(self::NOW, new \DateTimeZone('UTC'))),
+            $expiryDates,
+            $warningDays,
+        );
     }
 
     public function testLogin(): void
@@ -82,7 +98,7 @@ class LoginControllerTest extends TestCase
             ->with('bogus')
             ->willThrowException($cause);
 
-        $controller = new LoginController($mockProviderManager, $this->logger);
+        $controller = new LoginController($mockProviderManager, $this->logger, $this->createExpiryChecker());
 
         try {
             $controller->login(new Request(), $this->createStub(SessionInterface::class), 'bogus');
@@ -140,7 +156,102 @@ class LoginControllerTest extends TestCase
         $this->fail('Expected ServiceUnavailableHttpException');
     }
 
-    private function createController(OpenIdConfigurationProvider $provider): LoginController
+    public function testExpiredSecretIsRefusedBeforeTheRoundTrip(): void
+    {
+        // Nothing on the provider may be touched: the point is to not start a
+        // round trip the IdP will reject at the callback.
+        $mockProvider = $this->createMock(OpenIdConfigurationProvider::class);
+        $mockProvider->expects($this->never())->method('generateState');
+        $mockProvider->expects($this->never())->method('getAuthorizationUrl');
+
+        $controller = $this->createController($mockProvider, $this->createExpiryChecker(['test' => '2026-07-01']));
+
+        try {
+            $controller->login(new Request(), $this->createStub(SessionInterface::class), 'test');
+        } catch (ServiceUnavailableHttpException $thrown) {
+            $this->assertSame(503, $thrown->getStatusCode());
+            $this->assertStringContainsString('expired on 2026-07-01', $thrown->getMessage());
+            // Both remedies, because the same 503 appears when the secret was
+            // rotated and only the configured date is stale.
+            $this->assertStringContainsString('Rotate the secret', $thrown->getMessage());
+            $this->assertStringContainsString('update client_secret_expires_at', $thrown->getMessage());
+
+            $record = $this->logger->singleRecord();
+            $this->assertSame(LogLevel::CRITICAL, $record['level'], 'Every login is broken until someone acts');
+            $this->assertStringContainsString('client secret has expired', $record['message']);
+            $this->assertSame('test', $record['context']['provider']);
+            $this->assertSame('expired', $record['context']['status']);
+            // 49 days and 9 hours past, and floor() rounds a negative away from
+            // zero — the conservative direction for "expired".
+            $this->assertSame(-50, $record['context']['days_remaining']);
+
+            return;
+        }
+        $this->fail('Expected ServiceUnavailableHttpException');
+    }
+
+    public function testExpiringSoonWarnsButStillLogsIn(): void
+    {
+        $stubProvider = $this->createStub(OpenIdConfigurationProvider::class);
+        $stubProvider->method('generateNonce')->willReturn('1234');
+        $stubProvider->method('generateState')->willReturn('abcd');
+        $stubProvider->method('getAuthorizationUrl')->willReturn('https://provider.example.org/authorize');
+
+        $controller = $this->createController($stubProvider, $this->createExpiryChecker(['test' => '2026-09-01']));
+
+        $response = $controller->login(new Request(), $this->createStub(SessionInterface::class), 'test');
+
+        // The warning window is precisely when logins must keep working.
+        $this->assertSame('https://provider.example.org/authorize', $response->getTargetUrl());
+
+        $record = $this->logger->singleRecord();
+        $this->assertSame(LogLevel::WARNING, $record['level']);
+        $this->assertStringContainsString('expires soon', $record['message']);
+        $this->assertSame('expiring_soon', $record['context']['status']);
+        $this->assertSame(12, $record['context']['days_remaining']);
+        $this->assertSame('2026-09-01T00:00:00+00:00', $record['context']['expires_at']);
+    }
+
+    /**
+     * @return iterable<string, array{string|null}>
+     */
+    public static function quietExpiryProvider(): iterable
+    {
+        yield 'comfortably in the future' => ['2027-01-31'];
+        // Unknown is not a per-request problem: the extension already emits a
+        // deprecation at compile time, and warning on every login would be noise.
+        yield 'no date configured' => [null];
+    }
+
+    #[DataProvider('quietExpiryProvider')]
+    public function testHealthySecretLogsNothing(?string $expiresAt): void
+    {
+        $stubProvider = $this->createStub(OpenIdConfigurationProvider::class);
+        $stubProvider->method('generateNonce')->willReturn('1234');
+        $stubProvider->method('generateState')->willReturn('abcd');
+        $stubProvider->method('getAuthorizationUrl')->willReturn('https://provider.example.org/authorize');
+
+        $controller = $this->createController($stubProvider, $this->createExpiryChecker(['test' => $expiresAt]));
+
+        $controller->login(new Request(), $this->createStub(SessionInterface::class), 'test');
+
+        $this->assertSame([], $this->logger->records);
+    }
+
+    public function testUnknownProviderIsRefusedBeforeTheExpiryCheck(): void
+    {
+        // A 404 for an unknown key must not be masked by an expiry complaint.
+        $stubProviderManager = $this->createStub(OpenIdConfigurationProviderManager::class);
+        $stubProviderManager->method('getProvider')->willThrowException(new InvalidProviderException('Invalid provider: bogus'));
+
+        $controller = new LoginController($stubProviderManager, $this->logger, $this->createExpiryChecker(['bogus' => '2026-07-01']));
+
+        $this->expectException(NotFoundHttpException::class);
+
+        $controller->login(new Request(), $this->createStub(SessionInterface::class), 'bogus');
+    }
+
+    private function createController(OpenIdConfigurationProvider $provider, ?ClientSecretExpiryChecker $expiryChecker = null): LoginController
     {
         $mockProviderManager = $this->createMock(OpenIdConfigurationProviderManager::class);
         $mockProviderManager
@@ -149,6 +260,6 @@ class LoginControllerTest extends TestCase
             ->with('test')
             ->willReturn($provider);
 
-        return new LoginController($mockProviderManager, $this->logger);
+        return new LoginController($mockProviderManager, $this->logger, $expiryChecker ?? $this->createExpiryChecker());
     }
 }

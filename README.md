@@ -202,6 +202,27 @@ Each provider is then in one of four states:
 `unknown` is deliberately distinct from `ok`: an installation that has not set a
 date is not fine, it is unmonitored.
 
+What the bundle does with each state, when a login is attempted:
+
+| Status | Behaviour |
+| ------ | --------- |
+| `expired` | the login is refused with a **503** and a `critical` record, before any redirect to the identity provider |
+| `expiring_soon` | a `warning` record; **logins continue to work** |
+| `ok`, `unknown` | nothing logged |
+
+Refusing early is deliberate: once the secret has expired the token exchange fails
+at the callback anyway, after the user has been bounced to the identity provider
+and back with nothing explaining why. One clear 503 beats that.
+
+> [!CAUTION]
+> Because the check trusts the configured date, a **stale** date refuses logins
+> that would otherwise work — if you rotate a secret, update
+> `client_secret_expires_at` in the same change. The 503 message names both
+> remedies for exactly this reason.
+
+Until the date is configured a provider sits in `unknown`, where none of the above
+applies and nothing is reported.
+
 > [!NOTE]
 > `client_secret_expires_at` is optional in 5.x and **will be required in 6.0**.
 > Providers without it emit a deprecation warning, because the bundle cannot warn

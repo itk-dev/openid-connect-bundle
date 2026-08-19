@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Per-provider `client_secret_expires_at` and `secret_expiry_options.warning_days`,
   so the bundle knows when a client secret expires. Validated at compile time.
+- Logins are refused with a 503 and a `critical` record once a client secret is
+  past its configured expiry, and log a `warning` while it is expiring soon.
 - Opt-in authentication audit trail (`audit_options`), writing logins, failed
   attempts and CLI token issuance at `info` on the `openid_connect_audit`
   channel. Off by default; identifiers can be pseudonymised with
