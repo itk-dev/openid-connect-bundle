@@ -11,6 +11,22 @@ services:
   itkdev_openid_connect.null_logger:
     class: Psr\Log\NullLogger
 
+  ItkDev\OpenIdConnectBundle\Log\AuthenticationAuditLogger:
+    public: true
+    arguments:
+      $enabled: ~
+      $identifierMode: ~
+    tags:
+      # A channel of its own: the audit trail must survive an operational
+      # threshold of `error`, which would otherwise discard all of it.
+      - { name: monolog.logger, channel: openid_connect_audit }
+
+  # Removed from the container entirely when audit_options.enabled is false, so a
+  # deployment that has not opted in does no event handling and assembles no
+  # personal data.
+  ItkDev\OpenIdConnectBundle\EventSubscriber\AuthenticationAuditSubscriber:
+    public: true
+
   ItkDev\OpenIdConnectBundle\Security\OpenIdConfigurationProviderManager:
     public: true
     arguments:

@@ -3,6 +3,8 @@
 namespace ItkDev\OpenIdConnectBundle\Tests\Command;
 
 use ItkDev\OpenIdConnectBundle\Command\UserLoginCommand;
+use ItkDev\OpenIdConnectBundle\Log\AuthenticationAuditLogger;
+use ItkDev\OpenIdConnectBundle\Tests\TestLogger;
 use ItkDev\OpenIdConnectBundle\Util\CliLoginHelper;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
@@ -21,9 +23,11 @@ class UserLoginCommandTest extends TestCase
     /** @var UserProviderInterface&Stub */
     private UserProviderInterface $stubUserProvider;
     private UserLoginCommand $command;
+    private TestLogger $auditLog;
 
     protected function setUp(): void
     {
+        $this->auditLog = new TestLogger();
         $this->stubCliLoginHelper = $this->createStub(CliLoginHelper::class);
         $this->stubUrlGenerator = $this->createStub(UrlGeneratorInterface::class);
         $this->stubUserProvider = $this->createStub(UserProviderInterface::class);
@@ -32,7 +36,8 @@ class UserLoginCommandTest extends TestCase
             $this->stubCliLoginHelper,
             'cli_login_route',
             $this->stubUrlGenerator,
-            $this->stubUserProvider
+            $this->stubUserProvider,
+            new AuthenticationAuditLogger($this->auditLog, enabled: true)
         );
     }
 
@@ -69,7 +74,8 @@ class UserLoginCommandTest extends TestCase
             $this->stubCliLoginHelper,
             'cli_login_route',
             $urlGenerator,
-            $this->stubUserProvider
+            $this->stubUserProvider,
+            new AuthenticationAuditLogger($this->auditLog, enabled: true)
         );
 
         $tester = new CommandTester($command);
@@ -87,5 +93,28 @@ class UserLoginCommandTest extends TestCase
 
         $this->assertSame(Command::FAILURE, $result);
         $this->assertStringContainsString('User does not exist', $tester->getDisplay());
+
+        // Requesting a login token for an identifier that does not exist is
+        // enumeration-relevant, and went unrecorded before the audit trail.
+        $record = $this->auditLog->singleRecord();
+        $this->assertSame(AuthenticationAuditLogger::EVENT_CLI_TOKEN_DENIED, $record['message']);
+        $this->assertSame('nonexistent', $record['context']['subject']);
+        $this->assertSame('failure', $record['context']['outcome']);
+    }
+
+    public function testAuditNeverRecordsTheTokenOrTheLoginUrl(): void
+    {
+        $this->stubCliLoginHelper->method('createToken')->willReturn('generated-token');
+        $this->stubUrlGenerator->method('generate')->willReturn('https://app.example.org/login?loginToken=generated-token');
+
+        $tester = new CommandTester($this->command);
+        $tester->execute(['username' => 'test@example.org']);
+
+        // The command itself records nothing on success — issuance is audited in
+        // CliLoginHelper, which is stubbed here. What matters is that neither the
+        // token nor the URL embedding it can reach a record.
+        $serialised = json_encode($this->auditLog->records, JSON_THROW_ON_ERROR);
+        $this->assertStringNotContainsString('generated-token', $serialised);
+        $this->assertStringNotContainsString('loginToken', $serialised);
     }
 }

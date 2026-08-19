@@ -5,6 +5,8 @@ namespace ItkDev\OpenIdConnectBundle\Tests\Util;
 use ItkDev\OpenIdConnectBundle\Exception\CacheException;
 use ItkDev\OpenIdConnectBundle\Exception\OpenIdConnectBundleExceptionInterface;
 use ItkDev\OpenIdConnectBundle\Exception\TokenNotFoundException;
+use ItkDev\OpenIdConnectBundle\Log\AuthenticationAuditLogger;
+use ItkDev\OpenIdConnectBundle\Tests\TestLogger;
 use ItkDev\OpenIdConnectBundle\Util\CliLoginHelper;
 use PHPUnit\Framework\TestCase;
 use Psr\Cache\CacheItemInterface;
@@ -14,10 +16,26 @@ use Symfony\Component\Uid\Uuid;
 
 class CliLoginHelperTest extends TestCase
 {
+    private TestLogger $auditLog;
+
+    protected function setUp(): void
+    {
+        $this->auditLog = new TestLogger();
+    }
+
+    /**
+     * The helper under test, with the audit trail switched on so issuance can be
+     * asserted. Production defaults to off.
+     */
+    private function createHelper(CacheItemPoolInterface $cache): CliLoginHelper
+    {
+        return new CliLoginHelper($cache, new AuthenticationAuditLogger($this->auditLog, enabled: true));
+    }
+
     public function testEncodeAndDecode(): void
     {
         $cache = new ArrayAdapter();
-        $cliHelper = new CliLoginHelper($cache);
+        $cliHelper = $this->createHelper($cache);
 
         $randomUsername = Uuid::v4()->toBase32();
 
@@ -30,7 +48,7 @@ class CliLoginHelperTest extends TestCase
     public function testDecodeKeyReturnsInputWhenNotValidBase64(): void
     {
         $cache = new ArrayAdapter();
-        $cliHelper = new CliLoginHelper($cache);
+        $cliHelper = $this->createHelper($cache);
 
         // Strict base64_decode() rejects input with characters outside the
         // base64 alphabet; decodeKey() then returns the value unchanged.
@@ -48,7 +66,7 @@ class CliLoginHelperTest extends TestCase
 
         $cache = new ArrayAdapter();
 
-        $cliHelper = new CliLoginHelper($cache);
+        $cliHelper = $this->createHelper($cache);
 
         $cliHelper->getUsername('random_gibberish_token');
     }
@@ -57,20 +75,29 @@ class CliLoginHelperTest extends TestCase
     {
         $cache = new ArrayAdapter();
 
-        $cliHelper = new CliLoginHelper($cache);
+        $cliHelper = $this->createHelper($cache);
 
         $testUser = 'test_user';
         $token = $cliHelper->createToken($testUser);
         $token2 = $cliHelper->createToken($testUser);
 
         $this->assertEquals($token, $token2);
+
+        // Handing out an existing token is a distinct audit outcome from minting
+        // one, and neither record may contain the token itself.
+        $this->assertSame(AuthenticationAuditLogger::EVENT_CLI_TOKEN_ISSUED, $this->auditLog->records[0]['message']);
+        $this->assertSame(AuthenticationAuditLogger::EVENT_CLI_TOKEN_REISSUED, $this->auditLog->records[1]['message']);
+        foreach ($this->auditLog->records as $record) {
+            $this->assertSame($testUser, $record['context']['subject']);
+            $this->assertStringNotContainsString($token, json_encode($record, JSON_THROW_ON_ERROR), 'The token is bearer-equivalent and must never be recorded');
+        }
     }
 
     public function testTokenIsRemovedAfterUse(): void
     {
         $cache = new ArrayAdapter();
 
-        $cliHelper = new CliLoginHelper($cache);
+        $cliHelper = $this->createHelper($cache);
 
         $testUser = 'test_user';
         $token = $cliHelper->createToken($testUser);
@@ -87,7 +114,7 @@ class CliLoginHelperTest extends TestCase
     {
         $cache = new ArrayAdapter();
 
-        $cliHelper = new CliLoginHelper($cache);
+        $cliHelper = $this->createHelper($cache);
 
         $testUser = 'test_user';
         $token = $cliHelper->createToken($testUser);
@@ -106,7 +133,7 @@ class CliLoginHelperTest extends TestCase
     public function testEncodeKeyPrependsNamespace(): void
     {
         $cache = new ArrayAdapter();
-        $cliHelper = new CliLoginHelper($cache);
+        $cliHelper = $this->createHelper($cache);
 
         // Assert the exact encoding, not just an encode/decode roundtrip:
         // the namespace prefix guards against cache key collisions with the
@@ -118,7 +145,7 @@ class CliLoginHelperTest extends TestCase
     {
         $cache = new ArrayAdapter();
 
-        $cliHelper = new CliLoginHelper($cache);
+        $cliHelper = $this->createHelper($cache);
 
         $testUser = 'test_user';
         $token = $cliHelper->createToken($testUser);
@@ -126,6 +153,12 @@ class CliLoginHelperTest extends TestCase
         $username = $cliHelper->getUsername($token);
 
         $this->assertEquals($testUser, $username);
+
+        // Issuance is audited here; consumption is audited from the security
+        // event, so the helper records exactly one thing.
+        $record = $this->auditLog->singleRecord();
+        $this->assertSame(AuthenticationAuditLogger::EVENT_CLI_TOKEN_ISSUED, $record['message']);
+        $this->assertSame($testUser, $record['context']['subject']);
     }
 
     public function testCreateTokenThrowsCacheExceptionOnGetItem(): void
@@ -134,7 +167,7 @@ class CliLoginHelperTest extends TestCase
         $stubCache = $this->createStub(CacheItemPoolInterface::class);
         $stubCache->method('getItem')->willThrowException($cause);
 
-        $cliHelper = new CliLoginHelper($stubCache);
+        $cliHelper = $this->createHelper($stubCache);
 
         try {
             $cliHelper->createToken('test_user');
@@ -166,7 +199,7 @@ class CliLoginHelperTest extends TestCase
             });
         $stubCache->method('save')->willReturn(true);
 
-        $cliHelper = new CliLoginHelper($stubCache);
+        $cliHelper = $this->createHelper($stubCache);
 
         try {
             $cliHelper->createToken('another_user');
@@ -185,7 +218,7 @@ class CliLoginHelperTest extends TestCase
         $stubCache = $this->createStub(CacheItemPoolInterface::class);
         $stubCache->method('getItem')->willThrowException($cause);
 
-        $cliHelper = new CliLoginHelper($stubCache);
+        $cliHelper = $this->createHelper($stubCache);
 
         try {
             $cliHelper->getUsername('some-token');
@@ -207,7 +240,7 @@ class CliLoginHelperTest extends TestCase
         $stubCache = $this->createStub(CacheItemPoolInterface::class);
         $stubCache->method('getItem')->willReturn($stubCacheItem);
 
-        $cliHelper = new CliLoginHelper($stubCache);
+        $cliHelper = $this->createHelper($stubCache);
 
         $this->expectException(CacheException::class);
         $this->expectExceptionMessage('Cached token is not a string');
@@ -224,7 +257,7 @@ class CliLoginHelperTest extends TestCase
         $stubCache = $this->createStub(CacheItemPoolInterface::class);
         $stubCache->method('getItem')->willReturn($stubCacheItem);
 
-        $cliHelper = new CliLoginHelper($stubCache);
+        $cliHelper = $this->createHelper($stubCache);
 
         $this->expectException(CacheException::class);
         $this->expectExceptionMessage('Cached username is not a string');
@@ -243,7 +276,7 @@ class CliLoginHelperTest extends TestCase
         $stubCache->method('getItem')->willReturn($stubCacheItem);
         $stubCache->method('deleteItem')->willThrowException($cause);
 
-        $cliHelper = new CliLoginHelper($stubCache);
+        $cliHelper = $this->createHelper($stubCache);
 
         try {
             $cliHelper->getUsername('some-token');

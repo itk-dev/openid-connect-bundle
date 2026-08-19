@@ -97,6 +97,10 @@ itkdev_openid_connect:
     # Optional: service id of the PSR-3 logger to receive failure logs.
     #           Defaults to the application logger. See "Logging" below.
     logger: 'monolog.logger.openid_connect'
+  audit_options:
+    # Optional: write an authentication audit trail. OFF by default because
+    #           audit records identify people. See "Audit logging" below.
+    enabled: false
   openid_providers:
     # Define one or more providers
     # [providerKey]:
@@ -242,6 +246,77 @@ logger, since it is applied through `registerForAutoconfiguration()`. That is th
 default for services in `config/services.yaml`. With autoconfiguration disabled
 the authenticator falls back to a `NullLogger` and logs nothing, while the rest of
 the bundle keeps logging.
+
+#### Audit logging
+
+Separately from the failure logging above, the bundle can write an
+**authentication audit trail**: who logged in, when, by which method, and which
+attempts were refused. This answers a different question from the error log — "who
+did what?" rather than "is something broken?" — which is why it is a separate
+channel rather than another level.
+
+> [!IMPORTANT]
+> The audit trail records personal data (user identifiers, IP addresses). It is
+> **off by default**, and enabling it makes retention, access control and the
+> lawful basis for that processing your responsibility. Nothing is recorded, and
+> no record is even assembled, while it is disabled.
+
+```yaml
+itkdev_openid_connect:
+  audit_options:
+    enabled: true
+    # Optional: defaults to the application logger.
+    logger: 'monolog.logger.openid_connect_audit'
+    # Optional: 'raw' (default) or 'hashed'.
+    identifier: raw
+```
+
+Records are written at `info` on the `openid_connect_audit` channel, with one
+fixed context schema so the trail can be queried:
+
+| Key | Meaning |
+| --- | ------- |
+| `event` | one of the event names below |
+| `method` | `oidc` or `cli_token` |
+| `subject` | user identifier, or `null` where none is available |
+| `provider` | OIDC provider key, `null` for CLI token logins |
+| `firewall` | firewall that handled the login |
+| `ip` | client IP |
+| `outcome` | `success` or `failure` |
+| `reason` | failure cause, `null` on success |
+
+Events: `authentication.login_succeeded`, `authentication.login_failed`,
+`authentication.cli_token_issued`, `authentication.cli_token_reissued`,
+`authentication.cli_token_denied`.
+
+Give it a handler that will not be filtered out by an operational threshold, and
+retain it on whatever schedule your policy requires:
+
+```yaml
+monolog:
+    handlers:
+        openid_connect_audit:
+            type: stream
+            path: '%kernel.logs_dir%/openid_connect_audit.log'
+            channels: ['openid_connect_audit']
+            level: info
+```
+
+Two details worth knowing:
+
+* **Failed OIDC logins carry no `subject`.** This bundle raises its failures while
+  building the passport, so at that point Symfony has no authenticated identity to
+  report. The record still carries the provider, the IP and the reason.
+* **CLI login tokens are never recorded.** The token is bearer-equivalent, so
+  issuance is audited by subject only — the token and the login URL that embeds it
+  stay out of the trail.
+
+##### Pseudonymising identifiers
+
+Setting `identifier: hashed` replaces the identifier with an HMAC-SHA256 keyed on
+the application secret. It is stable, so records for the same person still
+correlate, but it is not reversible from a list of known email addresses — which a
+plain digest would be.
 
 #### Configuring the HTTP client
 

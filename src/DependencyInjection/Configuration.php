@@ -2,6 +2,7 @@
 
 namespace ItkDev\OpenIdConnectBundle\DependencyInjection;
 
+use ItkDev\OpenIdConnectBundle\Log\AuthenticationAuditLogger;
 use Symfony\Component\Config\Definition\Builder\TreeBuilder;
 use Symfony\Component\Config\Definition\ConfigurationInterface;
 
@@ -50,6 +51,25 @@ class Configuration implements ConfigurationInterface
                         ->end() // logger
                     ->end()
                 ->end() // logging_options
+                ->arrayNode('audit_options')
+                    ->addDefaultsIfNotSet()
+                    ->children()
+                        ->booleanNode('enabled')
+                            ->info('Write an authentication audit trail (logins, failures, CLI token issuance). Off by default: audit records identify people, so an existing installation must opt in rather than start logging personal data on upgrade.')
+                            ->defaultFalse()
+                        ->end() // enabled
+                        ->scalarNode('logger')
+                            ->info('Service id of the PSR-3 logger to receive audit records, e.g. "monolog.logger.openid_connect_audit". Defaults to the application logger. Keep this separate from logging_options.logger: an operational threshold of "error" would otherwise discard the whole trail.')
+                            ->defaultNull()
+                            ->cannotBeEmpty()
+                        ->end() // logger
+                        ->enumNode('identifier')
+                            ->info('Record user identifiers as-is ("raw") or pseudonymised ("hashed"). Hashing is keyed with the application secret, so records still correlate.')
+                            ->values([AuthenticationAuditLogger::IDENTIFIER_RAW, AuthenticationAuditLogger::IDENTIFIER_HASHED])
+                            ->defaultValue(AuthenticationAuditLogger::IDENTIFIER_RAW)
+                        ->end() // identifier
+                    ->end()
+                ->end() // audit_options
                 ->arrayNode('openid_providers')
                     ->isRequired()
                     ->requiresAtLeastOneElement()
