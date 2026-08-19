@@ -2,7 +2,10 @@
 
 namespace ItkDev\OpenIdConnectBundle;
 
+use ItkDev\OpenIdConnectBundle\DependencyInjection\Compiler\ConfiguredLoggerPass;
 use ItkDev\OpenIdConnectBundle\DependencyInjection\ItkDevOpenIdConnectExtension;
+use Symfony\Component\DependencyInjection\Compiler\PassConfig;
+use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Extension\ExtensionInterface;
 use Symfony\Component\HttpKernel\Bundle\Bundle;
 
@@ -24,6 +27,16 @@ class ItkDevOpenIdConnectBundle extends Bundle
         }
 
         return $this->extension;
+    }
+
+    #[\Override]
+    public function build(ContainerBuilder $container): void
+    {
+        parent::build($container);
+
+        // Runs after the instanceof conditionals it has to correct, and does nothing
+        // unless the extension recorded a configured logger.
+        $container->addCompilerPass(new ConfiguredLoggerPass(), PassConfig::TYPE_BEFORE_REMOVING);
     }
 
     #[\Override]

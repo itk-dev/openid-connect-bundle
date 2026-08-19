@@ -4,6 +4,7 @@ namespace ItkDev\OpenIdConnectBundle\DependencyInjection;
 
 use ItkDev\OpenIdConnectBundle\Command\UserLoginCommand;
 use ItkDev\OpenIdConnectBundle\Controller\LoginController;
+use ItkDev\OpenIdConnectBundle\DependencyInjection\Compiler\ConfiguredLoggerPass;
 use ItkDev\OpenIdConnectBundle\EventSubscriber\AuthenticationAuditSubscriber;
 use ItkDev\OpenIdConnectBundle\Log\AuthenticationAuditLogger;
 use ItkDev\OpenIdConnectBundle\Security\CliLoginTokenAuthenticator;
@@ -103,10 +104,14 @@ class ItkDevOpenIdConnectExtension extends Extension
 
         // `OpenIdLoginAuthenticator` is abstract and subclassed by the consuming
         // application, so its subclasses are services this extension cannot name.
-        // Autoconfiguration reaches them, and runs after FrameworkBundle's own
-        // LoggerAwareInterface pass, so the configured logger wins.
+        // Autoconfiguration reaches them.
         $container->registerForAutoconfiguration(OpenIdLoginAuthenticator::class)
             ->addMethodCall('setLogger', [$logger]);
+
+        // Whether this call or FrameworkBundle's is the one that takes effect depends
+        // on bundle registration order: see ConfiguredLoggerPass, which reads this
+        // parameter and settles it.
+        $container->setParameter(ConfiguredLoggerPass::LOGGER_PARAMETER, $options['logger']);
     }
 
     /**

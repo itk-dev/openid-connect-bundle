@@ -24,6 +24,15 @@
         // typed int property then coerces, so the mutant is behaviourally
         // identical and cannot be killed by a test. The cast stays because
         // PHPStan at max level requires it.
+        // `Bundle::build()` is empty in Symfony, so dropping the parent call changes
+        // nothing observable. It stays because a future Symfony may put something
+        // there. Scoped to the call itself: the `addCompilerPass()` below it is a
+        // real mutant and is killed by a test.
+        "MethodCallRemoval": {
+            "ignoreSourceCodeByRegex": [
+                "parent::build\\(\\$container\\);"
+            ]
+        },
         "CastInt": {
             "ignore": [
                 "ItkDev\\OpenIdConnectBundle\\Util\\ClientSecretExpiryChecker::getStatus"
