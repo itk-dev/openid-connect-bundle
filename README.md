@@ -206,19 +206,19 @@ What the bundle does with each state, when a login is attempted:
 
 | Status | Behaviour |
 | ------ | --------- |
-| `expired` | the login is refused with a **503** and a `critical` record, before any redirect to the identity provider |
-| `expiring_soon` | a `warning` record; **logins continue to work** |
+| `expired` | a `critical` record; the login **still proceeds** |
+| `expiring_soon` | a `warning` record; the login proceeds |
 | `ok`, `unknown` | nothing logged |
 
-Refusing early is deliberate: once the secret has expired the token exchange fails
-at the callback anyway, after the user has been bounced to the identity provider
-and back with nothing explaining why. One clear 503 beats that.
+**Nothing here blocks a login.** The check trusts a date somebody typed, so
+refusing logins on that basis would turn a stale date — a secret rotated without
+updating the configuration — into a self-inflicted outage. The identity provider
+remains the authority on whether a secret still works; these records exist so that
+when it stops working, the reason is already in the log.
 
-> [!CAUTION]
-> Because the check trusts the configured date, a **stale** date refuses logins
-> that would otherwise work — if you rotate a secret, update
-> `client_secret_expires_at` in the same change. The 503 message names both
-> remedies for exactly this reason.
+For a genuinely expired secret that means the login still fails, at the callback,
+with `invalid_client` — but the `critical` record here and the failure record from
+the callback together name the cause without anyone having to reproduce it.
 
 Until the date is configured a provider sits in `unknown`, where none of the above
 applies and nothing is reported.

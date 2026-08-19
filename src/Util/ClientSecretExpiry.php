@@ -30,18 +30,6 @@ readonly class ClientSecretExpiry
     }
 
     /**
-     * The expiry date for a human-readable message.
-     *
-     * `Expired` always carries a date when the status came from
-     * `ClientSecretExpiryChecker`, but this class does not enforce that pairing,
-     * so the absent case is handled rather than assumed.
-     */
-    public function expiresAtForHumans(): string
-    {
-        return $this->expiresAt?->format('Y-m-d') ?? 'an unknown date';
-    }
-
-    /**
      * Shape used by both the log context and the health endpoint.
      *
      * @return array{provider: string, status: string, expires_at: string|null, days_remaining: int|null}

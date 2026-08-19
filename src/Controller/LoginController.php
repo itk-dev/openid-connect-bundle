@@ -30,7 +30,7 @@ class LoginController extends AbstractController
      * Login method redirecting to authorizer.
      *
      * @throws NotFoundHttpException           Provider key not configured (404)
-     * @throws ServiceUnavailableHttpException Client secret past its configured expiry, or the IdP is unreachable, returned a non-200, served malformed JSON, or the local cache failed (503)
+     * @throws ServiceUnavailableHttpException IdP unreachable, returned a non-200, served malformed JSON, or local cache failed (503)
      * @throws OpenIdConnectExceptionInterface Other provider-init failures (e.g. BadUrlException for a misconfigured metadata_url) — server-side configuration bugs that intentionally bubble as 500
      * @throws \InvalidArgumentException       Declared by league\AbstractProvider::getAuthorizationUrl for missing scope/state. Unreachable in this flow (state always provided, getDefaultScopes() implemented in upstream OpenIdConfigurationProvider). Bubbles as 500 if it ever fires — programmer error.
      */
@@ -80,32 +80,32 @@ class LoginController extends AbstractController
     }
 
     /**
-     * Refuse to start a round trip that the identity provider will reject anyway.
+     * Report on the client secret's expiry without standing in the way.
      *
-     * Once the secret has expired the token exchange fails with `invalid_client`,
-     * but only at the callback — after the user has been bounced to the IdP and
-     * back, with nothing on the way saying why. Stopping here turns that into one
-     * clear 503 and a `critical` record naming the provider.
-     *
-     * @throws ServiceUnavailableHttpException Secret past its configured expiry (503)
+     * Deliberately non-fatal, even once expired. The check trusts a date someone
+     * typed, and refusing logins on that basis turns a stale date — a secret
+     * rotated without updating the configuration — into a self-inflicted outage.
+     * The identity provider is the authority on whether the secret still works;
+     * this only makes sure that when it stops working, the reason is already in
+     * the log rather than something to be worked out later.
      */
     private function checkClientSecretExpiry(string $providerKey): void
     {
         $expiry = $this->expiryChecker->getStatus($providerKey);
 
         if ($expiry->isExpired()) {
-            $this->logger->critical('OIDC login blocked: client secret has expired', $expiry->toArray());
-
-            // The message names the date and both remedies on purpose: the same
-            // 503 appears whether the secret really expired or the secret was
-            // rotated and `client_secret_expires_at` was left behind, and an
-            // operator seeing only "expired" would not think to check the latter.
-            throw new ServiceUnavailableHttpException(null, sprintf('The client secret for OIDC provider "%s" expired on %s. Rotate the secret, or update client_secret_expires_at if the secret has already been rotated.', $providerKey, $expiry->expiresAtForHumans()));
-        }
-
-        if ($expiry->isExpiringSoon()) {
-            // Deliberately not fatal — logins still work — but this is the window
-            // in which someone can act before they stop working.
+            // Critical because every login through this provider is expected to
+            // fail from here: the token exchange returns invalid_client at the
+            // callback. Paired with the failure record logged there, the cause is
+            // legible without reproducing anything.
+            $this->logger->critical(
+                'OIDC client secret is past its configured expiry; logins are expected to fail until it is rotated. If the secret has already been rotated, update client_secret_expires_at.',
+                $expiry->toArray(),
+            );
+        // The statuses are mutually exclusive, so this is an elseif rather than an
+        // early return: nothing to guard against, and nothing dead to trip over.
+        } elseif ($expiry->isExpiringSoon()) {
+            // The window in which someone can act before logins break.
             $this->logger->warning('OIDC client secret expires soon', $expiry->toArray());
         }
     }

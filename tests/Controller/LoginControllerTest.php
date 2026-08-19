@@ -156,38 +156,32 @@ class LoginControllerTest extends TestCase
         $this->fail('Expected ServiceUnavailableHttpException');
     }
 
-    public function testExpiredSecretIsRefusedBeforeTheRoundTrip(): void
+    public function testExpiredSecretLogsCriticalButStillAttemptsTheLogin(): void
     {
-        // Nothing on the provider may be touched: the point is to not start a
-        // round trip the IdP will reject at the callback.
-        $mockProvider = $this->createMock(OpenIdConfigurationProvider::class);
-        $mockProvider->expects($this->never())->method('generateState');
-        $mockProvider->expects($this->never())->method('getAuthorizationUrl');
+        $stubProvider = $this->createStub(OpenIdConfigurationProvider::class);
+        $stubProvider->method('generateNonce')->willReturn('1234');
+        $stubProvider->method('generateState')->willReturn('abcd');
+        $stubProvider->method('getAuthorizationUrl')->willReturn('https://provider.example.org/authorize');
 
-        $controller = $this->createController($mockProvider, $this->createExpiryChecker(['test' => '2026-07-01']));
+        $controller = $this->createController($stubProvider, $this->createExpiryChecker(['test' => '2026-07-01']));
 
-        try {
-            $controller->login(new Request(), $this->createStub(SessionInterface::class), 'test');
-        } catch (ServiceUnavailableHttpException $thrown) {
-            $this->assertSame(503, $thrown->getStatusCode());
-            $this->assertStringContainsString('expired on 2026-07-01', $thrown->getMessage());
-            // Both remedies, because the same 503 appears when the secret was
-            // rotated and only the configured date is stale.
-            $this->assertStringContainsString('Rotate the secret', $thrown->getMessage());
-            $this->assertStringContainsString('update client_secret_expires_at', $thrown->getMessage());
+        $response = $controller->login(new Request(), $this->createStub(SessionInterface::class), 'test');
 
-            $record = $this->logger->singleRecord();
-            $this->assertSame(LogLevel::CRITICAL, $record['level'], 'Every login is broken until someone acts');
-            $this->assertStringContainsString('client secret has expired', $record['message']);
-            $this->assertSame('test', $record['context']['provider']);
-            $this->assertSame('expired', $record['context']['status']);
-            // 49 days and 9 hours past, and floor() rounds a negative away from
-            // zero — the conservative direction for "expired".
-            $this->assertSame(-50, $record['context']['days_remaining']);
+        // Fail open: the configured date is someone's typing, and a stale one — a
+        // secret rotated without updating the config — must not block logins that
+        // work. The identity provider decides; this only records why.
+        $this->assertSame('https://provider.example.org/authorize', $response->getTargetUrl());
 
-            return;
-        }
-        $this->fail('Expected ServiceUnavailableHttpException');
+        $record = $this->logger->singleRecord();
+        $this->assertSame(LogLevel::CRITICAL, $record['level'], 'Every login through this provider is expected to fail from here');
+        $this->assertStringContainsString('past its configured expiry', $record['message']);
+        // The message carries the remedy for a stale date too, since the record is
+        // now the only place an operator learns about either case.
+        $this->assertStringContainsString('update client_secret_expires_at', $record['message']);
+        $this->assertSame('test', $record['context']['provider']);
+        $this->assertSame('expired', $record['context']['status']);
+        // 49 days and 9 hours past, and floor() rounds a negative away from zero.
+        $this->assertSame(-50, $record['context']['days_remaining']);
     }
 
     public function testExpiringSoonWarnsButStillLogsIn(): void
@@ -240,15 +234,22 @@ class LoginControllerTest extends TestCase
 
     public function testUnknownProviderIsRefusedBeforeTheExpiryCheck(): void
     {
-        // A 404 for an unknown key must not be masked by an expiry complaint.
+        // The expiry check runs after the provider resolves, so an unknown key is
+        // still a 404 and does not get an expiry record attached to it.
         $stubProviderManager = $this->createStub(OpenIdConfigurationProviderManager::class);
         $stubProviderManager->method('getProvider')->willThrowException(new InvalidProviderException('Invalid provider: bogus'));
 
         $controller = new LoginController($stubProviderManager, $this->logger, $this->createExpiryChecker(['bogus' => '2026-07-01']));
 
-        $this->expectException(NotFoundHttpException::class);
+        try {
+            $controller->login(new Request(), $this->createStub(SessionInterface::class), 'bogus');
+        } catch (NotFoundHttpException) {
+            $record = $this->logger->singleRecord();
+            $this->assertStringContainsString('unknown provider', $record['message'], 'Only the 404 is reported, not the expiry');
 
-        $controller->login(new Request(), $this->createStub(SessionInterface::class), 'bogus');
+            return;
+        }
+        $this->fail('Expected NotFoundHttpException');
     }
 
     private function createController(OpenIdConfigurationProvider $provider, ?ClientSecretExpiryChecker $expiryChecker = null): LoginController
