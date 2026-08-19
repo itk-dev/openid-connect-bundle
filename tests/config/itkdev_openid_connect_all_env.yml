@@ -1,0 +1,34 @@
+# Every option a deployment would plausibly feed from the environment, fed from the
+# environment. Booting a container with this is the guard against a node that looks
+# fine under a bare Processor but refuses `%env()%` in real use — the defect that
+# shipped in 5.1.0.
+itkdev_openid_connect:
+  cache_options:
+    cache_pool: "cache.array"
+  cli_login_options:
+    route: "%env(string:TEST_CLI_LOGIN_ROUTE)%"
+  user_provider: "security.user.provider.concrete.test_users_1"
+  logging_options:
+    logger: "itkdev_openid_connect.null_logger"
+  audit_options:
+    enabled: "%env(bool:TEST_AUDIT_ENABLED)%"
+    logger: 'ItkDev\OpenIdConnectBundle\Tests\TestLogger'
+    # Not an environment variable, by design: the HMAC key is chosen while the
+    # container compiles, so the mode has to be known then. A literal here also
+    # keeps the hashing key wiring under test.
+    identifier: "hashed"
+  secret_expiry_options:
+    warning_days: "%env(int:TEST_WARNING_DAYS)%"
+  openid_providers:
+    test_provider_1:
+      options:
+        metadata_url: "%env(string:TEST_METADATA_URL)%"
+        client_id: "%env(string:TEST_CLIENT_ID)%"
+        client_secret: "%env(string:TEST_CLIENT_SECRET)%"
+        client_secret_expires_at: "%env(string:TEST_SECRET_EXPIRES_AT)%"
+        redirect_uri: "%env(string:TEST_REDIRECT_URI)%"
+        allow_http: "%env(bool:TEST_ALLOW_HTTP)%"
+        leeway: "%env(int:TEST_LEEWAY)%"
+        cache_duration: "%env(int:TEST_CACHE_DURATION)%"
+        http_client_options:
+          timeout: "%env(float:TEST_TIMEOUT)%"

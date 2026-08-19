@@ -40,6 +40,7 @@ class LoginControllerTest extends TestCase
             new MockClock(new \DateTimeImmutable(self::NOW, new \DateTimeZone('UTC'))),
             $expiryDates,
             $warningDays,
+            new TestLogger(),
         );
     }
 

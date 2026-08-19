@@ -1,0 +1,19 @@
+# Regression fixture: the expiry date supplied from an environment variable, which
+# is how every real deployment configures it. Booting a container with this is the
+# only way to exercise Symfony's placeholder path — a bare Processor never
+# substitutes the fixture value, so unit tests cannot catch a node that rejects
+# environment variables.
+itkdev_openid_connect:
+  cache_options:
+    cache_pool: "cache.array"
+  cli_login_options:
+    route: "route_test"
+  user_provider: "security.user.provider.concrete.test_users_1"
+  openid_providers:
+    test_provider_1:
+      options:
+        metadata_url: "https://provider.example.org/openid-configuration"
+        client_id: "test_id"
+        client_secret: "test_secret"
+        client_secret_expires_at: "%env(string:TEST_OIDC_SECRET_EXPIRES_AT)%"
+        redirect_uri: "https://app.example.org/callback_uri"

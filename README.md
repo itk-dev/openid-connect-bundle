@@ -185,10 +185,15 @@ itkdev_openid_connect:
         client_secret_expires_at: '2027-01-31'
 ```
 
-Any date `strtotime()` understands is accepted, and the value is validated when the
-container compiles — a typo fails the build rather than silently becoming "no idea
-when this expires". Date-only values are anchored to midnight UTC so the day count
-does not drift with the time of day the check runs.
+Any date `strtotime()` understands is accepted, and the value is normally supplied
+from an environment variable as above. Date-only values are anchored to midnight
+UTC so the day count does not drift with the time of day the check runs.
+
+A value that cannot be parsed — a typo, or an environment variable that is set but
+blank — reports the provider as `unknown` and logs an `error` saying it is not being
+monitored. It is not a fatal error, because a mistyped date should not take an
+application down; but it is not silent either, because the effect is that nothing is
+watching that secret.
 
 Each provider is then in one of four states:
 
@@ -485,6 +490,13 @@ Setting `identifier: hashed` replaces the identifier with an HMAC-SHA256 keyed o
 the application secret. It is stable, so records for the same person still
 correlate, but it is not reversible from a list of known email addresses — which a
 plain digest would be.
+
+> [!NOTE]
+> `identifier` cannot come from an environment variable. The key is chosen while the
+> container compiles, so the mode has to be known then; an environment variable
+> would leave it hashing with an empty key, which looks pseudonymised without being
+> so. To vary it per environment, use Symfony's environment-specific configuration
+> (`when@prod:`), which is resolved at compile time.
 
 #### Configuring the HTTP client
 

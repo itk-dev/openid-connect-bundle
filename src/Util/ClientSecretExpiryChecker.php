@@ -3,6 +3,7 @@
 namespace ItkDev\OpenIdConnectBundle\Util;
 
 use Psr\Clock\ClockInterface;
+use Psr\Log\LoggerInterface;
 
 /**
  * Answers how close each provider's client secret is to expiring.
@@ -28,6 +29,7 @@ class ClientSecretExpiryChecker
         private readonly ClockInterface $clock,
         private readonly array $expiryDates,
         private readonly int $warningDays,
+        private readonly LoggerInterface $logger,
     ) {
     }
 
@@ -47,11 +49,26 @@ class ClientSecretExpiryChecker
             return new ClientSecretExpiry($providerKey, ClientSecretExpiryStatus::Unknown);
         }
 
-        // The date format is validated when the container compiles, so by here it
-        // parses. Anchored to midnight UTC: a date-only value like "2027-01-31"
-        // otherwise inherits the current time of day, which would make
-        // daysRemaining drift depending on when the check ran.
-        $expiresAt = new \DateTimeImmutable($configured, new \DateTimeZone('UTC'));
+        // An empty value means "now" to DateTimeImmutable, which would quietly
+        // report a secret as expiring today. An environment variable that is set
+        // but blank arrives here, so it is caught before parsing.
+        if ('' === trim($configured)) {
+            $this->reportUnusableDate($providerKey, $configured);
+
+            return new ClientSecretExpiry($providerKey, ClientSecretExpiryStatus::Unknown);
+        }
+
+        // Anchored to midnight UTC: a date-only value like "2027-01-31" otherwise
+        // inherits the current time of day, which would make daysRemaining drift
+        // depending on when the check ran.
+        try {
+            $expiresAt = new \DateTimeImmutable($configured, new \DateTimeZone('UTC'));
+        } catch (\Exception $exception) {
+            $this->reportUnusableDate($providerKey, $configured, $exception);
+
+            return new ClientSecretExpiry($providerKey, ClientSecretExpiryStatus::Unknown);
+        }
+
         $now = $this->clock->now();
 
         $daysRemaining = (int) floor(($expiresAt->getTimestamp() - $now->getTimestamp()) / 86400);
@@ -63,6 +80,25 @@ class ClientSecretExpiryChecker
         };
 
         return new ClientSecretExpiry($providerKey, $status, $expiresAt, $daysRemaining);
+    }
+
+    /**
+     * Report a date that cannot be used.
+     *
+     * Neither an empty nor a malformed value can be rejected when the container
+     * compiles: this comes from the environment in every real deployment, and
+     * Symfony will not accept an environment variable on a node that is validated.
+     * So it is reported rather than thrown — a mistyped date must not take an
+     * application down — but reported loudly, because the effect is that nothing is
+     * monitoring this secret, and silence would equal not having the feature.
+     */
+    private function reportUnusableDate(string $providerKey, string $configured, ?\Exception $exception = null): void
+    {
+        $this->logger->error('OIDC client secret expiry date could not be parsed; this provider is not being monitored', array_filter([
+            'provider' => $providerKey,
+            'configured' => $configured,
+            'exception' => $exception,
+        ], static fn (mixed $value): bool => null !== $value));
     }
 
     /**

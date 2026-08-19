@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- `audit_options.identifier` is documented and enforced as not settable from an
+  environment variable. The HMAC key is chosen while the container compiles, so an
+  environment variable left it hashing with an empty key — pseudonymised in
+  appearance only. Use environment-specific configuration to vary it.
+- The audit subscriber returns before reading anything off a security event when
+  the trail is disabled, so `audit_options.enabled` fed from an environment
+  variable assembles no personal data either. Removing the subscriber outright
+  remains an optimisation for a literal `false`.
+- `client_secret_expires_at` can be set from an environment variable again.
+  Validating it as the container compiled made Symfony reject any `%env()%`
+  value, which is how every deployment supplies it. Unparseable and blank values
+  are now reported at runtime: the provider is `unknown` and an `error` is logged
+  saying it is not being monitored. A mistyped literal still fails the build.
+
 ## [5.1.0] - 2026-08-19
 
 ### Added
