@@ -1,0 +1,22 @@
+itkdev_openid_connect:
+  logging_options:
+    logger: "test.logger_alias"
+  cache_options:
+    cache_pool: "cache.array"
+  cli_login_options:
+    route: "route_test"
+  user_provider: "security.user.provider.concrete.test_users_1"
+  openid_providers:
+    test_provider_1:
+      options:
+        metadata_url: "https://provider.example.org/openid-configuration"
+        client_id: "test_id"
+        client_secret: "test_secret"
+        redirect_uri: "https://app.example.org/callback_uri"
+    test_provider_2:
+      options:
+        metadata_url: "https://provider.example.org/openid-configuration"
+        client_id: "test_id"
+        leeway: 5
+        client_secret: "test_secret"
+        redirect_uri: "https://app.example.org/callback_uri"

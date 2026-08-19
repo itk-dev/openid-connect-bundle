@@ -406,6 +406,10 @@ default for services in `config/services.yaml`. With autoconfiguration disabled
 the authenticator falls back to a `NullLogger` and logs nothing, while the rest of
 the bundle keeps logging.
 
+A configured logger also takes precedence over a `setLogger()` call on the
+authenticator's own service definition. Disabling autoconfiguration is the way to
+wire a logger yourself.
+
 #### Audit logging
 
 Separately from the failure logging above, the bundle can write an
