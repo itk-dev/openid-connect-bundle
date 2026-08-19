@@ -70,6 +70,16 @@ class Configuration implements ConfigurationInterface
                         ->end() // identifier
                     ->end()
                 ->end() // audit_options
+                ->arrayNode('secret_expiry_options')
+                    ->addDefaultsIfNotSet()
+                    ->children()
+                        ->integerNode('warning_days')
+                            ->info('How many days before a client secret expires the bundle starts warning (default: 30)')
+                            ->defaultValue(30)
+                            ->min(0)
+                        ->end() // warning_days
+                    ->end()
+                ->end() // secret_expiry_options
                 ->arrayNode('openid_providers')
                     ->isRequired()
                     ->requiresAtLeastOneElement()
@@ -90,6 +100,15 @@ class Configuration implements ConfigurationInterface
                                     ->scalarNode('client_secret')
                                         ->info('Client secret/password assigned by authorizer')
                                         ->isRequired()->cannotBeEmpty()
+                                    ->end()
+                                    ->scalarNode('client_secret_expires_at')
+                                        ->info('Date the client secret expires, e.g. "2027-01-31". An expired secret breaks every login, so configuring this lets the bundle warn while there is still time to rotate. Will be required in 6.0.')
+                                        ->defaultNull()
+                                        ->cannotBeEmpty()
+                                        ->validate()
+                                            ->ifTrue(static fn (mixed $v): bool => is_string($v) && false === strtotime($v))
+                                            ->thenInvalid('client_secret_expires_at must be a date parseable by strtotime(), e.g. "2027-01-31". Got %s.')
+                                        ->end()
                                     ->end()
                                     ->integerNode('leeway')
                                         ->info('Leeway in seconds to account for clock skew between server and provider')

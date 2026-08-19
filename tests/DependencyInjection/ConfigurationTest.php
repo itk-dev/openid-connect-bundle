@@ -4,6 +4,7 @@ namespace ItkDev\OpenIdConnectBundle\Tests\DependencyInjection;
 
 use ItkDev\OpenIdConnectBundle\DependencyInjection\Configuration;
 use ItkDev\OpenIdConnectBundle\Log\AuthenticationAuditLogger;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Config\Definition\Exception\InvalidConfigurationException;
 use Symfony\Component\Config\Definition\Processor;
@@ -68,6 +69,68 @@ class ConfigurationTest extends TestCase
         $this->assertFalse($config['audit_options']['enabled']);
         $this->assertNull($config['audit_options']['logger']);
         $this->assertSame(AuthenticationAuditLogger::IDENTIFIER_RAW, $config['audit_options']['identifier']);
+
+        // No expiry date yet, and a 30-day default warning window.
+        $this->assertNull($provider['client_secret_expires_at']);
+        $this->assertSame(30, $config['secret_expiry_options']['warning_days']);
+    }
+
+    public function testClientSecretExpiresAtAccepted(): void
+    {
+        $input = $this->getMinimalConfig();
+        $input['openid_providers']['provider1']['options']['client_secret_expires_at'] = '2027-01-31';
+        $input['secret_expiry_options'] = ['warning_days' => 14];
+
+        $config = $this->processor->processConfiguration($this->configuration, [$input]);
+
+        $this->assertSame('2027-01-31', $config['openid_providers']['provider1']['options']['client_secret_expires_at']);
+        $this->assertSame(14, $config['secret_expiry_options']['warning_days']);
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function unparseableDateProvider(): iterable
+    {
+        yield 'prose' => ['whenever'];
+        yield 'transposed' => ['31-02-2027 25:00'];
+        yield 'nonsense' => ['not-a-date'];
+    }
+
+    /**
+     * Validated as the container compiles, so a typo is a build failure rather
+     * than a silent "unknown" that never warns about anything.
+     */
+    #[DataProvider('unparseableDateProvider')]
+    public function testClientSecretExpiresAtRejectsUnparseableDates(string $date): void
+    {
+        $input = $this->getMinimalConfig();
+        $input['openid_providers']['provider1']['options']['client_secret_expires_at'] = $date;
+
+        $this->expectException(InvalidConfigurationException::class);
+
+        $this->processor->processConfiguration($this->configuration, [$input]);
+    }
+
+    public function testWarningDaysAcceptsZero(): void
+    {
+        // A valid choice: warn only once the secret has actually expired.
+        $input = $this->getMinimalConfig();
+        $input['secret_expiry_options'] = ['warning_days' => 0];
+
+        $config = $this->processor->processConfiguration($this->configuration, [$input]);
+
+        $this->assertSame(0, $config['secret_expiry_options']['warning_days']);
+    }
+
+    public function testWarningDaysRejectsNegativeValues(): void
+    {
+        $input = $this->getMinimalConfig();
+        $input['secret_expiry_options'] = ['warning_days' => -1];
+
+        $this->expectException(InvalidConfigurationException::class);
+
+        $this->processor->processConfiguration($this->configuration, [$input]);
     }
 
     public function testAuditOptionsAccepted(): void

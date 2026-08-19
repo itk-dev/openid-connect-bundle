@@ -10,6 +10,7 @@ use ItkDev\OpenIdConnectBundle\Log\AuthenticationAuditLogger;
 use ItkDev\OpenIdConnectBundle\Security\CliLoginTokenAuthenticator;
 use ItkDev\OpenIdConnectBundle\Security\OpenIdConfigurationProviderManager;
 use ItkDev\OpenIdConnectBundle\Security\OpenIdLoginAuthenticator;
+use ItkDev\OpenIdConnectBundle\Util\ClientSecretExpiryChecker;
 use ItkDev\OpenIdConnectBundle\Util\CliLoginHelper;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
@@ -34,6 +35,7 @@ class ItkDevOpenIdConnectExtensionTest extends TestCase
                         'metadata_url' => 'https://example.com/.well-known/openid-configuration',
                         'client_id' => 'test_id',
                         'client_secret' => 'test_secret',
+                        'client_secret_expires_at' => '2027-01-31',
                     ],
                 ],
             ],
@@ -180,6 +182,92 @@ class ItkDevOpenIdConnectExtensionTest extends TestCase
         $this->assertEquals(new Reference('monolog.logger.openid_connect_audit'), $arguments['$logger']);
         $this->assertSame(AuthenticationAuditLogger::IDENTIFIER_HASHED, $arguments['$identifierMode']);
         $this->assertSame('%kernel.secret%', $arguments['$identifierSecret']);
+    }
+
+    public function testSecretExpiryIsWired(): void
+    {
+        $extension = new ItkDevOpenIdConnectExtension();
+        $container = new ContainerBuilder();
+
+        $config = $this->getBaseConfig();
+        $config['secret_expiry_options'] = ['warning_days' => 14];
+
+        $extension->load([$config], $container);
+
+        $definition = $container->getDefinition(ClientSecretExpiryChecker::class);
+        $this->assertSame(['test_provider' => '2027-01-31'], $definition->getArgument('$expiryDates'));
+        $this->assertSame(14, $definition->getArgument('$warningDays'));
+    }
+
+    public function testExpiryDateIsStrippedBeforeReachingTheProviderManager(): void
+    {
+        $extension = new ItkDevOpenIdConnectExtension();
+        $container = new ContainerBuilder();
+
+        $extension->load([$this->getBaseConfig()], $container);
+
+        // The key is the bundle's own bookkeeping; the upstream library knows
+        // nothing about it, and the manager's array shape is strict.
+        $config = $container->getDefinition(OpenIdConfigurationProviderManager::class)->getArgument('$config');
+        $this->assertIsArray($config);
+        $providers = $config['providers'];
+        $this->assertIsArray($providers);
+        $provider = $providers['test_provider'];
+        $this->assertIsArray($provider);
+        $this->assertArrayNotHasKey('client_secret_expires_at', $provider);
+        $this->assertSame('test_secret', $provider['client_secret']);
+    }
+
+    public function testMissingExpiryDateTriggersADeprecation(): void
+    {
+        $extension = new ItkDevOpenIdConnectExtension();
+        $container = new ContainerBuilder();
+
+        $config = $this->getBaseConfig();
+        // Built without the date rather than unset from the base config, which is
+        // untyped and would need narrowing for no gain.
+        $config['openid_providers'] = [
+            'test_provider' => [
+                'options' => [
+                    'metadata_url' => 'https://example.com/.well-known/openid-configuration',
+                    'client_id' => 'test_id',
+                    'client_secret' => 'test_secret',
+                ],
+            ],
+        ];
+
+        $this->expectUserDeprecationMessage('Since itk-dev/openid-connect-bundle 5.1: Not configuring "client_secret_expires_at" for OIDC provider "test_provider" is deprecated. Without it the bundle cannot warn before the secret expires, and an expired secret breaks every login. It will be required in 6.0.');
+
+        $extension->load([$config], $container);
+
+        $expiryDates = $container->getDefinition(ClientSecretExpiryChecker::class)->getArgument('$expiryDates');
+        $this->assertIsArray($expiryDates);
+        $this->assertNull($expiryDates['test_provider'], 'An unset date is recorded as unknown, not guessed at');
+    }
+
+    public function testConfiguredExpiryDateTriggersNoDeprecation(): void
+    {
+        $extension = new ItkDevOpenIdConnectExtension();
+        $container = new ContainerBuilder();
+
+        $deprecations = [];
+        $previous = set_error_handler(static function (int $level, string $message) use (&$deprecations, &$previous) {
+            if (\E_USER_DEPRECATED === $level) {
+                $deprecations[] = $message;
+
+                return true;
+            }
+
+            return null !== $previous && ($previous)($level, $message);
+        });
+
+        try {
+            $extension->load([$this->getBaseConfig()], $container);
+        } finally {
+            restore_error_handler();
+        }
+
+        $this->assertSame([], $deprecations, 'An installation that has set the date must not be nagged');
     }
 
     public function testLoadWiresProviderManagerConfig(): void

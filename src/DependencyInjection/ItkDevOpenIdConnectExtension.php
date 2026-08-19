@@ -9,6 +9,7 @@ use ItkDev\OpenIdConnectBundle\Log\AuthenticationAuditLogger;
 use ItkDev\OpenIdConnectBundle\Security\CliLoginTokenAuthenticator;
 use ItkDev\OpenIdConnectBundle\Security\OpenIdConfigurationProviderManager;
 use ItkDev\OpenIdConnectBundle\Security\OpenIdLoginAuthenticator;
+use ItkDev\OpenIdConnectBundle\Util\ClientSecretExpiryChecker;
 use ItkDev\OpenIdConnectBundle\Util\CliLoginHelper;
 use Symfony\Component\Config\FileLocator;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
@@ -33,6 +34,7 @@ class ItkDevOpenIdConnectExtension extends Extension
          *     user_provider: string|null,
          *     logging_options: array{logger: string|null},
          *     audit_options: array{enabled: bool, logger: string|null, identifier: string},
+         *     secret_expiry_options: array{warning_days: int},
          *     openid_providers: array<string, array{options: array<string, mixed>}>
          *  } $config
          */
@@ -40,6 +42,7 @@ class ItkDevOpenIdConnectExtension extends Extension
 
         $this->configureLogging($container, $config['logging_options']);
         $this->configureAuditLogging($container, $config['audit_options']);
+        $this->configureSecretExpiry($container, $config['openid_providers'], $config['secret_expiry_options']);
 
         $definition = $container->getDefinition(OpenIdConfigurationProviderManager::class);
 
@@ -47,7 +50,19 @@ class ItkDevOpenIdConnectExtension extends Extension
             'default_providers_options' => [
                 'cacheItemPool' => new Reference($config['cache_options']['cache_pool']),
             ],
-            'providers' => array_map(static fn (array $options): array => $options['options'], $config['openid_providers']),
+            'providers' => array_map(
+                // client_secret_expires_at is the bundle's own bookkeeping, not a
+                // provider option, so it is stripped before reaching the manager —
+                // whose strict array shape would otherwise have to grow a key the
+                // upstream library knows nothing about.
+                static function (array $options): array {
+                    $providerOptions = $options['options'];
+                    unset($providerOptions['client_secret_expires_at']);
+
+                    return $providerOptions;
+                },
+                $config['openid_providers'],
+            ),
         ];
         $definition->replaceArgument('$config', $providersConfig);
 
@@ -120,6 +135,38 @@ class ItkDevOpenIdConnectExtension extends Extension
             // handled and no record is built.
             $container->removeDefinition(AuthenticationAuditSubscriber::class);
         }
+    }
+
+    /**
+     * Wire the expiry checker, and nudge installations that have not set a date.
+     *
+     * @param array<string, array{options: array<string, mixed>}> $providers
+     * @param array{warning_days: int}                            $options
+     */
+    private function configureSecretExpiry(ContainerBuilder $container, array $providers, array $options): void
+    {
+        $expiryDates = [];
+
+        foreach ($providers as $providerKey => $provider) {
+            $expiresAt = $provider['options']['client_secret_expires_at'] ?? null;
+            $expiryDates[$providerKey] = is_string($expiresAt) ? $expiresAt : null;
+
+            if (null === $expiryDates[$providerKey]) {
+                // Symfony's setDeprecated() fires when a node *is* used, which is
+                // the inverse of what is needed: the point is to nudge the
+                // installations that have not set a date yet.
+                trigger_deprecation(
+                    'itk-dev/openid-connect-bundle',
+                    '5.1',
+                    'Not configuring "client_secret_expires_at" for OIDC provider "%s" is deprecated. Without it the bundle cannot warn before the secret expires, and an expired secret breaks every login. It will be required in 6.0.',
+                    $providerKey,
+                );
+            }
+        }
+
+        $definition = $container->getDefinition(ClientSecretExpiryChecker::class);
+        $definition->replaceArgument('$expiryDates', $expiryDates);
+        $definition->replaceArgument('$warningDays', $options['warning_days']);
     }
 
     #[\Override]
