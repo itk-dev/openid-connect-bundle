@@ -58,6 +58,29 @@ class ConfigurationTest extends TestCase
         $this->assertSame(10, $provider['leeway']);
         $this->assertSame(86400, $provider['cache_duration']);
         $this->assertFalse($provider['allow_http']);
+
+        // Logging defaults to the application logger.
+        $this->assertNull($config['logging_options']['logger']);
+    }
+
+    public function testLoggingOptionsAccepted(): void
+    {
+        $input = $this->getMinimalConfig();
+        $input['logging_options'] = ['logger' => 'monolog.logger.openid_connect'];
+
+        $config = $this->processor->processConfiguration($this->configuration, [$input]);
+
+        $this->assertSame('monolog.logger.openid_connect', $config['logging_options']['logger']);
+    }
+
+    public function testLoggingOptionsRejectsEmptyLogger(): void
+    {
+        $input = $this->getMinimalConfig();
+        $input['logging_options'] = ['logger' => ''];
+
+        $this->expectException(InvalidConfigurationException::class);
+
+        $this->processor->processConfiguration($this->configuration, [$input]);
     }
 
     public function testFullConfig(): void

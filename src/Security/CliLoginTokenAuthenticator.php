@@ -6,6 +6,7 @@ use ItkDev\OpenIdConnectBundle\Exception\CacheException;
 use ItkDev\OpenIdConnectBundle\Exception\TokenNotFoundException;
 use ItkDev\OpenIdConnectBundle\Exception\UsernameDoesNotExistException;
 use ItkDev\OpenIdConnectBundle\Util\CliLoginHelper;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -27,6 +28,7 @@ class CliLoginTokenAuthenticator extends AbstractAuthenticator
         private readonly CliLoginHelper $cliLoginHelper,
         private readonly string $cliLoginRoute,
         private readonly UrlGeneratorInterface $router,
+        private readonly LoggerInterface $logger,
     ) {
     }
 
@@ -45,16 +47,22 @@ class CliLoginTokenAuthenticator extends AbstractAuthenticator
         if ('' === $token) {
             // The token header was empty, authentication fails with HTTP Status
             // Code 401 "Unauthorized"
+            $this->logger->warning('CLI login failed: no login token provided');
+
             throw new CustomUserMessageAuthenticationException('No login token provided');
         }
 
         try {
             $username = $this->cliLoginHelper->getUsername($token);
         } catch (CacheException|TokenNotFoundException $e) {
+            $this->logger->error('CLI login failed: cannot resolve token to a username', ['exception' => $e]);
+
             throw new CustomUserMessageAuthenticationException('Cannot get username', previous: $e);
         }
 
         if (null === $username) {
+            $this->logger->error('CLI login failed: token resolved to a null username');
+
             throw new UsernameDoesNotExistException('null is not a valid username.');
         }
 

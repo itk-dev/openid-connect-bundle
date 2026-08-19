@@ -9,8 +9,10 @@ use ItkDev\OpenIdConnect\Security\OpenIdConfigurationProvider;
 use ItkDev\OpenIdConnectBundle\Controller\LoginController;
 use ItkDev\OpenIdConnectBundle\Exception\InvalidProviderException;
 use ItkDev\OpenIdConnectBundle\Security\OpenIdConfigurationProviderManager;
+use ItkDev\OpenIdConnectBundle\Tests\TestLogger;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\LogLevel;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Session\SessionInterface;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
@@ -18,6 +20,13 @@ use Symfony\Component\HttpKernel\Exception\ServiceUnavailableHttpException;
 
 class LoginControllerTest extends TestCase
 {
+    private TestLogger $logger;
+
+    protected function setUp(): void
+    {
+        $this->logger = new TestLogger();
+    }
+
     public function testLogin(): void
     {
         $mockProvider = $this->createMock(OpenIdConfigurationProvider::class);
@@ -59,6 +68,7 @@ class LoginControllerTest extends TestCase
 
         $response = $controller->login($request, $mockSession, 'test');
         $this->assertSame('https://provider.example.org/authorize', $response->getTargetUrl());
+        $this->assertSame([], $this->logger->records, 'A successful login must not log a failure.');
     }
 
     public function testUnknownProviderKeyMapsTo404(): void
@@ -72,7 +82,7 @@ class LoginControllerTest extends TestCase
             ->with('bogus')
             ->willThrowException($cause);
 
-        $controller = new LoginController($mockProviderManager);
+        $controller = new LoginController($mockProviderManager, $this->logger);
 
         try {
             $controller->login(new Request(), $this->createStub(SessionInterface::class), 'bogus');
@@ -80,6 +90,12 @@ class LoginControllerTest extends TestCase
             $this->assertSame(404, $thrown->getStatusCode());
             $this->assertStringContainsString('bogus', $thrown->getMessage());
             $this->assertSame($cause, $thrown->getPrevious(), 'Original exception must be chained');
+
+            $record = $this->logger->singleRecord();
+            $this->assertSame(LogLevel::WARNING, $record['level'], 'A client hitting an unknown URL is not an operator problem');
+            $this->assertStringContainsString('unknown provider', $record['message']);
+            $this->assertSame('bogus', $record['context']['provider'] ?? null);
+            $this->assertSame($cause, $record['context']['exception'] ?? null);
 
             return;
         }
@@ -113,6 +129,12 @@ class LoginControllerTest extends TestCase
             $this->assertStringContainsString('test', $thrown->getMessage());
             $this->assertSame($cause, $thrown->getPrevious(), 'Original exception must be chained');
 
+            $record = $this->logger->singleRecord();
+            $this->assertSame(LogLevel::ERROR, $record['level'], 'IdP down or cache broken — operator action');
+            $this->assertStringContainsString('cannot reach provider', $record['message']);
+            $this->assertSame('test', $record['context']['provider'] ?? null);
+            $this->assertSame($cause, $record['context']['exception'] ?? null);
+
             return;
         }
         $this->fail('Expected ServiceUnavailableHttpException');
@@ -127,6 +149,6 @@ class LoginControllerTest extends TestCase
             ->with('test')
             ->willReturn($provider);
 
-        return new LoginController($mockProviderManager);
+        return new LoginController($mockProviderManager, $this->logger);
     }
 }

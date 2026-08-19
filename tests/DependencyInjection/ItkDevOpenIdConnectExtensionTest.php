@@ -3,11 +3,14 @@
 namespace ItkDev\OpenIdConnectBundle\Tests\DependencyInjection;
 
 use ItkDev\OpenIdConnectBundle\Command\UserLoginCommand;
+use ItkDev\OpenIdConnectBundle\Controller\LoginController;
 use ItkDev\OpenIdConnectBundle\DependencyInjection\ItkDevOpenIdConnectExtension;
 use ItkDev\OpenIdConnectBundle\Security\CliLoginTokenAuthenticator;
 use ItkDev\OpenIdConnectBundle\Security\OpenIdConfigurationProviderManager;
+use ItkDev\OpenIdConnectBundle\Security\OpenIdLoginAuthenticator;
 use ItkDev\OpenIdConnectBundle\Util\CliLoginHelper;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\NullLogger;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Reference;
 
@@ -46,6 +49,85 @@ class ItkDevOpenIdConnectExtensionTest extends TestCase
         $this->assertTrue($container->hasDefinition(CliLoginHelper::class));
         $this->assertTrue($container->hasDefinition(UserLoginCommand::class));
         $this->assertTrue($container->hasDefinition(CliLoginTokenAuthenticator::class));
+    }
+
+    public function testLoggingDefaultsToTheAutowiredApplicationLogger(): void
+    {
+        $extension = new ItkDevOpenIdConnectExtension();
+        $container = new ContainerBuilder();
+
+        $extension->load([$this->getBaseConfig()], $container);
+
+        foreach ([LoginController::class, CliLoginTokenAuthenticator::class] as $id) {
+            $arguments = $container->getDefinition($id)->getArguments();
+            $this->assertArrayNotHasKey('$logger', $arguments, 'Without a configured logger the autowired one is used, which is what puts records on the channel.');
+        }
+    }
+
+    public function testNullLoggerServiceIsAvailableToDisableLogging(): void
+    {
+        $extension = new ItkDevOpenIdConnectExtension();
+        $container = new ContainerBuilder();
+
+        $config = $this->getBaseConfig();
+        $config['logging_options'] = ['logger' => 'itkdev_openid_connect.null_logger'];
+
+        $extension->load([$config], $container);
+
+        // The README documents this service id as the way to turn logging off,
+        // so it must keep existing and be a NullLogger.
+        $this->assertTrue($container->hasDefinition('itkdev_openid_connect.null_logger'));
+        $this->assertSame(NullLogger::class, $container->getDefinition('itkdev_openid_connect.null_logger')->getClass());
+
+        $arguments = $container->getDefinition(LoginController::class)->getArguments();
+        $this->assertEquals(new Reference('itkdev_openid_connect.null_logger'), $arguments['$logger']);
+    }
+
+    public function testLoggingOptionsAreWiredToServices(): void
+    {
+        $extension = new ItkDevOpenIdConnectExtension();
+        $container = new ContainerBuilder();
+
+        $config = $this->getBaseConfig();
+        $config['logging_options'] = ['logger' => 'monolog.logger.openid_connect'];
+
+        $extension->load([$config], $container);
+
+        foreach ([LoginController::class, CliLoginTokenAuthenticator::class] as $id) {
+            $arguments = $container->getDefinition($id)->getArguments();
+            $this->assertEquals(new Reference('monolog.logger.openid_connect'), $arguments['$logger']);
+        }
+    }
+
+    public function testAuthenticatorSubclassesGetLoggingViaAutoconfiguration(): void
+    {
+        $extension = new ItkDevOpenIdConnectExtension();
+        $container = new ContainerBuilder();
+
+        $config = $this->getBaseConfig();
+        $config['logging_options'] = ['logger' => 'monolog.logger.openid_connect'];
+
+        $extension->load([$config], $container);
+
+        // Consumer subclasses are services this extension cannot name, so the
+        // configuration has to reach them through autoconfiguration.
+        $autoconfigured = $container->getAutoconfiguredInstanceof();
+        $this->assertArrayHasKey(OpenIdLoginAuthenticator::class, $autoconfigured);
+
+        $calls = $autoconfigured[OpenIdLoginAuthenticator::class]->getMethodCalls();
+        $this->assertEquals([['setLogger', [new Reference('monolog.logger.openid_connect')]]], $calls);
+    }
+
+    public function testNoAutoconfigurationWhenNoLoggerConfigured(): void
+    {
+        $extension = new ItkDevOpenIdConnectExtension();
+        $container = new ContainerBuilder();
+
+        $extension->load([$this->getBaseConfig()], $container);
+
+        // Nothing to override: subclasses keep the logger FrameworkBundle's own
+        // LoggerAwareInterface autoconfiguration gives them.
+        $this->assertArrayNotHasKey(OpenIdLoginAuthenticator::class, $container->getAutoconfiguredInstanceof());
     }
 
     public function testLoadWiresProviderManagerConfig(): void

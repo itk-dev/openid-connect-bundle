@@ -5,6 +5,7 @@ namespace ItkDev\OpenIdConnectBundle\Controller;
 use ItkDev\OpenIdConnect\Exception\OpenIdConnectExceptionInterface;
 use ItkDev\OpenIdConnectBundle\Exception\InvalidProviderException;
 use ItkDev\OpenIdConnectBundle\Security\OpenIdConfigurationProviderManager;
+use Psr\Log\LoggerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -19,6 +20,7 @@ class LoginController extends AbstractController
 {
     public function __construct(
         private readonly OpenIdConfigurationProviderManager $providerManager,
+        private readonly LoggerInterface $logger,
     ) {
     }
 
@@ -35,6 +37,11 @@ class LoginController extends AbstractController
         try {
             $provider = $this->providerManager->getProvider($providerKey);
         } catch (InvalidProviderException $e) {
+            $this->logger->warning('OIDC login failed: unknown provider', [
+                'provider' => $providerKey,
+                'exception' => $e,
+            ]);
+
             throw new NotFoundHttpException(sprintf('Unknown OIDC provider "%s"', $providerKey), $e);
         }
 
@@ -57,6 +64,11 @@ class LoginController extends AbstractController
             // Building the authorization URL fetches the IdP's discovery
             // document. Surface upstream/transport/cache failures as 503 with
             // the cause chained, rather than an unhandled 500.
+            $this->logger->error('OIDC login failed: cannot reach provider', [
+                'provider' => $providerKey,
+                'exception' => $e,
+            ]);
+
             throw new ServiceUnavailableHttpException(null, sprintf('Cannot reach OIDC provider "%s"', $providerKey), $e);
         }
 

@@ -40,6 +40,16 @@ class Configuration implements ConfigurationInterface
                     ->defaultNull()
                     ->info('The User Provider to inject')
                 ->end()
+                ->arrayNode('logging_options')
+                    ->addDefaultsIfNotSet()
+                    ->children()
+                        ->scalarNode('logger')
+                            ->info('Service id of the PSR-3 logger to receive this bundle\'s failure logs, e.g. "monolog.logger.openid_connect". Defaults to the application logger, which Symfony always provides. Set "itkdev_openid_connect.null_logger" to turn logging off.')
+                            ->defaultNull()
+                            ->cannotBeEmpty()
+                        ->end() // logger
+                    ->end()
+                ->end() // logging_options
                 ->arrayNode('openid_providers')
                     ->isRequired()
                     ->requiresAtLeastOneElement()
