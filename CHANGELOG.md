@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.1.1] - 2026-08-19
+
 ### Fixed
 
 - `audit_options.identifier` is documented and enforced as not settable from an
@@ -279,7 +281,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `itk-dev/openid-connect` 1.0.0 to 2.1.0
 - OpenId Connect Bundle: Added CLI login feature.
 
-[unreleased]: https://github.com/itk-dev/openid-connect-bundle/compare/5.1.0...HEAD
+[unreleased]: https://github.com/itk-dev/openid-connect-bundle/compare/5.1.1...HEAD
+[5.1.1]: https://github.com/itk-dev/openid-connect-bundle/compare/5.1.0...5.1.1
 [5.1.0]: https://github.com/itk-dev/openid-connect-bundle/compare/5.0.0...5.1.0
 [5.0.0]: https://github.com/itk-dev/openid-connect-bundle/compare/4.2.0...5.0.0
 [4.2.0]: https://github.com/itk-dev/openid-connect-bundle/compare/4.1.0...4.2.0
