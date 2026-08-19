@@ -5,6 +5,7 @@ namespace ItkDev\OpenIdConnectBundle\Util;
 use ItkDev\OpenIdConnectBundle\Exception\CacheException;
 use ItkDev\OpenIdConnectBundle\Exception\OpenIdConnectBundleExceptionInterface;
 use ItkDev\OpenIdConnectBundle\Exception\TokenNotFoundException;
+use ItkDev\OpenIdConnectBundle\Log\AuthenticationAuditLogger;
 use Psr\Cache\CacheItemPoolInterface;
 use Psr\Cache\InvalidArgumentException;
 use Symfony\Component\Uid\Uuid;
@@ -18,6 +19,7 @@ class CliLoginHelper
 
     public function __construct(
         private readonly CacheItemPoolInterface $cache,
+        private readonly AuthenticationAuditLogger $auditLogger,
     ) {
     }
 
@@ -45,6 +47,8 @@ class CliLoginHelper
                 throw new CacheException('Cached token is not a string');
             }
 
+            $this->auditLogger->cliTokenIssued($username, reissued: true);
+
             return $cachedToken;
         }
         $revCacheItem->set($token);
@@ -59,6 +63,8 @@ class CliLoginHelper
 
         $cacheItem->set($encodedUsername);
         $this->cache->save($cacheItem);
+
+        $this->auditLogger->cliTokenIssued($username, reissued: false);
 
         return $token;
     }

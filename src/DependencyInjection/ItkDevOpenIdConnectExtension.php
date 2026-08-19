@@ -3,8 +3,13 @@
 namespace ItkDev\OpenIdConnectBundle\DependencyInjection;
 
 use ItkDev\OpenIdConnectBundle\Command\UserLoginCommand;
+use ItkDev\OpenIdConnectBundle\Controller\LoginController;
+use ItkDev\OpenIdConnectBundle\EventSubscriber\AuthenticationAuditSubscriber;
+use ItkDev\OpenIdConnectBundle\Log\AuthenticationAuditLogger;
 use ItkDev\OpenIdConnectBundle\Security\CliLoginTokenAuthenticator;
 use ItkDev\OpenIdConnectBundle\Security\OpenIdConfigurationProviderManager;
+use ItkDev\OpenIdConnectBundle\Security\OpenIdLoginAuthenticator;
+use ItkDev\OpenIdConnectBundle\Util\ClientSecretExpiryChecker;
 use ItkDev\OpenIdConnectBundle\Util\CliLoginHelper;
 use Symfony\Component\Config\FileLocator;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
@@ -27,10 +32,17 @@ class ItkDevOpenIdConnectExtension extends Extension
          *     cache_options: array{cache_pool: string},
          *     cli_login_options: array{route: string},
          *     user_provider: string|null,
+         *     logging_options: array{logger: string|null},
+         *     audit_options: array{enabled: bool, logger: string|null, identifier: string},
+         *     secret_expiry_options: array{warning_days: int},
          *     openid_providers: array<string, array{options: array<string, mixed>}>
          *  } $config
          */
         $config = $this->processConfiguration($configuration, $configs);
+
+        $this->configureLogging($container, $config['logging_options']);
+        $this->configureAuditLogging($container, $config['audit_options']);
+        $this->configureSecretExpiry($container, $config['openid_providers'], $config['secret_expiry_options']);
 
         $definition = $container->getDefinition(OpenIdConfigurationProviderManager::class);
 
@@ -38,7 +50,19 @@ class ItkDevOpenIdConnectExtension extends Extension
             'default_providers_options' => [
                 'cacheItemPool' => new Reference($config['cache_options']['cache_pool']),
             ],
-            'providers' => array_map(static fn (array $options): array => $options['options'], $config['openid_providers']),
+            'providers' => array_map(
+                // client_secret_expires_at is the bundle's own bookkeeping, not a
+                // provider option, so it is stripped before reaching the manager —
+                // whose strict array shape would otherwise have to grow a key the
+                // upstream library knows nothing about.
+                static function (array $options): array {
+                    $providerOptions = $options['options'];
+                    unset($providerOptions['client_secret_expires_at']);
+
+                    return $providerOptions;
+                },
+                $config['openid_providers'],
+            ),
         ];
         $definition->replaceArgument('$config', $providersConfig);
 
@@ -53,6 +77,96 @@ class ItkDevOpenIdConnectExtension extends Extension
 
         $definition = $container->getDefinition(CliLoginTokenAuthenticator::class);
         $definition->replaceArgument('$cliLoginRoute', $config['cli_login_options']['route']);
+    }
+
+    /**
+     * Point the services that log at the configured logger.
+     *
+     * Left unset, they keep the logger Symfony autowires, which is what puts the
+     * records on the `openid_connect` channel; the application's own handler
+     * configuration then decides which of them are kept. Severity is fixed per
+     * failure mode in the emitters and is not configurable.
+     *
+     * @param array{logger: string|null} $options
+     */
+    private function configureLogging(ContainerBuilder $container, array $options): void
+    {
+        if (null === $options['logger']) {
+            return;
+        }
+
+        $logger = new Reference($options['logger']);
+
+        foreach ([LoginController::class, CliLoginTokenAuthenticator::class] as $id) {
+            $container->getDefinition($id)->setArgument('$logger', $logger);
+        }
+
+        // `OpenIdLoginAuthenticator` is abstract and subclassed by the consuming
+        // application, so its subclasses are services this extension cannot name.
+        // Autoconfiguration reaches them, and runs after FrameworkBundle's own
+        // LoggerAwareInterface pass, so the configured logger wins.
+        $container->registerForAutoconfiguration(OpenIdLoginAuthenticator::class)
+            ->addMethodCall('setLogger', [$logger]);
+    }
+
+    /**
+     * Apply `audit_options`.
+     *
+     * @param array{enabled: bool, logger: string|null, identifier: string} $options
+     */
+    private function configureAuditLogging(ContainerBuilder $container, array $options): void
+    {
+        $definition = $container->getDefinition(AuthenticationAuditLogger::class);
+        $definition->replaceArgument('$enabled', $options['enabled']);
+        $definition->replaceArgument('$identifierMode', $options['identifier']);
+
+        if (null !== $options['logger']) {
+            $definition->setArgument('$logger', new Reference($options['logger']));
+        }
+
+        // Only referenced when hashing is asked for, so installations on the
+        // default keep working without a configured framework secret.
+        if (AuthenticationAuditLogger::IDENTIFIER_HASHED === $options['identifier']) {
+            $definition->setArgument('$identifierSecret', '%kernel.secret%');
+        }
+
+        if (!$options['enabled']) {
+            // Not merely inert: the subscriber is gone, so no security event is
+            // handled and no record is built.
+            $container->removeDefinition(AuthenticationAuditSubscriber::class);
+        }
+    }
+
+    /**
+     * Wire the expiry checker, and nudge installations that have not set a date.
+     *
+     * @param array<string, array{options: array<string, mixed>}> $providers
+     * @param array{warning_days: int}                            $options
+     */
+    private function configureSecretExpiry(ContainerBuilder $container, array $providers, array $options): void
+    {
+        $expiryDates = [];
+
+        foreach ($providers as $providerKey => $provider) {
+            $expiresAt = $provider['options']['client_secret_expires_at'] ?? null;
+            $expiryDates[$providerKey] = is_string($expiresAt) ? $expiresAt : null;
+
+            if (null === $expiryDates[$providerKey]) {
+                // Symfony's setDeprecated() fires when a node *is* used, which is
+                // the inverse of what is needed: the point is to nudge the
+                // installations that have not set a date yet.
+                trigger_deprecation(
+                    'itk-dev/openid-connect-bundle',
+                    '5.1',
+                    'Not configuring "client_secret_expires_at" for OIDC provider "%s" is deprecated. Without it the bundle cannot warn before the secret expires, and an expired secret breaks every login. It will be required in 6.0.',
+                    $providerKey,
+                );
+            }
+        }
+
+        $definition = $container->getDefinition(ClientSecretExpiryChecker::class);
+        $definition->replaceArgument('$expiryDates', $expiryDates);
+        $definition->replaceArgument('$warningDays', $options['warning_days']);
     }
 
     #[\Override]

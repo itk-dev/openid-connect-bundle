@@ -2,6 +2,7 @@
 
 namespace ItkDev\OpenIdConnectBundle\DependencyInjection;
 
+use ItkDev\OpenIdConnectBundle\Log\AuthenticationAuditLogger;
 use Symfony\Component\Config\Definition\Builder\TreeBuilder;
 use Symfony\Component\Config\Definition\ConfigurationInterface;
 
@@ -40,6 +41,45 @@ class Configuration implements ConfigurationInterface
                     ->defaultNull()
                     ->info('The User Provider to inject')
                 ->end()
+                ->arrayNode('logging_options')
+                    ->addDefaultsIfNotSet()
+                    ->children()
+                        ->scalarNode('logger')
+                            ->info('Service id of the PSR-3 logger to receive this bundle\'s failure logs, e.g. "monolog.logger.openid_connect". Defaults to the application logger, which Symfony always provides. Set "itkdev_openid_connect.null_logger" to turn logging off.')
+                            ->defaultNull()
+                            ->cannotBeEmpty()
+                        ->end() // logger
+                    ->end()
+                ->end() // logging_options
+                ->arrayNode('audit_options')
+                    ->addDefaultsIfNotSet()
+                    ->children()
+                        ->booleanNode('enabled')
+                            ->info('Write an authentication audit trail (logins, failures, CLI token issuance). Off by default: audit records identify people, so an existing installation must opt in rather than start logging personal data on upgrade.')
+                            ->defaultFalse()
+                        ->end() // enabled
+                        ->scalarNode('logger')
+                            ->info('Service id of the PSR-3 logger to receive audit records, e.g. "monolog.logger.openid_connect_audit". Defaults to the application logger. Keep this separate from logging_options.logger: an operational threshold of "error" would otherwise discard the whole trail.')
+                            ->defaultNull()
+                            ->cannotBeEmpty()
+                        ->end() // logger
+                        ->enumNode('identifier')
+                            ->info('Record user identifiers as-is ("raw") or pseudonymised ("hashed"). Hashing is keyed with the application secret, so records still correlate.')
+                            ->values([AuthenticationAuditLogger::IDENTIFIER_RAW, AuthenticationAuditLogger::IDENTIFIER_HASHED])
+                            ->defaultValue(AuthenticationAuditLogger::IDENTIFIER_RAW)
+                        ->end() // identifier
+                    ->end()
+                ->end() // audit_options
+                ->arrayNode('secret_expiry_options')
+                    ->addDefaultsIfNotSet()
+                    ->children()
+                        ->integerNode('warning_days')
+                            ->info('How many days before a client secret expires the bundle starts warning (default: 30)')
+                            ->defaultValue(30)
+                            ->min(0)
+                        ->end() // warning_days
+                    ->end()
+                ->end() // secret_expiry_options
                 ->arrayNode('openid_providers')
                     ->isRequired()
                     ->requiresAtLeastOneElement()
@@ -60,6 +100,15 @@ class Configuration implements ConfigurationInterface
                                     ->scalarNode('client_secret')
                                         ->info('Client secret/password assigned by authorizer')
                                         ->isRequired()->cannotBeEmpty()
+                                    ->end()
+                                    ->scalarNode('client_secret_expires_at')
+                                        ->info('Date the client secret expires, e.g. "2027-01-31". An expired secret breaks every login, so configuring this lets the bundle warn while there is still time to rotate. Will be required in 6.0.')
+                                        ->defaultNull()
+                                        ->cannotBeEmpty()
+                                        ->validate()
+                                            ->ifTrue(static fn (mixed $v): bool => is_string($v) && false === strtotime($v))
+                                            ->thenInvalid('client_secret_expires_at must be a date parseable by strtotime(), e.g. "2027-01-31". Got %s.')
+                                        ->end()
                                     ->end()
                                     ->integerNode('leeway')
                                         ->info('Leeway in seconds to account for clock skew between server and provider')
@@ -87,10 +136,12 @@ class Configuration implements ConfigurationInterface
                                     // Uses Guzzle under the hood through itk-dev/openid-connect -> league/oauth2-client -> guzzlehttp/guzzle
                                     ->arrayNode('http_client_options')
                                         ->info('Options forwarded to the underlying Guzzle HTTP client. league/oauth2-client only forwards: timeout, proxy, verify (verify is only consulted when proxy is set).')
+                                        ->addDefaultsIfNotSet()
                                         ->children()
                                             // @see https://docs.guzzlephp.org/en/stable/request-options.html#timeout
                                             ->floatNode('timeout')
-                                                ->info('Total request timeout in seconds')
+                                                ->info('Total request timeout in seconds. Defaults to 30; set to 0 to wait indefinitely (Guzzle\'s own default).')
+                                                ->defaultValue(30.0)
                                             ->end()
                                             // @see https://docs.guzzlephp.org/en/stable/request-options.html#proxy
                                             ->scalarNode('proxy')

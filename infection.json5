@@ -1,0 +1,33 @@
+{
+    "$schema": "vendor/infection/infection/resources/schema.json",
+    "source": {
+        "directories": ["src"]
+    },
+    "threads": "max",
+    // Minimum mutation score for covered code; enforced locally and in CI.
+    // The suite currently kills all mutants (100%); 95 leaves headroom for
+    // run-to-run variance without letting real test-quality erosion through.
+    "minCoveredMsi": 95,
+    "logs": {
+        "text": "infection.log",
+        "html": "infection.html",
+        // Publishes results for the develop branch to the Stryker dashboard
+        // (feeds the README badge). Requires STRYKER_DASHBOARD_API_KEY; only
+        // active on CI, skipped locally and on non-matching branches.
+        "stryker": {
+            "report": "develop"
+        }
+    },
+    "mutators": {
+        "@default": true,
+        // Dropping the (int) cast makes floor() return a float which the DTO's
+        // typed int property then coerces, so the mutant is behaviourally
+        // identical and cannot be killed by a test. The cast stays because
+        // PHPStan at max level requires it.
+        "CastInt": {
+            "ignore": [
+                "ItkDev\\OpenIdConnectBundle\\Util\\ClientSecretExpiryChecker::getStatus"
+            ]
+        }
+    }
+}

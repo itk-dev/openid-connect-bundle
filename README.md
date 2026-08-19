@@ -5,6 +5,7 @@
 [![PHP Version](https://img.shields.io/packagist/php-v/itk-dev/openid-connect-bundle.svg?style=flat-square&colorB=%238892BF)](https://www.php.net/downloads)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/itk-dev/openid-connect-bundle/php.yaml?branch=develop&label=CI&logo=github&style=flat-square)](https://github.com/itk-dev/openid-connect-bundle/actions/workflows/php.yaml?query=branch%3Adevelop)
 [![Codecov Code Coverage](https://img.shields.io/codecov/c/gh/itk-dev/openid-connect-bundle?label=codecov&logo=codecov&style=flat-square)](https://codecov.io/gh/itk-dev/openid-connect-bundle)
+[![Mutation Score](https://img.shields.io/endpoint?style=flat-square&label=mutation%20score&url=https%3A%2F%2Fbadge-api.stryker-mutator.io%2Fgithub.com%2Fitk-dev%2Fopenid-connect-bundle%2Fdevelop)](https://dashboard.stryker-mutator.io/reports/github.com/itk-dev/openid-connect-bundle/develop)
 [![Read License](https://img.shields.io/packagist/l/itk-dev/openid-connect-bundle.svg?style=flat-square&colorB=darkcyan)](https://github.com/itk-dev/openid-connect-bundle/blob/master/LICENSE.md)
 [![Package downloads on Packagist](https://img.shields.io/packagist/dt/itk-dev/openid-connect-bundle.svg?style=flat-square&colorB=darkmagenta)](https://packagist.org/packages/itk-dev/openid-connect-bundle/stats)
 
@@ -92,6 +93,17 @@ itkdev_openid_connect:
   cli_login_options:
     route: '%env(string:OIDC_CLI_LOGIN_ROUTE)%' # Redirect route for CLI login
   user_provider: ~ #
+  logging_options:
+    # Optional: service id of the PSR-3 logger to receive failure logs.
+    #           Defaults to the application logger. See "Logging" below.
+    logger: 'monolog.logger.openid_connect'
+  audit_options:
+    # Optional: write an authentication audit trail. OFF by default because
+    #           audit records identify people. See "Audit logging" below.
+    enabled: false
+  secret_expiry_options:
+    # Optional: how many days ahead of expiry to start warning (default: 30).
+    warning_days: 30
   openid_providers:
     # Define one or more providers
     # [providerKey]:
@@ -103,6 +115,10 @@ itkdev_openid_connect:
         metadata_url: '%env(string:ADMIN_OIDC_METADATA_URL)%'
         client_id: '%env(string:ADMIN_OIDC_CLIENT_ID)%'
         client_secret: '%env(string:ADMIN_OIDC_CLIENT_SECRET)%'
+        # Date the client secret expires. An expired secret breaks every login,
+        # so setting this lets the bundle warn while there is still time to
+        # rotate. Will be REQUIRED in 6.0. See "Client secret expiry" below.
+        client_secret_expires_at: '%env(string:ADMIN_OIDC_CLIENT_SECRET_EXPIRES_AT)%'
         # Specify redirect URI
         redirect_uri: '%env(string:ADMIN_OIDC_REDIRECT_URI)%'
         # Optional: Specify leeway (seconds) to account for clock skew between provider and hosting
@@ -134,6 +150,7 @@ With the following `.env` environment variables
 ADMIN_OIDC_METADATA_URL=ADMIN_APP_METADATA_URL
 ADMIN_OIDC_CLIENT_ID=ADMIN_APP_CLIENT_ID
 ADMIN_OIDC_CLIENT_SECRET=ADMIN_APP_CLIENT_SECRET
+ADMIN_OIDC_CLIENT_SECRET_EXPIRES_AT=2027-01-31
 ADMIN_OIDC_REDIRECT_URI=ADMIN_APP_REDIRECT_URI
 ADMIN_OIDC_LEEWAY=30
 ADMIN_OIDC_CACHE_DURATION=86400
@@ -151,12 +168,331 @@ OIDC_CLI_LOGIN_ROUTE=OIDC_CLI_LOGIN_ROUTE
 
 Set the actual values your `env.local` file to ensure they are not committed to Git.
 
+#### Client secret expiry
+
+An expired client secret breaks **every** login: the token exchange starts failing
+with `invalid_client` and there is nothing in the flow that says why. The expiry
+date is known when the secret is created, so telling the bundle about it turns an
+outage into a calendar item.
+
+```yaml
+itkdev_openid_connect:
+  secret_expiry_options:
+    warning_days: 30 # default
+  openid_providers:
+    admin:
+      options:
+        client_secret_expires_at: '2027-01-31'
+```
+
+Any date `strtotime()` understands is accepted, and the value is validated when the
+container compiles — a typo fails the build rather than silently becoming "no idea
+when this expires". Date-only values are anchored to midnight UTC so the day count
+does not drift with the time of day the check runs.
+
+Each provider is then in one of four states:
+
+| Status | Meaning |
+| ------ | ------- |
+| `unknown` | no date configured — nothing can be said |
+| `ok` | more than `warning_days` remaining |
+| `expiring_soon` | `warning_days` or fewer remaining |
+| `expired` | the date has passed |
+
+`unknown` is deliberately distinct from `ok`: an installation that has not set a
+date is not fine, it is unmonitored.
+
+What the bundle does with each state, when a login is attempted:
+
+| Status | Behaviour |
+| ------ | --------- |
+| `expired` | a `critical` record; the login **still proceeds** |
+| `expiring_soon` | a `warning` record; the login proceeds |
+| `ok`, `unknown` | nothing logged |
+
+**Nothing here blocks a login.** The status depends on a manually maintained date,
+which can fall out of step with the secret it describes: rotate a secret without
+updating `client_secret_expires_at` and the date reads `expired` while the secret
+works perfectly. The date is therefore an indicator, not authority — the identity
+provider is what decides whether a secret still works. These records exist so that
+when it does stop working, the reason is already in the log.
+
+For a genuinely expired secret that means the login still fails, at the callback,
+with `invalid_client` — but the `critical` record here and the failure record from
+the callback together name the cause without anyone having to reproduce it.
+
+Until the date is configured a provider sits in `unknown`, where none of the above
+applies and nothing is reported.
+
+> [!NOTE]
+> `client_secret_expires_at` is optional in 5.x and **will be required in 6.0**.
+> Providers without it emit a deprecation warning, because the bundle cannot warn
+> about an expiry it does not know about.
+
+##### Monitoring expiry
+
+The records above only appear when somebody attempts a login, which is no help on a
+quiet Sunday before a Monday-morning expiry. For scheduled monitoring, inject
+`ClientSecretExpiryChecker` — it is a public service — and surface it through
+whatever health endpoint the application already has:
+
+```php
+use ItkDev\OpenIdConnectBundle\Util\ClientSecretExpiry;
+use ItkDev\OpenIdConnectBundle\Util\ClientSecretExpiryChecker;
+
+// Shape will differ per application; this follows a tagged-service aggregator.
+readonly class ClientSecretHealthCheck implements HealthCheckInterface
+{
+    public function __construct(private ClientSecretExpiryChecker $expiryChecker)
+    {
+    }
+
+    public function getName(): string
+    {
+        return 'oidc_client_secret';
+    }
+
+    public function check(): HealthCheckResult
+    {
+        $statuses = $this->expiryChecker->getAllStatuses();
+
+        $expired = array_filter($statuses, static fn (ClientSecretExpiry $e): bool => $e->isExpired());
+        if ([] !== $expired) {
+            return HealthCheckResult::degraded($this->getName(), sprintf(
+                'Client secret expired for: %s',
+                implode(', ', array_keys($expired)),
+            ));
+        }
+
+        $expiring = array_filter($statuses, static fn (ClientSecretExpiry $e): bool => $e->isExpiringSoon());
+        if ([] !== $expiring) {
+            return HealthCheckResult::degraded($this->getName(), sprintf(
+                'Client secret expires soon for: %s',
+                implode(', ', array_keys($expiring)),
+            ));
+        }
+
+        return HealthCheckResult::ok($this->getName());
+    }
+}
+```
+
+`getAllStatuses()` returns a `ClientSecretExpiry` per provider, keyed by provider
+key, each with `isExpired()`, `isExpiringSoon()`, `status` and `toArray()`.
+
+**The bundle ships no health endpoint of its own**, and that is deliberate:
+
+* Monitoring should have one endpoint to poll. A second one, differently shaped and
+  living under this bundle's route prefix, is the one that gets forgotten.
+* The application owns how such an endpoint is authenticated. That reasoning can be
+  subtle — an application whose user provider is database-backed may need to
+  authenticate its health route at the edge rather than in Symfony, so the endpoint
+  can still answer during a database outage. A route shipped by this bundle would
+  sit outside that decision.
+* The application owns what may be disclosed. Provider keys and expiry dates are
+  information about a deployment, and whether they belong in a public readiness
+  response or an authenticated detail response is not this bundle's call.
+
+Exposing the data rather than a verdict also avoids a lossy mapping. The checker
+distinguishes four states, and `unknown` — a provider with no date configured — is
+not the same as healthy. Collapsing that into another library's pass/fail result
+would throw the distinction away, whereas an application mapping it itself can
+decide whether "nobody is tracking this secret" counts as degraded.
+
+This composes with whatever health system is in use:
+
+* a bespoke aggregator, as in the example above;
+* `macpaw/symfony-health-check-bundle`, where checks implement its own
+  `CheckInterface` and are listed by service id in configuration;
+* `liip/monitor-bundle`, which auto-discovers any class implementing
+  `Laminas\Diagnostics\Check\CheckInterface`.
+
+If an adapter is ever shipped from here, that last one is the target: the
+`laminas/laminas-diagnostics` contract depends on nothing but PHP, and its
+`Success`/`Warning`/`Failure`/`Skip` results map onto this bundle's four states
+almost exactly — including `Skip` for a provider with no date configured. It is not
+shipped today because no consuming application uses it yet, and a dependency added
+for hypothetical reach is a dependency to carry for nothing.
+
+#### Logging
+
+The bundle logs every login failure: an invalid state, an empty nonce, a failed
+token exchange, an unknown or unreachable provider, and the CLI login token
+paths. This is how a problem like an expired `client_secret` becomes visible —
+the IdP's own message is logged, with the causing exception attached to the
+record as `context['exception']`.
+
+**The bundle decides how severe each failure is; your application decides which
+levels it keeps.** Severity is not configurable, because it is a property of the
+event rather than of a deployment:
+
+| Event | Level |
+| ----- | ----- |
+| Token exchange or ID-token validation failed (an expired secret lands here) | `error` |
+| Provider not configured, or the session lost its provider key | `error` |
+| Identity provider unreachable, or the discovery cache failed | `error` |
+| CLI login token could not be resolved, or resolved to a bad value | `error` |
+| Invalid state, or a missing/empty nonce | `warning` |
+| Unknown provider key requested | `warning` |
+| No CLI login token provided | `warning` |
+
+The `warning` events are routine and client-driven — a stale bookmark, a replayed
+callback, a probe. The `error` events are the ones an operator needs to act on.
+
+##### Default: nothing to configure
+
+The bundle's services are tagged onto the `openid_connect` Monolog channel, so
+records flow to whatever handlers your application already has. Your existing
+`monolog` configuration therefore determines what is written, with no extra setup.
+
+##### A dedicated channel with its own level
+
+To give this bundle its own log file and threshold — for example to keep only
+`error` and above — add a handler scoped to the channel, and exclude that channel
+from your default handler so records are not written twice:
+
+```yaml
+monolog:
+    handlers:
+        # Everything except this bundle, at your usual level.
+        main:
+            type: stream
+            path: '%kernel.logs_dir%/%kernel.environment%.log'
+            level: debug
+            channels: ['!openid_connect']
+
+        # This bundle only, with its own threshold.
+        openid_connect:
+            type: stream
+            path: '%kernel.logs_dir%/openid_connect.log'
+            channels: ['openid_connect']
+            level: error
+```
+
+The `level` key on the handler is what gives you "only errors and above". Raising
+it filters out the `warning` events in the table above while keeping every
+`error`.
+
+##### Using a different logger service
+
+`logging_options.logger` takes any PSR-3 service id. Note that it **replaces** the
+channel logger rather than composing with it, so it is an escape hatch for sending
+these records somewhere else entirely — not the way to filter them:
+
+```yaml
+itkdev_openid_connect:
+  logging_options:
+    logger: 'my_app.audit_logger'
+```
+
+##### Turning logging off
+
+Point it at the `NullLogger` the bundle registers for the purpose:
+
+```yaml
+itkdev_openid_connect:
+  logging_options:
+    logger: 'itkdev_openid_connect.null_logger'
+```
+
+Your authenticator must be an autoconfigured service to receive a configured
+logger, since it is applied through `registerForAutoconfiguration()`. That is the
+default for services in `config/services.yaml`. With autoconfiguration disabled
+the authenticator falls back to a `NullLogger` and logs nothing, while the rest of
+the bundle keeps logging.
+
+#### Audit logging
+
+Separately from the failure logging above, the bundle can write an
+**authentication audit trail**: who logged in, when, by which method, and which
+attempts were refused. This answers a different question from the error log — "who
+did what?" rather than "is something broken?" — which is why it is a separate
+channel rather than another level.
+
+> [!IMPORTANT]
+> The audit trail records personal data (user identifiers, IP addresses). It is
+> **off by default**, and enabling it makes retention, access control and the
+> lawful basis for that processing your responsibility. Nothing is recorded, and
+> no record is even assembled, while it is disabled.
+
+```yaml
+itkdev_openid_connect:
+  audit_options:
+    enabled: true
+    # Optional: defaults to the application logger.
+    logger: 'monolog.logger.openid_connect_audit'
+    # Optional: 'raw' (default) or 'hashed'.
+    identifier: raw
+```
+
+Records are written at `info` on the `openid_connect_audit` channel, with one
+fixed context schema so the trail can be queried:
+
+| Key | Meaning |
+| --- | ------- |
+| `event` | one of the event names below |
+| `method` | `oidc` or `cli_token` — the coarse category to query on |
+| `authenticator` | concrete authenticator class, `null` for CLI token issuance |
+| `subject` | user identifier, or `null` where none is available |
+| `provider` | OIDC provider key, `null` for CLI token logins |
+| `firewall` | firewall that handled the login |
+| `ip` | client IP |
+| `outcome` | `success` or `failure` |
+| `reason` | failure cause, `null` on success |
+
+Events: `authentication.login_succeeded`, `authentication.login_failed`,
+`authentication.cli_token_issued`, `authentication.cli_token_reissued`,
+`authentication.cli_token_denied`.
+
+Give it a handler that will not be filtered out by an operational threshold, and
+retain it on whatever schedule your policy requires:
+
+```yaml
+monolog:
+    handlers:
+        openid_connect_audit:
+            type: stream
+            path: '%kernel.logs_dir%/openid_connect_audit.log'
+            channels: ['openid_connect_audit']
+            level: info
+```
+
+Only logins that went through **this bundle's** authenticators are recorded.
+Symfony dispatches its login events for every authenticator in the application, so
+if a project also offers password or API-token login, those events reach this
+subscriber and are deliberately ignored: an OIDC bundle silently recording an
+application's password logins would extend the personal-data processing past what
+was opted into, and `provider` would be meaningless for them. Applications wanting
+a complete authentication trail should subscribe to the same events themselves.
+
+Both `method` and `authenticator` are recorded because they answer different
+questions. `method` is stable and queryable; `authenticator` says which class
+actually ran, which matters because consumers subclass `OpenIdLoginAuthenticator`
+and an application may have several — one per provider, for instance.
+
+Three details worth knowing:
+
+* **Failed OIDC logins carry no `subject`.** This bundle raises its failures while
+  building the passport, so at that point Symfony has no authenticated identity to
+  report. The record still carries the provider, the IP and the reason.
+* **CLI login tokens are never recorded.** The token is bearer-equivalent, so
+  issuance is audited by subject only — the token and the login URL that embeds it
+  stay out of the trail.
+
+##### Pseudonymising identifiers
+
+Setting `identifier: hashed` replaces the identifier with an HMAC-SHA256 keyed on
+the application secret. It is stable, so records for the same person still
+correlate, but it is not reversible from a list of known email addresses — which a
+plain digest would be.
+
 #### Configuring the HTTP client
 
 Each provider accepts an optional `http_client_options` block that is forwarded
-to the underlying Guzzle HTTP client used by `league/oauth2-client`. This is
-useful for setting a request timeout so a slow IdP cannot block worker
-processes indefinitely.
+to the underlying Guzzle HTTP client used by `league/oauth2-client`. The bundle
+applies a sensible default `timeout` of `30` seconds so a slow IdP cannot block
+worker processes indefinitely (Guzzle's own default is `0`, i.e. wait forever).
+Override it per provider, or set it to `0` to opt back into Guzzle's behaviour.
 
 ```yaml
 itkdev_openid_connect:
@@ -166,7 +502,7 @@ itkdev_openid_connect:
         # ... existing keys ...
         # @see https://docs.guzzlephp.org/en/stable/request-options.html
         http_client_options:
-          # Float describing the total timeout of the request in seconds. Use 0 to wait indefinitely (the default behavior).
+          # Float describing the total timeout of the request in seconds. Defaults to 30; set to 0 to wait indefinitely.
           timeout: 5.0 
           # Pass a string to specify an HTTP proxy, or an array to specify different proxies for different protocols. (Default: none)
           proxy: "%env(string:HTTP_PROXY)%"
@@ -471,6 +807,27 @@ task test:matrix
 This runs PHPUnit with coverage for each combination and prints a summary of
 pass/fail results.
 
+### Mutation Testing
+
+Line coverage shows which code the tests *execute*; mutation testing shows
+which code they actually *verify*. [Infection](https://infection.github.io/)
+applies small changes (mutants) to the source code — flipping a comparison,
+removing a method call — and runs the test suite against each one. If the
+tests still pass, the mutant "escaped": a potential bug the tests would not
+catch.
+
+```shell
+task test:mutation
+```
+
+The minimum mutation score (`minCoveredMsi`) is defined in `infection.json5`
+and enforced both locally and in CI — no command line flags needed. CI
+annotates escaped mutants inline on pull requests, and results for `develop`
+are published to the
+[Stryker dashboard](https://dashboard.stryker-mutator.io/reports/github.com/itk-dev/openid-connect-bundle/develop),
+which also feeds the mutation score badge above. Detailed reports are written
+to `infection.log` and `infection.html` on each run.
+
 ### PHPStan Static Analysis
 
 ```shell
@@ -509,7 +866,8 @@ Run `task --list` to see all available tasks.
 
 ## CI
 
-GitHub Actions are used to run the test suite and code style checks on all PRs.
+GitHub Actions are used to run the test suite, mutation tests and code style
+checks on all PRs.
 
 ## Versioning
 

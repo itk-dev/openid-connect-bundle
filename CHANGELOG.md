@@ -7,6 +7,62 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.1.0] - 2026-08-19
+
+### Added
+
+- Per-provider `client_secret_expires_at` and `secret_expiry_options.warning_days`,
+  so the bundle knows when a client secret expires. Validated at compile time.
+- Documented how to surface client secret expiry through an application's own
+  health endpoint, using the public `ClientSecretExpiryChecker`.
+- A `critical` record once a client secret is past its configured expiry, and a
+  `warning` while it is expiring soon. Neither blocks a login: the identity
+  provider stays the authority on whether a secret still works.
+- Opt-in authentication audit trail (`audit_options`), writing logins, failed
+  attempts and CLI token issuance at `info` on the `openid_connect_audit`
+  channel. Off by default; identifiers can be pseudonymised with
+  `identifier: hashed`.
+- Failure logging through a PSR-3 logger on the `openid_connect` Monolog channel,
+  at a level fixed per failure mode. `logging_options.logger` picks the logger
+  service and defaults to the application logger.
+- Mutation testing with [Infection](https://infection.github.io/)
+  (`task test:mutation`), run in CI and reported to the Stryker dashboard
+  (mutation score badge in README)
+
+### Changed
+
+- `OpenIdLoginAuthenticator::onAuthenticationFailure()` now chains the
+  original exception via `previous` and includes its message, so logs and
+  error reporters retain the cause (timeout vs. signature mismatch vs.
+  wrong nonce). Symfony's security component still renders only the safe
+  message key to the user.
+- Strengthened tests guided by mutation testing; mutation score raised to
+  100% with a CI threshold of 95 (`minCoveredMsi` in `infection.json5`)
+- Test fixtures use RFC 2606 reserved domains (`provider.example.org`,
+  `app.example.org`) instead of registrable domains
+- CI: bumped `codecov/codecov-action` from `v5` to `v7` (restores Codecov's
+  GPG signing key after the `codecovsecurity` account was removed, and moves
+  the bundled `github-script` to Node 24) and set `fail_ci_if_error: false`
+  so a Codecov outage no longer fails the build. No effect on the published
+  package.
+- `http_client_options.timeout` now defaults to `30` seconds when not set,
+  so a slow or hung identity provider can no longer block worker processes
+  indefinitely. Previously no timeout was applied and Guzzle's own default
+  (`0` — wait forever) was used. Set `timeout: 0` to restore the old
+  behaviour, or override per provider.
+
+### Deprecated
+
+- Not configuring `client_secret_expires_at` for a provider. An expired secret
+  breaks every login and the bundle cannot warn about an expiry it does not know
+  about. Will be required in 6.0.
+
+### Fixed
+
+- `CliLoginTokenAuthenticator` now chains the cause via `previous` in
+  `onAuthenticationFailure()` and in the `CacheException`/`TokenNotFoundException`
+  catch, instead of discarding it. Mirrors `OpenIdLoginAuthenticator`.
+
 ## [5.0.0] - 2026-06-02
 
 ### Changed (BREAKING)
@@ -207,7 +263,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `itk-dev/openid-connect` 1.0.0 to 2.1.0
 - OpenId Connect Bundle: Added CLI login feature.
 
-[unreleased]: https://github.com/itk-dev/openid-connect-bundle/compare/5.0.0...HEAD
+[unreleased]: https://github.com/itk-dev/openid-connect-bundle/compare/5.1.0...HEAD
+[5.1.0]: https://github.com/itk-dev/openid-connect-bundle/compare/5.0.0...5.1.0
 [5.0.0]: https://github.com/itk-dev/openid-connect-bundle/compare/4.2.0...5.0.0
 [4.2.0]: https://github.com/itk-dev/openid-connect-bundle/compare/4.1.0...4.2.0
 [4.1.0]: https://github.com/itk-dev/openid-connect-bundle/compare/4.0.1...4.1.0
