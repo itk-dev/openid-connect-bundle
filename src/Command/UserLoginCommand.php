@@ -3,6 +3,7 @@
 namespace ItkDev\OpenIdConnectBundle\Command;
 
 use ItkDev\OpenIdConnectBundle\Exception\CacheException;
+use ItkDev\OpenIdConnectBundle\Log\AuthenticationAuditLogger;
 use ItkDev\OpenIdConnectBundle\Util\CliLoginHelper;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -27,6 +28,7 @@ class UserLoginCommand extends Command
         private readonly string $cliLoginRoute,
         private readonly UrlGeneratorInterface $urlGenerator,
         private readonly UserProviderInterface $userProvider,
+        private readonly AuthenticationAuditLogger $auditLogger,
     ) {
         parent::__construct();
     }
@@ -53,6 +55,8 @@ class UserLoginCommand extends Command
         try {
             $this->userProvider->loadUserByIdentifier($username);
         } catch (UserNotFoundException) {
+            $this->auditLogger->cliTokenDenied($username, 'User does not exist');
+
             $io->error('User does not exist');
 
             return Command::FAILURE;

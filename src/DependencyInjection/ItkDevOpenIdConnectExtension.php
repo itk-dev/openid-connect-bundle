@@ -4,6 +4,8 @@ namespace ItkDev\OpenIdConnectBundle\DependencyInjection;
 
 use ItkDev\OpenIdConnectBundle\Command\UserLoginCommand;
 use ItkDev\OpenIdConnectBundle\Controller\LoginController;
+use ItkDev\OpenIdConnectBundle\EventSubscriber\AuthenticationAuditSubscriber;
+use ItkDev\OpenIdConnectBundle\Log\AuthenticationAuditLogger;
 use ItkDev\OpenIdConnectBundle\Security\CliLoginTokenAuthenticator;
 use ItkDev\OpenIdConnectBundle\Security\OpenIdConfigurationProviderManager;
 use ItkDev\OpenIdConnectBundle\Security\OpenIdLoginAuthenticator;
@@ -30,12 +32,14 @@ class ItkDevOpenIdConnectExtension extends Extension
          *     cli_login_options: array{route: string},
          *     user_provider: string|null,
          *     logging_options: array{logger: string|null},
+         *     audit_options: array{enabled: bool, logger: string|null, identifier: string},
          *     openid_providers: array<string, array{options: array<string, mixed>}>
          *  } $config
          */
         $config = $this->processConfiguration($configuration, $configs);
 
         $this->configureLogging($container, $config['logging_options']);
+        $this->configureAuditLogging($container, $config['audit_options']);
 
         $definition = $container->getDefinition(OpenIdConfigurationProviderManager::class);
 
@@ -88,6 +92,34 @@ class ItkDevOpenIdConnectExtension extends Extension
         // LoggerAwareInterface pass, so the configured logger wins.
         $container->registerForAutoconfiguration(OpenIdLoginAuthenticator::class)
             ->addMethodCall('setLogger', [$logger]);
+    }
+
+    /**
+     * Apply `audit_options`.
+     *
+     * @param array{enabled: bool, logger: string|null, identifier: string} $options
+     */
+    private function configureAuditLogging(ContainerBuilder $container, array $options): void
+    {
+        $definition = $container->getDefinition(AuthenticationAuditLogger::class);
+        $definition->replaceArgument('$enabled', $options['enabled']);
+        $definition->replaceArgument('$identifierMode', $options['identifier']);
+
+        if (null !== $options['logger']) {
+            $definition->setArgument('$logger', new Reference($options['logger']));
+        }
+
+        // Only referenced when hashing is asked for, so installations on the
+        // default keep working without a configured framework secret.
+        if (AuthenticationAuditLogger::IDENTIFIER_HASHED === $options['identifier']) {
+            $definition->setArgument('$identifierSecret', '%kernel.secret%');
+        }
+
+        if (!$options['enabled']) {
+            // Not merely inert: the subscriber is gone, so no security event is
+            // handled and no record is built.
+            $container->removeDefinition(AuthenticationAuditSubscriber::class);
+        }
     }
 
     #[\Override]

@@ -3,6 +3,7 @@
 namespace ItkDev\OpenIdConnectBundle\Tests\DependencyInjection;
 
 use ItkDev\OpenIdConnectBundle\DependencyInjection\Configuration;
+use ItkDev\OpenIdConnectBundle\Log\AuthenticationAuditLogger;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Config\Definition\Exception\InvalidConfigurationException;
 use Symfony\Component\Config\Definition\Processor;
@@ -61,6 +62,50 @@ class ConfigurationTest extends TestCase
 
         // Logging defaults to the application logger.
         $this->assertNull($config['logging_options']['logger']);
+
+        // The audit trail is off unless asked for: it records personal data, so
+        // an upgrade must not switch it on.
+        $this->assertFalse($config['audit_options']['enabled']);
+        $this->assertNull($config['audit_options']['logger']);
+        $this->assertSame(AuthenticationAuditLogger::IDENTIFIER_RAW, $config['audit_options']['identifier']);
+    }
+
+    public function testAuditOptionsAccepted(): void
+    {
+        $input = $this->getMinimalConfig();
+        $input['audit_options'] = [
+            'enabled' => true,
+            'logger' => 'monolog.logger.openid_connect_audit',
+            'identifier' => AuthenticationAuditLogger::IDENTIFIER_HASHED,
+        ];
+
+        $config = $this->processor->processConfiguration($this->configuration, [$input]);
+
+        $this->assertTrue($config['audit_options']['enabled']);
+        $this->assertSame('monolog.logger.openid_connect_audit', $config['audit_options']['logger']);
+        $this->assertSame(AuthenticationAuditLogger::IDENTIFIER_HASHED, $config['audit_options']['identifier']);
+    }
+
+    public function testAuditOptionsAcceptsBothIdentifierModes(): void
+    {
+        foreach ([AuthenticationAuditLogger::IDENTIFIER_RAW, AuthenticationAuditLogger::IDENTIFIER_HASHED] as $mode) {
+            $input = $this->getMinimalConfig();
+            $input['audit_options'] = ['identifier' => $mode];
+
+            $config = $this->processor->processConfiguration($this->configuration, [$input]);
+
+            $this->assertSame($mode, $config['audit_options']['identifier']);
+        }
+    }
+
+    public function testAuditOptionsRejectsUnknownIdentifierMode(): void
+    {
+        $input = $this->getMinimalConfig();
+        $input['audit_options'] = ['identifier' => 'encrypted'];
+
+        $this->expectException(InvalidConfigurationException::class);
+
+        $this->processor->processConfiguration($this->configuration, [$input]);
     }
 
     public function testLoggingOptionsAccepted(): void

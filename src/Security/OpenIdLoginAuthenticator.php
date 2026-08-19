@@ -4,6 +4,7 @@ namespace ItkDev\OpenIdConnectBundle\Security;
 
 use ItkDev\OpenIdConnect\Exception\OpenIdConnectExceptionInterface;
 use ItkDev\OpenIdConnect\Exception\ValidationException;
+use ItkDev\OpenIdConnectBundle\EventSubscriber\AuthenticationAuditSubscriber;
 use Psr\Log\LoggerAwareInterface;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
@@ -72,6 +73,11 @@ abstract class OpenIdLoginAuthenticator extends AbstractAuthenticator implements
         $session = $request->getSession();
         $providerKey = $session->remove('oauth2provider');
         $providerKey = is_string($providerKey) ? $providerKey : '';
+
+        // The session entry is removed above, so carry the provider key on the
+        // request for anything downstream that needs to attribute this login —
+        // the audit subscriber in particular, which sees only the security event.
+        $request->attributes->set(AuthenticationAuditSubscriber::PROVIDER_ATTRIBUTE, $providerKey);
 
         try {
             $provider = $this->providerManager->getProvider($providerKey);

@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Opt-in authentication audit trail (`audit_options`), writing logins, failed
+  attempts and CLI token issuance at `info` on the `openid_connect_audit`
+  channel. Off by default; identifiers can be pseudonymised with
+  `identifier: hashed`.
 - Failure logging through a PSR-3 logger on the `openid_connect` Monolog channel,
   at a level fixed per failure mode. `logging_options.logger` picks the logger
   service and defaults to the application logger.

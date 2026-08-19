@@ -5,6 +5,8 @@ namespace ItkDev\OpenIdConnectBundle\Tests\DependencyInjection;
 use ItkDev\OpenIdConnectBundle\Command\UserLoginCommand;
 use ItkDev\OpenIdConnectBundle\Controller\LoginController;
 use ItkDev\OpenIdConnectBundle\DependencyInjection\ItkDevOpenIdConnectExtension;
+use ItkDev\OpenIdConnectBundle\EventSubscriber\AuthenticationAuditSubscriber;
+use ItkDev\OpenIdConnectBundle\Log\AuthenticationAuditLogger;
 use ItkDev\OpenIdConnectBundle\Security\CliLoginTokenAuthenticator;
 use ItkDev\OpenIdConnectBundle\Security\OpenIdConfigurationProviderManager;
 use ItkDev\OpenIdConnectBundle\Security\OpenIdLoginAuthenticator;
@@ -128,6 +130,56 @@ class ItkDevOpenIdConnectExtensionTest extends TestCase
         // Nothing to override: subclasses keep the logger FrameworkBundle's own
         // LoggerAwareInterface autoconfiguration gives them.
         $this->assertArrayNotHasKey(OpenIdLoginAuthenticator::class, $container->getAutoconfiguredInstanceof());
+    }
+
+    public function testAuditIsOffAndTheSubscriberIsAbsentByDefault(): void
+    {
+        $extension = new ItkDevOpenIdConnectExtension();
+        $container = new ContainerBuilder();
+
+        $extension->load([$this->getBaseConfig()], $container);
+
+        $arguments = $container->getDefinition(AuthenticationAuditLogger::class)->getArguments();
+        $this->assertFalse($arguments['$enabled']);
+        $this->assertSame(AuthenticationAuditLogger::IDENTIFIER_RAW, $arguments['$identifierMode']);
+        $this->assertArrayNotHasKey('$identifierSecret', $arguments, 'The framework secret is only referenced when hashing is asked for');
+
+        // Absent, not merely inert: no event is handled and no record is built.
+        $this->assertFalse($container->hasDefinition(AuthenticationAuditSubscriber::class));
+    }
+
+    public function testEnablingAuditRegistersTheSubscriber(): void
+    {
+        $extension = new ItkDevOpenIdConnectExtension();
+        $container = new ContainerBuilder();
+
+        $config = $this->getBaseConfig();
+        $config['audit_options'] = ['enabled' => true];
+
+        $extension->load([$config], $container);
+
+        $this->assertTrue($container->hasDefinition(AuthenticationAuditSubscriber::class));
+        $this->assertTrue($container->getDefinition(AuthenticationAuditLogger::class)->getArgument('$enabled'));
+    }
+
+    public function testAuditOptionsAreWired(): void
+    {
+        $extension = new ItkDevOpenIdConnectExtension();
+        $container = new ContainerBuilder();
+
+        $config = $this->getBaseConfig();
+        $config['audit_options'] = [
+            'enabled' => true,
+            'logger' => 'monolog.logger.openid_connect_audit',
+            'identifier' => AuthenticationAuditLogger::IDENTIFIER_HASHED,
+        ];
+
+        $extension->load([$config], $container);
+
+        $arguments = $container->getDefinition(AuthenticationAuditLogger::class)->getArguments();
+        $this->assertEquals(new Reference('monolog.logger.openid_connect_audit'), $arguments['$logger']);
+        $this->assertSame(AuthenticationAuditLogger::IDENTIFIER_HASHED, $arguments['$identifierMode']);
+        $this->assertSame('%kernel.secret%', $arguments['$identifierSecret']);
     }
 
     public function testLoadWiresProviderManagerConfig(): void

@@ -5,7 +5,9 @@ namespace ItkDev\OpenIdConnectBundle\Tests;
 use ItkDev\OpenIdConnectBundle\Command\UserLoginCommand;
 use ItkDev\OpenIdConnectBundle\Controller\LoginController;
 use ItkDev\OpenIdConnectBundle\DependencyInjection\ItkDevOpenIdConnectExtension;
+use ItkDev\OpenIdConnectBundle\EventSubscriber\AuthenticationAuditSubscriber;
 use ItkDev\OpenIdConnectBundle\ItkDevOpenIdConnectBundle;
+use ItkDev\OpenIdConnectBundle\Log\AuthenticationAuditLogger;
 use ItkDev\OpenIdConnectBundle\Security\CliLoginTokenAuthenticator;
 use ItkDev\OpenIdConnectBundle\Security\OpenIdConfigurationProviderManager;
 use ItkDev\OpenIdConnectBundle\Security\OpenIdLoginAuthenticator;
@@ -58,6 +60,14 @@ class ItkDevOpenIdConnectBundleTest extends TestCase
         $this->assertTrue($container->has(CliLoginTokenAuthenticator::class));
         $authenticator = $container->get(CliLoginTokenAuthenticator::class);
         $this->assertInstanceOf(CliLoginTokenAuthenticator::class, $authenticator);
+
+        // AuthenticationAuditLogger is always wired, but off unless configured,
+        // and the subscriber is absent entirely while it is off.
+        $this->assertTrue($container->has(AuthenticationAuditLogger::class));
+        $auditLogger = $container->get(AuthenticationAuditLogger::class);
+        $this->assertInstanceOf(AuthenticationAuditLogger::class, $auditLogger);
+        $this->assertFalse($auditLogger->isEnabled());
+        $this->assertFalse($container->has(AuthenticationAuditSubscriber::class));
     }
 
     /**

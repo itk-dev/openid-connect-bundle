@@ -6,6 +6,7 @@ use ItkDev\OpenIdConnect\Exception\ClaimsException;
 use ItkDev\OpenIdConnect\Exception\OpenIdConnectExceptionInterface;
 use ItkDev\OpenIdConnect\Exception\ValidationException;
 use ItkDev\OpenIdConnect\Security\OpenIdConfigurationProvider;
+use ItkDev\OpenIdConnectBundle\EventSubscriber\AuthenticationAuditSubscriber;
 use ItkDev\OpenIdConnectBundle\Exception\InvalidProviderException;
 use ItkDev\OpenIdConnectBundle\Security\OpenIdConfigurationProviderManager;
 use ItkDev\OpenIdConnectBundle\Security\OpenIdLoginAuthenticator;
@@ -86,6 +87,43 @@ class OpenIdLoginAuthenticatorTest extends TestCase
             return;
         }
         $this->fail('Expected InvalidProviderException');
+    }
+
+    public function testProviderKeyIsPublishedOnTheRequestForTheAuditTrail(): void
+    {
+        // The audit subscriber can only attribute a login to a provider because
+        // validateClaims() puts the key on the request: it is a local there, the
+        // session entry is removed destructively, and no security event carries it.
+        $stubProvider = $this->createStub(OpenIdConfigurationProvider::class);
+        $claims = new \stdClass();
+        $claims->email = 'test@example.org';
+        $claims->name = 'Test Tester';
+        $stubProvider->method('validateIdToken')->willReturn($claims);
+        $this->stubProviderManager->method('getProvider')->willReturn($stubProvider);
+
+        $request = new Request(query: ['state' => 'test_state', 'code' => 'test_code']);
+        $this->setSessionOnRequest($request);
+
+        $this->authenticator->authenticate($request);
+
+        $this->assertSame('test_provider_1', $request->attributes->get(AuthenticationAuditSubscriber::PROVIDER_ATTRIBUTE));
+    }
+
+    public function testProviderKeyIsPublishedEvenWhenValidationFails(): void
+    {
+        // Failure records carry the provider, so the attribute has to be set
+        // before any of the validation steps can throw.
+        $request = new Request(query: ['state' => 'wrong_test_state']);
+        $this->setSessionOnRequest($request);
+
+        try {
+            $this->authenticator->authenticate($request);
+        } catch (ValidationException) {
+            $this->assertSame('test_provider_1', $request->attributes->get(AuthenticationAuditSubscriber::PROVIDER_ATTRIBUTE));
+
+            return;
+        }
+        $this->fail('Expected ValidationException');
     }
 
     public function testValidateClaimsWrongState(): void
