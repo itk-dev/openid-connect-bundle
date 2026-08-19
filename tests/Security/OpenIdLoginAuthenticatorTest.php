@@ -7,7 +7,9 @@ use ItkDev\OpenIdConnect\Exception\OpenIdConnectExceptionInterface;
 use ItkDev\OpenIdConnect\Exception\ValidationException;
 use ItkDev\OpenIdConnect\Security\OpenIdConfigurationProvider;
 use ItkDev\OpenIdConnectBundle\EventSubscriber\AuthenticationAuditSubscriber;
+use ItkDev\OpenIdConnectBundle\Exception\AuthenticationFailedException;
 use ItkDev\OpenIdConnectBundle\Exception\InvalidProviderException;
+use ItkDev\OpenIdConnectBundle\Exception\OpenIdConnectBundleExceptionInterface;
 use ItkDev\OpenIdConnectBundle\Security\OpenIdConfigurationProviderManager;
 use ItkDev\OpenIdConnectBundle\Security\OpenIdLoginAuthenticator;
 use ItkDev\OpenIdConnectBundle\Tests\TestLogger;
@@ -48,19 +50,44 @@ class OpenIdLoginAuthenticatorTest extends TestCase
         $this->assertTrue($this->authenticator->supports($request));
     }
 
-    public function testOnAuthenticationFailurePreservesCause(): void
+    /**
+     * The assertion that encodes "the loop cannot come back".
+     *
+     * Everything else here is detail; what matters is the type. Symfony's security
+     * ExceptionListener catches `AuthenticationException` and re-enters the entry
+     * point, which for this authenticator is another redirect to the identity
+     * provider. Throwing something outside that hierarchy is what stops a failing
+     * callback from being retried forever.
+     */
+    public function testOnAuthenticationFailureThrowsOutsideTheSecurityHierarchy(): void
     {
         $cause = new AuthenticationException('Original cause message');
 
+        // Caught as Throwable on purpose: catching the expected type first would
+        // narrow it statically and make the assertions below tautologies, which is
+        // precisely the mistake that would let the type quietly regress.
         try {
             $this->authenticator->onAuthenticationFailure(new Request(), $cause);
-            $this->fail('Expected AuthenticationException');
-        } catch (AuthenticationException $thrown) {
+            $this->fail('Expected AuthenticationFailedException');
+        } catch (\Throwable $thrown) {
+            $this->assertNotInstanceOf(
+                AuthenticationException::class,
+                $thrown,
+                'An AuthenticationException would be caught by the firewall and turned back into a redirect to the identity provider',
+            );
+            $this->assertInstanceOf(
+                OpenIdConnectBundleExceptionInterface::class,
+                $thrown,
+                'Consumers catch the bundle marker, per ADR 001',
+            );
+            $this->assertInstanceOf(AuthenticationFailedException::class, $thrown);
+
             $this->assertSame($cause, $thrown->getPrevious(), 'Original exception must be chained as previous');
             $this->assertStringContainsString('Original cause message', $thrown->getMessage(), 'Cause message must be preserved for logs');
 
             // Deliberately no record: the framework already logs the original
-            // exception, and validateClaims() logged the specific reason.
+            // exception, validateClaims() logged the specific reason, and the
+            // application logs whatever escapes.
             $this->assertSame([], $this->logger->records);
         }
     }
@@ -271,8 +298,8 @@ class OpenIdLoginAuthenticatorTest extends TestCase
         // onAuthenticationFailure().
         try {
             $authenticator->onAuthenticationFailure(new Request(), new AuthenticationException('boom'));
-            $this->fail('Expected AuthenticationException');
-        } catch (AuthenticationException $thrown) {
+            $this->fail('Expected AuthenticationFailedException');
+        } catch (AuthenticationFailedException $thrown) {
             $this->assertStringContainsString('boom', $thrown->getMessage());
         }
     }

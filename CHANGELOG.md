@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed (BREAKING)
+
+- A failed OpenID Connect callback now throws
+  `AuthenticationFailedException` instead of Symfony's
+  `AuthenticationException`. The security component caught the latter and
+  answered by redirecting to the identity provider again, so a permanent
+  failure such as an expired client secret produced an unbreakable redirect
+  loop. The exception now escapes the firewall and the application renders its
+  own error. See `UPGRADE-6.0.md` and
+  `docs/adr/002-fail-closed-on-authentication-failure.md`.
+  `CliLoginTokenAuthenticator` is unchanged: it has no entry point of its own,
+  so it cannot loop.
+
 ## [5.1.1] - 2026-08-19
 
 ### Fixed
