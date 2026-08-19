@@ -29,8 +29,11 @@ use Symfony\Component\Security\Http\Event\LoginSuccessEvent;
  * the personal-data processing past what the operator opted into, and the
  * `provider` field would be meaningless for them.
  *
- * The extension only registers this subscriber when `audit_options.enabled` is
- * true, so a deployment that has not opted in does no event handling at all.
+ * The extension drops this subscriber entirely when `audit_options.enabled` is a
+ * literal false. It cannot do that when the setting comes from an environment
+ * variable — at compile time it sees an unresolved placeholder — so each handler
+ * also checks first and returns before reading anything off the event. Either way,
+ * a deployment that has not opted in assembles no personal data.
  */
 class AuthenticationAuditSubscriber implements EventSubscriberInterface
 {
@@ -63,6 +66,10 @@ class AuthenticationAuditSubscriber implements EventSubscriberInterface
 
     public function onLoginSuccess(LoginSuccessEvent $event): void
     {
+        if (!$this->auditLogger->isEnabled()) {
+            return;
+        }
+
         // Called for every successful login in the application, including ones
         // this bundle knows nothing about — form logins, API tokens, remember-me.
         // A null method means the login came from one of those, and nothing is
@@ -84,6 +91,10 @@ class AuthenticationAuditSubscriber implements EventSubscriberInterface
 
     public function onLoginFailure(LoginFailureEvent $event): void
     {
+        if (!$this->auditLogger->isEnabled()) {
+            return;
+        }
+
         // As above: a null method means some other authenticator rejected this
         // attempt, so it is none of this trail's business and nothing is recorded.
         $method = $this->method($event->getAuthenticator());

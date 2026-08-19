@@ -1,4 +1,6 @@
 framework:
+  # Needed by audit_options.identifier: hashed, which keys its HMAC on it.
+  secret: "test-app-secret"
   cache:
     pools:
       cache.array:

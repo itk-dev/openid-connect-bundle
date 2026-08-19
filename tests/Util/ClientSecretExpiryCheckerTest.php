@@ -2,15 +2,24 @@
 
 namespace ItkDev\OpenIdConnectBundle\Tests\Util;
 
+use ItkDev\OpenIdConnectBundle\Tests\TestLogger;
 use ItkDev\OpenIdConnectBundle\Util\ClientSecretExpiryChecker;
 use ItkDev\OpenIdConnectBundle\Util\ClientSecretExpiryStatus;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\LogLevel;
 use Symfony\Component\Clock\MockClock;
 
 class ClientSecretExpiryCheckerTest extends TestCase
 {
     private const string NOW = '2026-08-19 09:00:00';
+
+    private TestLogger $logger;
+
+    protected function setUp(): void
+    {
+        $this->logger = new TestLogger();
+    }
 
     /**
      * @param array<string, string|null> $expiryDates
@@ -21,6 +30,7 @@ class ClientSecretExpiryCheckerTest extends TestCase
             new MockClock(new \DateTimeImmutable(self::NOW, new \DateTimeZone('UTC'))),
             $expiryDates,
             $warningDays,
+            $this->logger,
         );
     }
 
@@ -113,6 +123,71 @@ class ClientSecretExpiryCheckerTest extends TestCase
         $this->assertSame(ClientSecretExpiryStatus::Expired, $statuses['legacy']->status);
         $this->assertSame(ClientSecretExpiryStatus::Unknown, $statuses['undated']->status);
         $this->assertSame('legacy', $statuses['legacy']->providerKey);
+    }
+
+    /**
+     * Values that arrive from an environment variable that is set but says nothing.
+     *
+     * @return iterable<string, array{string}>
+     */
+    public static function blankDateProvider(): iterable
+    {
+        yield 'empty' => [''];
+        yield 'whitespace only' => ['   '];
+    }
+
+    #[DataProvider('blankDateProvider')]
+    public function testBlankDateIsReportedAndTreatedAsUnknown(string $configured): void
+    {
+        // Without the guard these reach DateTimeImmutable, which reads them as
+        // "now" and would quietly report the secret as expiring today.
+        $status = $this->createChecker(['azure' => $configured])->getStatus('azure');
+
+        $this->assertSame(ClientSecretExpiryStatus::Unknown, $status->status);
+        $this->assertNull($status->expiresAt);
+
+        $record = $this->logger->singleRecord();
+        $this->assertSame(LogLevel::ERROR, $record['level']);
+        $this->assertStringContainsString('could not be parsed', $record['message']);
+        $this->assertSame($configured, $record['context']['configured']);
+        $this->assertArrayNotHasKey('exception', $record['context'], 'Nothing threw, so there is no exception to attach');
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function malformedDateProvider(): iterable
+    {
+        // Cannot be rejected when the container compiles: the value is an
+        // environment variable in every real deployment, and Symfony refuses one on
+        // a validated node.
+        yield 'prose' => ['whenever'];
+        yield 'unresolved placeholder' => ['env_1a2b3c_AZURE_AZ_OIDC_CLIENT_SECRET_EXPIRES_AT'];
+    }
+
+    #[DataProvider('malformedDateProvider')]
+    public function testMalformedDateIsReportedAndTreatedAsUnknown(string $configured): void
+    {
+        // Unknown rather than fatal: a mistyped date must not take an application
+        // down. But it is logged, because the effect is that nothing is monitoring
+        // this secret — silence would be the same as no feature at all.
+        $status = $this->createChecker(['azure' => $configured])->getStatus('azure');
+
+        $this->assertSame(ClientSecretExpiryStatus::Unknown, $status->status);
+        $this->assertNull($status->daysRemaining);
+
+        $record = $this->logger->singleRecord();
+        $this->assertSame(LogLevel::ERROR, $record['level']);
+        $this->assertSame('azure', $record['context']['provider']);
+        $this->assertSame($configured, $record['context']['configured']);
+        $this->assertInstanceOf(\Exception::class, $record['context']['exception'] ?? null, 'The parse failure is attached for debugging');
+    }
+
+    public function testAParseableDateLogsNothing(): void
+    {
+        $this->createChecker(['azure' => '2027-01-31'])->getStatus('azure');
+
+        $this->assertSame([], $this->logger->records);
     }
 
     public function testToArrayShape(): void

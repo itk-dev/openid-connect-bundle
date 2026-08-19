@@ -75,6 +75,59 @@ class ConfigurationTest extends TestCase
         $this->assertSame(30, $config['secret_expiry_options']['warning_days']);
     }
 
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function unparseableLiteralDateProvider(): iterable
+    {
+        yield 'prose' => ['whenever'];
+        yield 'transposed' => ['31-02-2027 25:00'];
+        yield 'nonsense' => ['not-a-date'];
+        // Only the exact '' fixture is exempt, so this is a typo the build catches.
+        yield 'whitespace only' => ['   '];
+    }
+
+    /**
+     * A typo in a literal date still fails the build.
+     *
+     * Environment variable *contents* cannot be checked while compiling, but a
+     * hardcoded value can be, and that is worth keeping: the alternative is a typo
+     * degrading to a logged `unknown` that somebody has to notice.
+     */
+    #[DataProvider('unparseableLiteralDateProvider')]
+    public function testClientSecretExpiresAtRejectsUnparseableLiterals(string $date): void
+    {
+        $input = $this->getMinimalConfig();
+        $input['openid_providers']['provider1']['options']['client_secret_expires_at'] = $date;
+
+        $this->expectException(InvalidConfigurationException::class);
+
+        $this->processor->processConfiguration($this->configuration, [$input]);
+    }
+
+    /**
+     * @return iterable<string, array{string|null}>
+     */
+    public static function toleratedEmptyDateProvider(): iterable
+    {
+        // '' is the fixture Symfony substitutes for a string env var while
+        // compiling, so it has to pass here; the checker reports it at runtime.
+        yield 'empty string' => [''];
+        // An explicit null is a deliberate "not configured", not a typo.
+        yield 'explicit null' => [null];
+    }
+
+    #[DataProvider('toleratedEmptyDateProvider')]
+    public function testClientSecretExpiresAtToleratesEmptyValues(?string $date): void
+    {
+        $input = $this->getMinimalConfig();
+        $input['openid_providers']['provider1']['options']['client_secret_expires_at'] = $date;
+
+        $config = $this->processor->processConfiguration($this->configuration, [$input]);
+
+        $this->assertSame($date, $config['openid_providers']['provider1']['options']['client_secret_expires_at']);
+    }
+
     public function testClientSecretExpiresAtAccepted(): void
     {
         $input = $this->getMinimalConfig();
@@ -85,31 +138,6 @@ class ConfigurationTest extends TestCase
 
         $this->assertSame('2027-01-31', $config['openid_providers']['provider1']['options']['client_secret_expires_at']);
         $this->assertSame(14, $config['secret_expiry_options']['warning_days']);
-    }
-
-    /**
-     * @return iterable<string, array{string}>
-     */
-    public static function unparseableDateProvider(): iterable
-    {
-        yield 'prose' => ['whenever'];
-        yield 'transposed' => ['31-02-2027 25:00'];
-        yield 'nonsense' => ['not-a-date'];
-    }
-
-    /**
-     * Validated as the container compiles, so a typo is a build failure rather
-     * than a silent "unknown" that never warns about anything.
-     */
-    #[DataProvider('unparseableDateProvider')]
-    public function testClientSecretExpiresAtRejectsUnparseableDates(string $date): void
-    {
-        $input = $this->getMinimalConfig();
-        $input['openid_providers']['provider1']['options']['client_secret_expires_at'] = $date;
-
-        $this->expectException(InvalidConfigurationException::class);
-
-        $this->processor->processConfiguration($this->configuration, [$input]);
     }
 
     public function testWarningDaysAcceptsZero(): void
@@ -161,10 +189,26 @@ class ConfigurationTest extends TestCase
         }
     }
 
-    public function testAuditOptionsRejectsUnknownIdentifierMode(): void
+    /**
+     * @return iterable<string, array{mixed}>
+     */
+    public static function invalidIdentifierModeProvider(): iterable
+    {
+        yield 'unknown word' => ['encrypted'];
+        yield 'wrong case' => ['RAW'];
+        yield 'not a string' => [123];
+        yield 'explicit null' => [null];
+        // An environment variable would arrive as this fixture while compiling, and
+        // rejecting it is the point: the HMAC key is chosen then, so the mode has to
+        // be a literal. Varying it per environment is what `when@prod:` is for.
+        yield 'empty (the env placeholder fixture)' => [''];
+    }
+
+    #[DataProvider('invalidIdentifierModeProvider')]
+    public function testAuditOptionsRejectsUnknownIdentifierMode(mixed $identifier): void
     {
         $input = $this->getMinimalConfig();
-        $input['audit_options'] = ['identifier' => 'encrypted'];
+        $input['audit_options'] = ['identifier' => $identifier];
 
         $this->expectException(InvalidConfigurationException::class);
 

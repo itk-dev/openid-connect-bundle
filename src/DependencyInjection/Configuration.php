@@ -63,8 +63,17 @@ class Configuration implements ConfigurationInterface
                             ->defaultNull()
                             ->cannotBeEmpty()
                         ->end() // logger
+                        // Deliberately NOT settable from an environment variable, and
+                        // an enumNode enforces that by refusing one. The extension
+                        // picks the HMAC key while the container compiles, so it has
+                        // to know the mode then; an environment variable would leave
+                        // it comparing against an unresolved placeholder and quietly
+                        // hashing with an empty key, which is worse than not hashing
+                        // at all because it looks pseudonymised. To vary this per
+                        // environment use Symfony's `when@prod:` blocks, which are
+                        // resolved at compile time and work here.
                         ->enumNode('identifier')
-                            ->info('Record user identifiers as-is ("raw") or pseudonymised ("hashed"). Hashing is keyed with the application secret, so records still correlate.')
+                            ->info('Record user identifiers as-is ("raw") or pseudonymised ("hashed"). Hashing is keyed with the application secret, so records still correlate. Cannot come from an environment variable; use environment-specific configuration instead.')
                             ->values([AuthenticationAuditLogger::IDENTIFIER_RAW, AuthenticationAuditLogger::IDENTIFIER_HASHED])
                             ->defaultValue(AuthenticationAuditLogger::IDENTIFIER_RAW)
                         ->end() // identifier
@@ -102,11 +111,34 @@ class Configuration implements ConfigurationInterface
                                         ->isRequired()->cannotBeEmpty()
                                     ->end()
                                     ->scalarNode('client_secret_expires_at')
-                                        ->info('Date the client secret expires, e.g. "2027-01-31". An expired secret breaks every login, so configuring this lets the bundle warn while there is still time to rotate. Will be required in 6.0.')
+                                        // No cannotBeEmpty() here, and it cannot come back:
+                                        // VariableNode::finalizeValue() refuses an environment variable
+                                        // whenever empty values are disallowed and the node has any
+                                        // validation closure, without looking at what the closure does.
+                                        // On a node fed from the environment the two are mutually
+                                        // exclusive, and the closure is the half worth keeping — a
+                                        // mistyped literal is the realistic mistake, while the empties
+                                        // cannotBeEmpty() would have caught are reported at runtime by
+                                        // ClientSecretExpiryChecker. It never caught whitespace-only
+                                        // values regardless: ScalarNode::isValueEmpty() is
+                                        // `null === $value || '' === $value`.
+                                        ->info('Date the client secret expires, e.g. "2027-01-31". Anything strtotime() understands, and usually an environment variable. An expired secret breaks every login, so configuring this lets the bundle warn while there is still time to rotate. Will be required in 6.0.')
                                         ->defaultNull()
-                                        ->cannotBeEmpty()
                                         ->validate()
-                                            ->ifTrue(static fn (mixed $v): bool => is_string($v) && false === strtotime($v))
+                                            // '' is exempt because it is the dummy fixture Symfony
+                                            // substitutes for %env(string:...)% while compiling
+                                            // (ValidateEnvPlaceholdersPass::TYPE_FIXTURES), so rejecting
+                                            // it here would reject every environment variable. Only that
+                                            // exact value is exempt — a whitespace-only literal is a typo
+                                            // and fails here, while a whitespace-only *environment* value
+                                            // is caught at runtime by the checker. Env var contents can
+                                            // never be validated at compile time; what this catches is a
+                                            // typo in a literal date.
+                                            // The trim() check is not redundant: strtotime('   ') returns
+                                            // a timestamp rather than false, the same "blank means now"
+                                            // quirk DateTimeImmutable has, so whitespace would otherwise
+                                            // sail through as a valid date.
+                                            ->ifTrue(static fn (mixed $v): bool => is_string($v) && '' !== $v && ('' === trim($v) || false === strtotime($v)))
                                             ->thenInvalid('client_secret_expires_at must be a date parseable by strtotime(), e.g. "2027-01-31". Got %s.')
                                         ->end()
                                     ->end()

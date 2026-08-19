@@ -130,9 +130,11 @@ class ItkDevOpenIdConnectExtension extends Extension
             $definition->setArgument('$identifierSecret', '%kernel.secret%');
         }
 
-        if (!$options['enabled']) {
-            // Not merely inert: the subscriber is gone, so no security event is
-            // handled and no record is built.
+        if (false === $options['enabled']) {
+            // An optimisation for the literal case only: with `enabled` coming from
+            // an environment variable this is an unresolved placeholder, so the
+            // subscriber stays registered and returns early instead. Its own guard
+            // is what guarantees nothing is assembled either way.
             $container->removeDefinition(AuthenticationAuditSubscriber::class);
         }
     }

@@ -173,6 +173,17 @@ class AuthenticationAuditLoggerTest extends TestCase
         $this->assertNotSame(hash('sha256', 'user@example.org'), $first);
     }
 
+    public function testAnUnrecognisedIdentifierModeFailsSafeByHashing(): void
+    {
+        // Reachable from a blank or mistyped environment variable. Writing the
+        // identifier in the clear would be the wrong way to fail.
+        $this->createLogger(identifier: '')->cliTokenIssued('user@example.org', reissued: false);
+
+        $subject = $this->logger->singleRecord()['context']['subject'];
+        $this->assertNotSame('user@example.org', $subject);
+        $this->assertSame(hash_hmac('sha256', 'user@example.org', 'test-secret'), $subject);
+    }
+
     public function testRawIsTheDefaultIdentifierMode(): void
     {
         $this->createLogger()->cliTokenIssued('user@example.org', reissued: false);

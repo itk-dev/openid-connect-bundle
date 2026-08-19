@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.1.1] - 2026-08-19
+
+### Fixed
+
+- `audit_options.identifier` is documented and enforced as not settable from an
+  environment variable. The HMAC key is chosen while the container compiles, so an
+  environment variable left it hashing with an empty key — pseudonymised in
+  appearance only. Use environment-specific configuration to vary it.
+- The audit subscriber returns before reading anything off a security event when
+  the trail is disabled, so `audit_options.enabled` fed from an environment
+  variable assembles no personal data either. Removing the subscriber outright
+  remains an optimisation for a literal `false`.
+- `client_secret_expires_at` can be set from an environment variable again.
+  Validating it as the container compiled made Symfony reject any `%env()%`
+  value, which is how every deployment supplies it. Unparseable and blank values
+  are now reported at runtime: the provider is `unknown` and an `error` is logged
+  saying it is not being monitored. A mistyped literal still fails the build.
+
 ## [5.1.0] - 2026-08-19
 
 ### Added
@@ -263,7 +281,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `itk-dev/openid-connect` 1.0.0 to 2.1.0
 - OpenId Connect Bundle: Added CLI login feature.
 
-[unreleased]: https://github.com/itk-dev/openid-connect-bundle/compare/5.1.0...HEAD
+[unreleased]: https://github.com/itk-dev/openid-connect-bundle/compare/5.1.1...HEAD
+[5.1.1]: https://github.com/itk-dev/openid-connect-bundle/compare/5.1.0...5.1.1
 [5.1.0]: https://github.com/itk-dev/openid-connect-bundle/compare/5.0.0...5.1.0
 [5.0.0]: https://github.com/itk-dev/openid-connect-bundle/compare/4.2.0...5.0.0
 [4.2.0]: https://github.com/itk-dev/openid-connect-bundle/compare/4.1.0...4.2.0
