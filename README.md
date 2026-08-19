@@ -101,6 +101,9 @@ itkdev_openid_connect:
     # Optional: write an authentication audit trail. OFF by default because
     #           audit records identify people. See "Audit logging" below.
     enabled: false
+  secret_expiry_options:
+    # Optional: how many days ahead of expiry to start warning (default: 30).
+    warning_days: 30
   openid_providers:
     # Define one or more providers
     # [providerKey]:
@@ -112,6 +115,10 @@ itkdev_openid_connect:
         metadata_url: '%env(string:ADMIN_OIDC_METADATA_URL)%'
         client_id: '%env(string:ADMIN_OIDC_CLIENT_ID)%'
         client_secret: '%env(string:ADMIN_OIDC_CLIENT_SECRET)%'
+        # Date the client secret expires. An expired secret breaks every login,
+        # so setting this lets the bundle warn while there is still time to
+        # rotate. Will be REQUIRED in 6.0. See "Client secret expiry" below.
+        client_secret_expires_at: '%env(string:ADMIN_OIDC_CLIENT_SECRET_EXPIRES_AT)%'
         # Specify redirect URI
         redirect_uri: '%env(string:ADMIN_OIDC_REDIRECT_URI)%'
         # Optional: Specify leeway (seconds) to account for clock skew between provider and hosting
@@ -143,6 +150,7 @@ With the following `.env` environment variables
 ADMIN_OIDC_METADATA_URL=ADMIN_APP_METADATA_URL
 ADMIN_OIDC_CLIENT_ID=ADMIN_APP_CLIENT_ID
 ADMIN_OIDC_CLIENT_SECRET=ADMIN_APP_CLIENT_SECRET
+ADMIN_OIDC_CLIENT_SECRET_EXPIRES_AT=2027-01-31
 ADMIN_OIDC_REDIRECT_URI=ADMIN_APP_REDIRECT_URI
 ADMIN_OIDC_LEEWAY=30
 ADMIN_OIDC_CACHE_DURATION=86400
@@ -159,6 +167,45 @@ OIDC_CLI_LOGIN_ROUTE=OIDC_CLI_LOGIN_ROUTE
 ```
 
 Set the actual values your `env.local` file to ensure they are not committed to Git.
+
+#### Client secret expiry
+
+An expired client secret breaks **every** login: the token exchange starts failing
+with `invalid_client` and there is nothing in the flow that says why. The expiry
+date is known when the secret is created, so telling the bundle about it turns an
+outage into a calendar item.
+
+```yaml
+itkdev_openid_connect:
+  secret_expiry_options:
+    warning_days: 30 # default
+  openid_providers:
+    admin:
+      options:
+        client_secret_expires_at: '2027-01-31'
+```
+
+Any date `strtotime()` understands is accepted, and the value is validated when the
+container compiles — a typo fails the build rather than silently becoming "no idea
+when this expires". Date-only values are anchored to midnight UTC so the day count
+does not drift with the time of day the check runs.
+
+Each provider is then in one of four states:
+
+| Status | Meaning |
+| ------ | ------- |
+| `unknown` | no date configured — nothing can be said |
+| `ok` | more than `warning_days` remaining |
+| `expiring_soon` | `warning_days` or fewer remaining |
+| `expired` | the date has passed |
+
+`unknown` is deliberately distinct from `ok`: an installation that has not set a
+date is not fine, it is unmonitored.
+
+> [!NOTE]
+> `client_secret_expires_at` is optional in 5.x and **will be required in 6.0**.
+> Providers without it emit a deprecation warning, because the bundle cannot warn
+> about an expiry it does not know about.
 
 #### Logging
 

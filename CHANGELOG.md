@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Per-provider `client_secret_expires_at` and `secret_expiry_options.warning_days`,
+  so the bundle knows when a client secret expires. Validated at compile time.
 - Opt-in authentication audit trail (`audit_options`), writing logins, failed
   attempts and CLI token issuance at `info` on the `openid_connect_audit`
   channel. Off by default; identifiers can be pseudonymised with
@@ -41,6 +43,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   indefinitely. Previously no timeout was applied and Guzzle's own default
   (`0` — wait forever) was used. Set `timeout: 0` to restore the old
   behaviour, or override per provider.
+
+### Deprecated
+
+- Not configuring `client_secret_expires_at` for a provider. An expired secret
+  breaks every login and the bundle cannot warn about an expiry it does not know
+  about. Will be required in 6.0.
 
 ### Fixed
 

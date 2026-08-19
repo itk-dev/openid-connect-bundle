@@ -11,6 +11,7 @@ use ItkDev\OpenIdConnectBundle\Log\AuthenticationAuditLogger;
 use ItkDev\OpenIdConnectBundle\Security\CliLoginTokenAuthenticator;
 use ItkDev\OpenIdConnectBundle\Security\OpenIdConfigurationProviderManager;
 use ItkDev\OpenIdConnectBundle\Security\OpenIdLoginAuthenticator;
+use ItkDev\OpenIdConnectBundle\Util\ClientSecretExpiryChecker;
 use ItkDev\OpenIdConnectBundle\Util\CliLoginHelper;
 use PHPUnit\Framework\TestCase;
 
@@ -68,6 +69,11 @@ class ItkDevOpenIdConnectBundleTest extends TestCase
         $this->assertInstanceOf(AuthenticationAuditLogger::class, $auditLogger);
         $this->assertFalse($auditLogger->isEnabled());
         $this->assertFalse($container->has(AuthenticationAuditSubscriber::class));
+
+        // ClientSecretExpiryChecker
+        $this->assertTrue($container->has(ClientSecretExpiryChecker::class));
+        $checker = $container->get(ClientSecretExpiryChecker::class);
+        $this->assertInstanceOf(ClientSecretExpiryChecker::class, $checker);
     }
 
     /**

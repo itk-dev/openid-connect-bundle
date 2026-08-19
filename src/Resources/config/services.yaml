@@ -27,6 +27,12 @@ services:
   ItkDev\OpenIdConnectBundle\EventSubscriber\AuthenticationAuditSubscriber:
     public: true
 
+  ItkDev\OpenIdConnectBundle\Util\ClientSecretExpiryChecker:
+    public: true
+    arguments:
+      $expiryDates: ~
+      $warningDays: ~
+
   ItkDev\OpenIdConnectBundle\Security\OpenIdConfigurationProviderManager:
     public: true
     arguments:
