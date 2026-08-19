@@ -5,6 +5,7 @@ namespace ItkDev\OpenIdConnectBundle\Security;
 use ItkDev\OpenIdConnect\Exception\OpenIdConnectExceptionInterface;
 use ItkDev\OpenIdConnect\Exception\ValidationException;
 use ItkDev\OpenIdConnectBundle\EventSubscriber\AuthenticationAuditSubscriber;
+use ItkDev\OpenIdConnectBundle\Exception\AuthenticationFailedException;
 use Psr\Log\LoggerAwareInterface;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
@@ -16,6 +17,11 @@ use Symfony\Component\Security\Http\EntryPoint\AuthenticationEntryPointInterface
 
 /**
  * Authenticator for OpenId Connect login.
+ *
+ * A failed callback throws `AuthenticationFailedException`, which is not an
+ * `AuthenticationException` and so is not turned back into another redirect to the
+ * identity provider. Consuming applications see a 500 and can render whatever they
+ * like from it; what they no longer see is an unbreakable redirect loop.
  *
  * The logger is injected through `setLogger()` rather than the constructor on
  * purpose: this class is extended by consuming applications, whose subclasses
@@ -139,14 +145,52 @@ abstract class OpenIdLoginAuthenticator extends AbstractAuthenticator implements
 
     public function onAuthenticationFailure(Request $request, AuthenticationException $exception): ?Response
     {
-        // Deliberately not logged here. `AuthenticatorManager` already logs the
-        // original exception at info before it swaps sensitive causes for a generic
-        // `BadCredentialsException`, and the specific reason was logged by
-        // `validateClaims()`. A record here would be the third for one failure.
+        // Not an AuthenticationException, and that is the entire point. The
+        // security component catches those and hands control back to this
+        // authenticator's own start(), which redirects to the identity provider
+        // again — so a callback that keeps failing keeps being retried. That is the
+        // loop that took sites.itkdev.dk down for the duration of an expired client
+        // secret. AuthenticatorManager::executeAuthenticator() catches only
+        // AuthenticationException, so this propagates to HttpKernel instead and the
+        // application renders its own error.
         //
-        // Preserve the cause so logs and error reporters can see what actually
-        // failed (timeout, signature mismatch, wrong nonce, etc.). Symfony's
-        // security component renders only the safe message key to the user.
-        throw new AuthenticationException(sprintf('Error occurred validating openid login: %s', $exception->getMessage()), $exception->getCode(), $exception);
+        // Still not logged here: AuthenticatorManager has already logged the
+        // original exception, validateClaims() logged the specific reason, and the
+        // application's error handling logs whatever escapes. A record here would be
+        // the fourth for one failure.
+        throw new AuthenticationFailedException(sprintf('Error occurred validating openid login: %s', $exception->getMessage()), $exception->getCode(), self::causeOutsideSecurity($exception));
+    }
+
+    /**
+     * The first cause carrying no `AuthenticationException` anywhere beneath it.
+     *
+     * Changing the thrown type is not enough on its own: the security
+     * `ExceptionListener` walks the whole `$previous` chain, so chaining the
+     * `AuthenticationException` it handed us would put one back within reach and it
+     * would redirect to the entry point regardless — the loop restored by the cause
+     * instead of by the type. The library exception underneath carries the reason
+     * worth keeping, and `validateClaims()` has already logged it with the full
+     * chain attached.
+     */
+    private static function causeOutsideSecurity(\Throwable $exception): ?\Throwable
+    {
+        for ($cause = $exception->getPrevious(); null !== $cause; $cause = $cause->getPrevious()) {
+            if (!self::containsSecurityException($cause)) {
+                return $cause;
+            }
+        }
+
+        return null;
+    }
+
+    private static function containsSecurityException(\Throwable $exception): bool
+    {
+        for ($current = $exception; null !== $current; $current = $current->getPrevious()) {
+            if ($current instanceof AuthenticationException) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

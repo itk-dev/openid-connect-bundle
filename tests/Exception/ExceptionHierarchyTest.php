@@ -4,6 +4,7 @@ namespace ItkDev\OpenIdConnectBundle\Tests\Exception;
 
 use ItkDev\OpenIdConnect\Exception\HttpException as LibraryHttpException;
 use ItkDev\OpenIdConnect\Exception\OpenIdConnectExceptionInterface;
+use ItkDev\OpenIdConnectBundle\Exception\AuthenticationFailedException;
 use ItkDev\OpenIdConnectBundle\Exception\CacheException;
 use ItkDev\OpenIdConnectBundle\Exception\InvalidProviderException;
 use ItkDev\OpenIdConnectBundle\Exception\ItkOpenIdConnectBundleException;
@@ -42,6 +43,7 @@ class ExceptionHierarchyTest extends TestCase
         yield 'CacheException' => [CacheException::class, \RuntimeException::class];
         yield 'TokenNotFoundException' => [TokenNotFoundException::class, \RuntimeException::class];
         yield 'UserDoesNotExistException' => [UserDoesNotExistException::class, \RuntimeException::class];
+        yield 'AuthenticationFailedException' => [AuthenticationFailedException::class, \RuntimeException::class];
     }
 
     /**

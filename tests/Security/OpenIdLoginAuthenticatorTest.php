@@ -7,10 +7,13 @@ use ItkDev\OpenIdConnect\Exception\OpenIdConnectExceptionInterface;
 use ItkDev\OpenIdConnect\Exception\ValidationException;
 use ItkDev\OpenIdConnect\Security\OpenIdConfigurationProvider;
 use ItkDev\OpenIdConnectBundle\EventSubscriber\AuthenticationAuditSubscriber;
+use ItkDev\OpenIdConnectBundle\Exception\AuthenticationFailedException;
 use ItkDev\OpenIdConnectBundle\Exception\InvalidProviderException;
+use ItkDev\OpenIdConnectBundle\Exception\OpenIdConnectBundleExceptionInterface;
 use ItkDev\OpenIdConnectBundle\Security\OpenIdConfigurationProviderManager;
 use ItkDev\OpenIdConnectBundle\Security\OpenIdLoginAuthenticator;
 use ItkDev\OpenIdConnectBundle\Tests\TestLogger;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LogLevel;
@@ -48,21 +51,87 @@ class OpenIdLoginAuthenticatorTest extends TestCase
         $this->assertTrue($this->authenticator->supports($request));
     }
 
-    public function testOnAuthenticationFailurePreservesCause(): void
+    /**
+     * The assertion that encodes "the loop cannot come back".
+     *
+     * Everything else here is detail; what matters is the type. Symfony's security
+     * ExceptionListener catches `AuthenticationException` and re-enters the entry
+     * point, which for this authenticator is another redirect to the identity
+     * provider. Throwing something outside that hierarchy is what stops a failing
+     * callback from being retried forever.
+     */
+    public function testOnAuthenticationFailureThrowsOutsideTheSecurityHierarchy(): void
     {
         $cause = new AuthenticationException('Original cause message');
 
+        // Caught as Throwable on purpose: catching the expected type first would
+        // narrow it statically and make the assertions below tautologies, which is
+        // precisely the mistake that would let the type quietly regress.
         try {
             $this->authenticator->onAuthenticationFailure(new Request(), $cause);
-            $this->fail('Expected AuthenticationException');
-        } catch (AuthenticationException $thrown) {
-            $this->assertSame($cause, $thrown->getPrevious(), 'Original exception must be chained as previous');
+            $this->fail('Expected AuthenticationFailedException');
+        } catch (\Throwable $thrown) {
+            $this->assertNotInstanceOf(
+                AuthenticationException::class,
+                $thrown,
+                'An AuthenticationException would be caught by the firewall and turned back into a redirect to the identity provider',
+            );
+            $this->assertInstanceOf(
+                OpenIdConnectBundleExceptionInterface::class,
+                $thrown,
+                'Consumers catch the bundle marker, per ADR 001',
+            );
+            $this->assertInstanceOf(AuthenticationFailedException::class, $thrown);
+
+            // Not chained, even though ADR 001 asks for a cause: the security
+            // ExceptionListener walks the whole $previous chain, so an
+            // AuthenticationException reachable through it is caught and turned back
+            // into a redirect exactly as if it had been thrown directly. The message
+            // carries the reason instead.
+            $this->assertNull($thrown->getPrevious(), 'An AuthenticationException must not be reachable through the chain');
             $this->assertStringContainsString('Original cause message', $thrown->getMessage(), 'Cause message must be preserved for logs');
 
             // Deliberately no record: the framework already logs the original
-            // exception, and validateClaims() logged the specific reason.
+            // exception, validateClaims() logged the specific reason, and the
+            // application logs whatever escapes.
             $this->assertSame([], $this->logger->records);
         }
+    }
+
+    /**
+     * The chain is dropped only as far as it has to be. A library exception below
+     * the AuthenticationException is what says *why* the callback failed, and it
+     * is safe to keep because the listener does not act on it.
+     */
+    #[DataProvider('causeChainProvider')]
+    public function testACauseOutsideTheSecurityHierarchyIsKept(\Throwable $cause, ?\Throwable $expected): void
+    {
+        try {
+            $this->authenticator->onAuthenticationFailure(new Request(), new AuthenticationException('Sanitised by the firewall', 0, $cause));
+            $this->fail('Expected AuthenticationFailedException');
+        } catch (\Throwable $thrown) {
+            $this->assertSame($expected, $thrown->getPrevious());
+        }
+    }
+
+    /**
+     * @return iterable<string, array{\Throwable, ?\Throwable}>
+     */
+    public static function causeChainProvider(): iterable
+    {
+        $root = new ValidationException('Invalid state');
+
+        yield 'library cause is kept' => [$root, $root];
+        // The firewall wraps more than once in places, so one skip is not enough.
+        yield 'reached past nested security exceptions' => [new AuthenticationException('inner', 0, $root), $root];
+        // A library exception is not safe merely by being one: skipping only the
+        // leading security exceptions would keep this outer cause and leave an
+        // AuthenticationException reachable one level further down.
+        yield 'library cause hiding a security exception is skipped too' => [
+            new ValidationException('outer', 0, new AuthenticationException('inner', 0, $root)),
+            $root,
+        ];
+        yield 'nothing left to keep' => [new AuthenticationException('inner'), null];
     }
 
     public function testUnknownProviderIsLoggedAndRethrown(): void
@@ -271,8 +340,8 @@ class OpenIdLoginAuthenticatorTest extends TestCase
         // onAuthenticationFailure().
         try {
             $authenticator->onAuthenticationFailure(new Request(), new AuthenticationException('boom'));
-            $this->fail('Expected AuthenticationException');
-        } catch (AuthenticationException $thrown) {
+            $this->fail('Expected AuthenticationFailedException');
+        } catch (AuthenticationFailedException $thrown) {
             $this->assertStringContainsString('boom', $thrown->getMessage());
         }
     }

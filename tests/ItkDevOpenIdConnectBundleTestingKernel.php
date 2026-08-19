@@ -8,6 +8,8 @@
 namespace ItkDev\OpenIdConnectBundle\Tests;
 
 use ItkDev\OpenIdConnectBundle\ItkDevOpenIdConnectBundle;
+use ItkDev\OpenIdConnectBundle\Tests\Security\ConsumerAuthenticator;
+use ItkDev\OpenIdConnectBundle\Tests\Security\ProtectedController;
 use ItkDev\OpenIdConnectBundle\Tests\Security\TestAuthenticator;
 use Symfony\Bundle\FrameworkBundle\FrameworkBundle;
 use Symfony\Bundle\SecurityBundle\SecurityBundle;
@@ -59,6 +61,13 @@ class ItkDevOpenIdConnectBundleTestingKernel extends Kernel
     {
         $loader->load(function (ContainerBuilder $builder) {
             $builder->register(TestAuthenticator::class, TestAuthenticator::class);
+            // Autowired and autoconfigured, the way a consumer registers its own
+            // authenticator: autoconfiguration is what delivers the configured logger
+            // to `setLogger()`, and without it this fixture gets a NullLogger.
+            $builder->register(ConsumerAuthenticator::class, ConsumerAuthenticator::class)
+                ->setAutowired(true)
+                ->setAutoconfigured(true);
+            $builder->register(ProtectedController::class, ProtectedController::class)->setPublic(true);
             // Available as a logger a config fixture can point at, so a test can
             // read what the bundle actually wrote through the container.
             $builder->register(TestLogger::class, TestLogger::class)->setPublic(true);
