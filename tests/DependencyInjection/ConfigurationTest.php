@@ -4,7 +4,6 @@ namespace ItkDev\OpenIdConnectBundle\Tests\DependencyInjection;
 
 use ItkDev\OpenIdConnectBundle\DependencyInjection\Configuration;
 use ItkDev\OpenIdConnectBundle\Log\AuthenticationAuditLogger;
-use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Config\Definition\Exception\InvalidConfigurationException;
 use Symfony\Component\Config\Definition\Processor;
@@ -75,6 +74,18 @@ class ConfigurationTest extends TestCase
         $this->assertSame(30, $config['secret_expiry_options']['warning_days']);
     }
 
+    public function testClientSecretExpiresAtAcceptsAnEnvironmentVariable(): void
+    {
+        // The regression that prompted 5.1.1: a validated node cannot take an
+        // environment variable, and that is how every deployment supplies this.
+        $input = $this->getMinimalConfig();
+        $input['openid_providers']['provider1']['options']['client_secret_expires_at'] = '%env(string:OIDC_SECRET_EXPIRES_AT)%';
+
+        $config = $this->processor->processConfiguration($this->configuration, [$input]);
+
+        $this->assertSame('%env(string:OIDC_SECRET_EXPIRES_AT)%', $config['openid_providers']['provider1']['options']['client_secret_expires_at']);
+    }
+
     public function testClientSecretExpiresAtAccepted(): void
     {
         $input = $this->getMinimalConfig();
@@ -85,31 +96,6 @@ class ConfigurationTest extends TestCase
 
         $this->assertSame('2027-01-31', $config['openid_providers']['provider1']['options']['client_secret_expires_at']);
         $this->assertSame(14, $config['secret_expiry_options']['warning_days']);
-    }
-
-    /**
-     * @return iterable<string, array{string}>
-     */
-    public static function unparseableDateProvider(): iterable
-    {
-        yield 'prose' => ['whenever'];
-        yield 'transposed' => ['31-02-2027 25:00'];
-        yield 'nonsense' => ['not-a-date'];
-    }
-
-    /**
-     * Validated as the container compiles, so a typo is a build failure rather
-     * than a silent "unknown" that never warns about anything.
-     */
-    #[DataProvider('unparseableDateProvider')]
-    public function testClientSecretExpiresAtRejectsUnparseableDates(string $date): void
-    {
-        $input = $this->getMinimalConfig();
-        $input['openid_providers']['provider1']['options']['client_secret_expires_at'] = $date;
-
-        $this->expectException(InvalidConfigurationException::class);
-
-        $this->processor->processConfiguration($this->configuration, [$input]);
     }
 
     public function testWarningDaysAcceptsZero(): void

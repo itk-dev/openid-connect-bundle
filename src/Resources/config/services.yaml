@@ -32,6 +32,8 @@ services:
     arguments:
       $expiryDates: ~
       $warningDays: ~
+    tags:
+      - { name: monolog.logger, channel: openid_connect }
 
   ItkDev\OpenIdConnectBundle\Security\OpenIdConfigurationProviderManager:
     public: true

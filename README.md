@@ -185,10 +185,15 @@ itkdev_openid_connect:
         client_secret_expires_at: '2027-01-31'
 ```
 
-Any date `strtotime()` understands is accepted, and the value is validated when the
-container compiles — a typo fails the build rather than silently becoming "no idea
-when this expires". Date-only values are anchored to midnight UTC so the day count
-does not drift with the time of day the check runs.
+Any date `strtotime()` understands is accepted, and the value is normally supplied
+from an environment variable as above. Date-only values are anchored to midnight
+UTC so the day count does not drift with the time of day the check runs.
+
+A value that cannot be parsed — a typo, or an environment variable that is set but
+blank — reports the provider as `unknown` and logs an `error` saying it is not being
+monitored. It is not a fatal error, because a mistyped date should not take an
+application down; but it is not silent either, because the effect is that nothing is
+watching that secret.
 
 Each provider is then in one of four states:
 

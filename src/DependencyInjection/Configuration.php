@@ -102,13 +102,14 @@ class Configuration implements ConfigurationInterface
                                         ->isRequired()->cannotBeEmpty()
                                     ->end()
                                     ->scalarNode('client_secret_expires_at')
-                                        ->info('Date the client secret expires, e.g. "2027-01-31". An expired secret breaks every login, so configuring this lets the bundle warn while there is still time to rotate. Will be required in 6.0.')
+                                        // Deliberately unvalidated here. Symfony refuses an environment
+                                        // variable on a node that combines cannotBeEmpty() with a
+                                        // validate() closure, because it cannot check an unresolved
+                                        // placeholder — and this value comes from the environment in
+                                        // every real deployment. A value that does not parse is reported
+                                        // at runtime by ClientSecretExpiryChecker instead.
+                                        ->info('Date the client secret expires, e.g. "2027-01-31". Anything strtotime() understands, and usually an environment variable. An expired secret breaks every login, so configuring this lets the bundle warn while there is still time to rotate. Will be required in 6.0.')
                                         ->defaultNull()
-                                        ->cannotBeEmpty()
-                                        ->validate()
-                                            ->ifTrue(static fn (mixed $v): bool => is_string($v) && false === strtotime($v))
-                                            ->thenInvalid('client_secret_expires_at must be a date parseable by strtotime(), e.g. "2027-01-31". Got %s.')
-                                        ->end()
                                     ->end()
                                     ->integerNode('leeway')
                                         ->info('Leeway in seconds to account for clock skew between server and provider')
