@@ -9,11 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `audit_options.identifier` can be set from an environment variable. It was an
+  `enumNode`, which cannot accept one: Symfony substitutes `''` while compiling
+  and `''` is not a permissible value. Literals are still restricted to `raw` and
+  `hashed`, and an unrecognised value pseudonymises rather than writing
+  identifiers in the clear.
 - `client_secret_expires_at` can be set from an environment variable again.
   Validating it as the container compiled made Symfony reject any `%env()%`
   value, which is how every deployment supplies it. Unparseable and blank values
   are now reported at runtime: the provider is `unknown` and an `error` is logged
-  saying it is not being monitored.
+  saying it is not being monitored. A mistyped literal still fails the build.
 
 ## [5.1.0] - 2026-08-19
 

@@ -63,10 +63,26 @@ class Configuration implements ConfigurationInterface
                             ->defaultNull()
                             ->cannotBeEmpty()
                         ->end() // logger
-                        ->enumNode('identifier')
+                        // A scalar rather than an enumNode, because enumNode cannot
+                        // take an environment variable: Symfony substitutes '' for a
+                        // string placeholder while compiling, and '' is not a
+                        // permissible value. The closure below enforces the same set
+                        // for literals while letting %env()% through. Should an
+                        // unrecognised value still reach the logger — a blank
+                        // environment variable, say — it pseudonymises, which is the
+                        // safe direction to fail for a value that decides whether
+                        // personal data is written in the clear.
+                        ->scalarNode('identifier')
                             ->info('Record user identifiers as-is ("raw") or pseudonymised ("hashed"). Hashing is keyed with the application secret, so records still correlate.')
-                            ->values([AuthenticationAuditLogger::IDENTIFIER_RAW, AuthenticationAuditLogger::IDENTIFIER_HASHED])
                             ->defaultValue(AuthenticationAuditLogger::IDENTIFIER_RAW)
+                            ->validate()
+                                // Only the exact '' fixture is exempt. Anything else
+                                // that is not one of the two values — a typo, a
+                                // number, an explicit null — is a mistake worth
+                                // failing the build over.
+                                ->ifTrue(static fn (mixed $v): bool => '' !== $v && !in_array($v, [AuthenticationAuditLogger::IDENTIFIER_RAW, AuthenticationAuditLogger::IDENTIFIER_HASHED], true))
+                                ->thenInvalid('audit_options.identifier must be "raw" or "hashed". Got %s.')
+                            ->end()
                         ->end() // identifier
                     ->end()
                 ->end() // audit_options
@@ -102,14 +118,35 @@ class Configuration implements ConfigurationInterface
                                         ->isRequired()->cannotBeEmpty()
                                     ->end()
                                     ->scalarNode('client_secret_expires_at')
-                                        // Deliberately unvalidated here. Symfony refuses an environment
-                                        // variable on a node that combines cannotBeEmpty() with a
-                                        // validate() closure, because it cannot check an unresolved
-                                        // placeholder — and this value comes from the environment in
-                                        // every real deployment. A value that does not parse is reported
-                                        // at runtime by ClientSecretExpiryChecker instead.
+                                        // No cannotBeEmpty() here, and it cannot come back:
+                                        // VariableNode::finalizeValue() refuses an environment variable
+                                        // whenever empty values are disallowed and the node has any
+                                        // validation closure, without looking at what the closure does.
+                                        // On a node fed from the environment the two are mutually
+                                        // exclusive, and the closure is the half worth keeping — a
+                                        // mistyped literal is the realistic mistake, while the empties
+                                        // cannotBeEmpty() would have caught are reported at runtime by
+                                        // ClientSecretExpiryChecker. It never caught whitespace-only
+                                        // values regardless, since isValueEmpty() is just `!$value`.
                                         ->info('Date the client secret expires, e.g. "2027-01-31". Anything strtotime() understands, and usually an environment variable. An expired secret breaks every login, so configuring this lets the bundle warn while there is still time to rotate. Will be required in 6.0.')
                                         ->defaultNull()
+                                        ->validate()
+                                            // '' is exempt because it is the dummy fixture Symfony
+                                            // substitutes for %env(string:...)% while compiling
+                                            // (ValidateEnvPlaceholdersPass::TYPE_FIXTURES), so rejecting
+                                            // it here would reject every environment variable. Only that
+                                            // exact value is exempt — a whitespace-only literal is a typo
+                                            // and fails here, while a whitespace-only *environment* value
+                                            // is caught at runtime by the checker. Env var contents can
+                                            // never be validated at compile time; what this catches is a
+                                            // typo in a literal date.
+                                            // The trim() check is not redundant: strtotime('   ') returns
+                                            // a timestamp rather than false, the same "blank means now"
+                                            // quirk DateTimeImmutable has, so whitespace would otherwise
+                                            // sail through as a valid date.
+                                            ->ifTrue(static fn (mixed $v): bool => is_string($v) && '' !== $v && ('' === trim($v) || false === strtotime($v)))
+                                            ->thenInvalid('client_secret_expires_at must be a date parseable by strtotime(), e.g. "2027-01-31". Got %s.')
+                                        ->end()
                                     ->end()
                                     ->integerNode('leeway')
                                         ->info('Leeway in seconds to account for clock skew between server and provider')

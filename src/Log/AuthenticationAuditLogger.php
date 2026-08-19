@@ -150,6 +150,9 @@ class AuthenticationAuditLogger
      */
     private function subject(string $identifier): string
     {
+        // Only an explicit "raw" writes the identifier in the clear. Anything else,
+        // including a blank environment variable, pseudonymises — the safe direction
+        // to fail for a setting that governs personal data.
         if (self::IDENTIFIER_RAW === $this->identifierMode) {
             return $identifier;
         }
