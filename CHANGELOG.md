@@ -31,9 +31,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `getPrevious()` on that exception is the underlying OpenID Connect exception
   rather than the `AuthenticationException`, which the security component would
   have followed straight back into the loop.
-- `client_secret_expires_at` is now required for every provider. A missing date
-  fails while the container compiles instead of emitting the 5.1 deprecation,
-  since the bundle cannot warn about an expiry it does not know about. See
+- `client_secret_expires_at` is now required for every provider, and must be a
+  string. A missing date fails while the container compiles instead of emitting the
+  5.1 deprecation, and an unquoted `2027-01-31` — which YAML reads as a number — is
+  rejected rather than silently leaving the provider unmonitored. See
   `UPGRADE-6.0.md`.
 
 ### Removed (BREAKING)

@@ -30,6 +30,7 @@ class FailedCallbackDoesNotLoopTest extends TestCase
 
     protected function setUp(): void
     {
+        $this->captureExceptionHandler();
         $this->kernel = new ItkDevOpenIdConnectBundleTestingKernel([
             __DIR__.'/../config/framework.yml',
             __DIR__.'/../config/framework_routing.yml',
@@ -43,6 +44,11 @@ class FailedCallbackDoesNotLoopTest extends TestCase
      * A callback whose state does not match the session: the shape of every
      * failure the outage produced, an expired client secret included.
      */
+    protected function tearDown(): void
+    {
+        $this->restoreExceptionHandlers();
+    }
+
     private function failingCallback(): Request
     {
         $request = Request::create('/protected?state=does-not-match&code=some-code');

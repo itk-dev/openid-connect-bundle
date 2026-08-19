@@ -125,6 +125,15 @@ class Configuration implements ConfigurationInterface
                                         // `null === $value || '' === $value`.
                                         ->info('Required. Date the client secret expires, e.g. "2027-01-31". Anything strtotime() understands, and usually an environment variable. An expired secret breaks every login, so the bundle warns while there is still time to rotate.')
                                         ->validate()
+                                            // YAML reads an unquoted 2027-01-31 as the integer 1801353600, and the
+                                            // closure below only inspects strings, so without this the most natural
+                                            // way to write the value would pass, be discarded as untyped, and leave
+                                            // the provider unmonitored with nothing logged. Also catches an explicit
+                                            // null, which isRequired() accepts because the key is present.
+                                            ->ifTrue(static fn (mixed $v): bool => !is_string($v))
+                                            ->thenInvalid('client_secret_expires_at must be a quoted string: YAML reads an unquoted date as a number. Use client_secret_expires_at: "2027-01-31". Got %s.')
+                                        ->end()
+                                        ->validate()
                                             // '' is exempt because it is the dummy fixture Symfony
                                             // substitutes for %env(string:...)% while compiling
                                             // (ValidateEnvPlaceholdersPass::TYPE_FIXTURES), so rejecting

@@ -227,9 +227,13 @@ with `invalid_client` — but the `critical` record here and the failure record 
 the callback together name the cause without anyone having to reproduce it.
 
 `client_secret_expires_at` is required, because the bundle cannot warn about an
-expiry it does not know about. A provider still reaches `unknown` when the value is
-set to something unusable — an environment variable that resolved to nothing, or a
-date `strtotime()` cannot read — and that is reported at `error`.
+expiry it does not know about. Quote it: YAML reads an unquoted `2027-01-31` as a
+number, and a value that is not a string is rejected while the container compiles.
+
+A provider still reaches `unknown` at runtime when the value resolves to something
+unusable — an environment variable that is set but blank, or a date
+`DateTimeImmutable` cannot parse — and that is reported at `error`, because an
+unmonitored secret is no better than not having this feature.
 
 ##### Monitoring expiry
 

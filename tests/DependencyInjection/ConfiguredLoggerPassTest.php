@@ -38,7 +38,13 @@ class ConfiguredLoggerPassTest extends TestCase
 
     protected function setUp(): void
     {
+        $this->captureExceptionHandler();
         $this->kernel = $this->boot('itkdev_openid_connect_configured_logger.yml');
+    }
+
+    protected function tearDown(): void
+    {
+        $this->restoreExceptionHandlers();
     }
 
     private function boot(string $bundleConfig): ItkDevOpenIdConnectBundleTestingKernel

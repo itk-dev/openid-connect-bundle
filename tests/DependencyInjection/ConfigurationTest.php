@@ -105,27 +105,18 @@ class ConfigurationTest extends TestCase
         $this->processor->processConfiguration($this->configuration, [$input]);
     }
 
-    /**
-     * @return iterable<string, array{string|null}>
-     */
-    public static function toleratedEmptyDateProvider(): iterable
+    public function testClientSecretExpiresAtToleratesAnEmptyString(): void
     {
-        // '' is the fixture Symfony substitutes for a string env var while
-        // compiling, so it has to pass here; the checker reports it at runtime.
-        yield 'empty string' => [''];
-        // An explicit null is a deliberate "not configured", not a typo.
-        yield 'explicit null' => [null];
-    }
-
-    #[DataProvider('toleratedEmptyDateProvider')]
-    public function testClientSecretExpiresAtToleratesEmptyValues(?string $date): void
-    {
+        // '' is the fixture Symfony substitutes for a string env var while compiling,
+        // so it has to pass here; the checker reports it at runtime. An explicit null
+        // is no longer tolerated — see testANonStringExpiryDateIsRejected. It used to
+        // mean "not configured", which is not a thing a required option has.
         $input = $this->getMinimalConfig();
-        $input['openid_providers']['provider1']['options']['client_secret_expires_at'] = $date;
+        $input['openid_providers']['provider1']['options']['client_secret_expires_at'] = '';
 
         $config = $this->processor->processConfiguration($this->configuration, [$input]);
 
-        $this->assertSame($date, $config['openid_providers']['provider1']['options']['client_secret_expires_at']);
+        $this->assertSame('', $config['openid_providers']['provider1']['options']['client_secret_expires_at']);
     }
 
     public function testClientSecretExpiresAtAccepted(): void
@@ -388,6 +379,36 @@ class ConfigurationTest extends TestCase
         }
 
         $this->assertSame([], $deprecations);
+    }
+
+    /**
+     * The value a reader would most likely write.
+     *
+     * `client_secret_expires_at: 2027-01-31` without quotes is the integer
+     * 1801353600 by the time configuration sees it. Accepting it would discard the
+     * date and leave the provider unmonitored with nothing logged anywhere, which is
+     * the exact outcome this option exists to prevent.
+     *
+     * @return iterable<string, array{mixed}>
+     */
+    public static function nonStringDateProvider(): iterable
+    {
+        yield 'unquoted date, read as a timestamp' => [1801353600];
+        yield 'digits' => [20270131];
+        yield 'boolean' => [true];
+        yield 'explicit null, which isRequired() accepts' => [null];
+    }
+
+    #[DataProvider('nonStringDateProvider')]
+    public function testANonStringExpiryDateIsRejected(mixed $configured): void
+    {
+        $input = $this->getMinimalConfig();
+        $input['openid_providers']['provider1']['options']['client_secret_expires_at'] = $configured;
+
+        $this->expectException(InvalidConfigurationException::class);
+        $this->expectExceptionMessage('client_secret_expires_at must be a quoted string');
+
+        $this->processor->processConfiguration($this->configuration, [$input]);
     }
 
     public function testTheExpiryDateIsRequired(): void

@@ -64,7 +64,9 @@ itkdev_openid_connect:
                 client_secret_expires_at: '%env(string:ADMIN_OIDC_CLIENT_SECRET_EXPIRES_AT)%'
 ```
 
-Anything `strtotime()` understands. A missing key now fails at compile time:
+Anything `strtotime()` understands, but **quote it** — YAML reads an unquoted
+`2027-01-31` as the number `1801353600`, and a non-string is rejected. A missing key
+fails at compile time too:
 
 ```text
 The child config "client_secret_expires_at" under
