@@ -229,6 +229,91 @@ applies and nothing is reported.
 > Providers without it emit a deprecation warning, because the bundle cannot warn
 > about an expiry it does not know about.
 
+##### Monitoring expiry
+
+The records above only appear when somebody attempts a login, which is no help on a
+quiet Sunday before a Monday-morning expiry. For scheduled monitoring, inject
+`ClientSecretExpiryChecker` — it is a public service — and surface it through
+whatever health endpoint the application already has:
+
+```php
+use ItkDev\OpenIdConnectBundle\Util\ClientSecretExpiry;
+use ItkDev\OpenIdConnectBundle\Util\ClientSecretExpiryChecker;
+
+// Shape will differ per application; this follows a tagged-service aggregator.
+readonly class ClientSecretHealthCheck implements HealthCheckInterface
+{
+    public function __construct(private ClientSecretExpiryChecker $expiryChecker)
+    {
+    }
+
+    public function getName(): string
+    {
+        return 'oidc_client_secret';
+    }
+
+    public function check(): HealthCheckResult
+    {
+        $statuses = $this->expiryChecker->getAllStatuses();
+
+        $expired = array_filter($statuses, static fn (ClientSecretExpiry $e): bool => $e->isExpired());
+        if ([] !== $expired) {
+            return HealthCheckResult::degraded($this->getName(), sprintf(
+                'Client secret expired for: %s',
+                implode(', ', array_keys($expired)),
+            ));
+        }
+
+        $expiring = array_filter($statuses, static fn (ClientSecretExpiry $e): bool => $e->isExpiringSoon());
+        if ([] !== $expiring) {
+            return HealthCheckResult::degraded($this->getName(), sprintf(
+                'Client secret expires soon for: %s',
+                implode(', ', array_keys($expiring)),
+            ));
+        }
+
+        return HealthCheckResult::ok($this->getName());
+    }
+}
+```
+
+`getAllStatuses()` returns a `ClientSecretExpiry` per provider, keyed by provider
+key, each with `isExpired()`, `isExpiringSoon()`, `status` and `toArray()`.
+
+**The bundle ships no health endpoint of its own**, and that is deliberate:
+
+* Monitoring should have one endpoint to poll. A second one, differently shaped and
+  living under this bundle's route prefix, is the one that gets forgotten.
+* The application owns how such an endpoint is authenticated. That reasoning can be
+  subtle — an application whose user provider is database-backed may need to
+  authenticate its health route at the edge rather than in Symfony, so the endpoint
+  can still answer during a database outage. A route shipped by this bundle would
+  sit outside that decision.
+* The application owns what may be disclosed. Provider keys and expiry dates are
+  information about a deployment, and whether they belong in a public readiness
+  response or an authenticated detail response is not this bundle's call.
+
+Exposing the data rather than a verdict also avoids a lossy mapping. The checker
+distinguishes four states, and `unknown` — a provider with no date configured — is
+not the same as healthy. Collapsing that into another library's pass/fail result
+would throw the distinction away, whereas an application mapping it itself can
+decide whether "nobody is tracking this secret" counts as degraded.
+
+This composes with whatever health system is in use:
+
+* a bespoke aggregator, as in the example above;
+* `macpaw/symfony-health-check-bundle`, where checks implement its own
+  `CheckInterface` and are listed by service id in configuration;
+* `liip/monitor-bundle`, which auto-discovers any class implementing
+  `Laminas\Diagnostics\Check\CheckInterface`.
+
+If an adapter is ever shipped from here, that last one is the target: the
+`laminas/laminas-diagnostics` contract depends on nothing but PHP, and its
+`Success`/`Warning`/`Failure`/`Skip` results map onto this bundle's four states
+almost exactly — including `Skip` for a provider with no date configured. It is not
+shipped today because no consuming application uses it yet, and a dependency added
+for hypothetical reach is a dependency to carry for nothing.
+
 #### Logging
 
 The bundle logs every login failure: an invalid state, an empty nonce, a failed

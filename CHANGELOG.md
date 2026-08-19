@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Per-provider `client_secret_expires_at` and `secret_expiry_options.warning_days`,
   so the bundle knows when a client secret expires. Validated at compile time.
+- Documented how to surface client secret expiry through an application's own
+  health endpoint, using the public `ClientSecretExpiryChecker`.
 - A `critical` record once a client secret is past its configured expiry, and a
   `warning` while it is expiring soon. Neither blocks a login: the identity
   provider stays the authority on whether a secret still works.
