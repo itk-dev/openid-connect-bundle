@@ -44,3 +44,5 @@ services:
     arguments:
       $cliLoginHelper: '@ItkDev\OpenIdConnectBundle\Util\CliLoginHelper'
       $cliLoginRoute: ~
+    tags:
+      - { name: monolog.logger, channel: openid_connect }

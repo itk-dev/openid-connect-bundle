@@ -29,7 +29,7 @@ class ItkDevOpenIdConnectExtension extends Extension
          *     cache_options: array{cache_pool: string},
          *     cli_login_options: array{route: string},
          *     user_provider: string|null,
-         *     logging_options: array{logger: string|null, level: string},
+         *     logging_options: array{logger: string|null},
          *     openid_providers: array<string, array{options: array<string, mixed>}>
          *  } $config
          */
@@ -61,34 +61,33 @@ class ItkDevOpenIdConnectExtension extends Extension
     }
 
     /**
-     * Apply `logging_options` to the services that log.
+     * Point the services that log at the configured logger.
      *
-     * `OpenIdLoginAuthenticator` is abstract and subclassed by the consuming
-     * application, so its subclasses are services the extension cannot name.
-     * `registerForAutoconfiguration()` reaches them instead: any autoconfigured
-     * subclass gets the same logger and level as the bundle's own services.
+     * Left unset, they keep the logger Symfony autowires, which is what puts the
+     * records on the `openid_connect` channel; the application's own handler
+     * configuration then decides which of them are kept. Severity is fixed per
+     * failure mode in the emitters and is not configurable.
      *
-     * @param array{logger: string|null, level: string} $options
+     * @param array{logger: string|null} $options
      */
     private function configureLogging(ContainerBuilder $container, array $options): void
     {
-        $logger = null === $options['logger'] ? null : new Reference($options['logger']);
+        if (null === $options['logger']) {
+            return;
+        }
+
+        $logger = new Reference($options['logger']);
 
         foreach ([LoginController::class, CliLoginTokenAuthenticator::class] as $id) {
-            $definition = $container->getDefinition($id);
-            $definition->setArgument('$logLevel', $options['level']);
-            if (null !== $logger) {
-                $definition->setArgument('$logger', $logger);
-            }
+            $container->getDefinition($id)->setArgument('$logger', $logger);
         }
 
-        $autoconfigured = $container->registerForAutoconfiguration(OpenIdLoginAuthenticator::class);
-        $autoconfigured->addMethodCall('setLogLevel', [$options['level']]);
-        if (null !== $logger) {
-            // Runs after FrameworkBundle's LoggerAwareInterface autoconfiguration,
-            // so the configured logger wins over the application default.
-            $autoconfigured->addMethodCall('setLogger', [$logger]);
-        }
+        // `OpenIdLoginAuthenticator` is abstract and subclassed by the consuming
+        // application, so its subclasses are services this extension cannot name.
+        // Autoconfiguration reaches them, and runs after FrameworkBundle's own
+        // LoggerAwareInterface pass, so the configured logger wins.
+        $container->registerForAutoconfiguration(OpenIdLoginAuthenticator::class)
+            ->addMethodCall('setLogger', [$logger]);
     }
 
     #[\Override]

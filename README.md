@@ -97,8 +97,6 @@ itkdev_openid_connect:
     # Optional: service id of the PSR-3 logger to receive failure logs.
     #           Defaults to the application logger. See "Logging" below.
     logger: 'monolog.logger.openid_connect'
-    # Optional: PSR-3 level failures are logged at. Defaults to error.
-    level: error
   openid_providers:
     # Define one or more providers
     # [providerKey]:
@@ -160,39 +158,78 @@ Set the actual values your `env.local` file to ensure they are not committed to 
 
 #### Logging
 
-The bundle logs every login failure — invalid state, empty nonce, a failed token
-exchange, an unknown or unreachable provider, and the CLI login token paths — at
-`error` by default. This is how a problem like an expired `client_secret` becomes
-visible: the IdP's own message is logged, and the causing exception is attached
-to the record as `context['exception']`.
+The bundle logs every login failure: an invalid state, an empty nonce, a failed
+token exchange, an unknown or unreachable provider, and the CLI login token
+paths. This is how a problem like an expired `client_secret` becomes visible —
+the IdP's own message is logged, with the causing exception attached to the
+record as `context['exception']`.
 
-Both the logger and the level are configurable:
+**The bundle decides how severe each failure is; your application decides which
+levels it keeps.** Severity is not configurable, because it is a property of the
+event rather than of a deployment:
+
+| Event | Level |
+| ----- | ----- |
+| Token exchange or ID-token validation failed (an expired secret lands here) | `error` |
+| Provider not configured, or the session lost its provider key | `error` |
+| Identity provider unreachable, or the discovery cache failed | `error` |
+| CLI login token could not be resolved, or resolved to a bad value | `error` |
+| Invalid state, or a missing/empty nonce | `warning` |
+| Unknown provider key requested | `warning` |
+| No CLI login token provided | `warning` |
+
+The `warning` events are routine and client-driven — a stale bookmark, a replayed
+callback, a probe. The `error` events are the ones an operator needs to act on.
+
+##### Default: nothing to configure
+
+The bundle's services are tagged onto the `openid_connect` Monolog channel, so
+records flow to whatever handlers your application already has. Your existing
+`monolog` configuration therefore determines what is written, with no extra setup.
+
+##### A dedicated channel with its own level
+
+To give this bundle its own log file and threshold — for example to keep only
+`error` and above — add a handler scoped to the channel, and exclude that channel
+from your default handler so records are not written twice:
+
+```yaml
+monolog:
+    handlers:
+        # Everything except this bundle, at your usual level.
+        main:
+            type: stream
+            path: '%kernel.logs_dir%/%kernel.environment%.log'
+            level: debug
+            channels: ['!openid_connect']
+
+        # This bundle only, with its own threshold.
+        openid_connect:
+            type: stream
+            path: '%kernel.logs_dir%/openid_connect.log'
+            channels: ['openid_connect']
+            level: error
+```
+
+The `level` key on the handler is what gives you "only errors and above". Raising
+it filters out the `warning` events in the table above while keeping every
+`error`.
+
+##### Using a different logger service
+
+`logging_options.logger` takes any PSR-3 service id. Note that it **replaces** the
+channel logger rather than composing with it, so it is an escape hatch for sending
+these records somewhere else entirely — not the way to filter them:
 
 ```yaml
 itkdev_openid_connect:
   logging_options:
-    logger: 'monolog.logger.openid_connect'
-    level: warning
+    logger: 'my_app.audit_logger'
 ```
 
-`logger` takes any PSR-3 service id. Left unset, the bundle uses the
-application's `logger` service — Symfony always provides one, even without
-MonologBundle, so logging is on by default. The bundle's own services are tagged
-with the `openid_connect` Monolog channel, so the logs can be routed or alerted
-on separately:
+##### Turning logging off
 
-```yaml
-monolog:
-  handlers:
-    openid_connect:
-      type: stream
-      path: '%kernel.logs_dir%/openid_connect.log'
-      channels: ['openid_connect']
-```
-
-##### Disabling logging
-
-Point `logger` at the `NullLogger` the bundle registers for this purpose:
+Point it at the `NullLogger` the bundle registers for the purpose:
 
 ```yaml
 itkdev_openid_connect:
@@ -200,12 +237,11 @@ itkdev_openid_connect:
     logger: 'itkdev_openid_connect.null_logger'
 ```
 
-Your authenticator also needs to be an autoconfigured service to receive the
-configured logger and level, since both are applied through
-`registerForAutoconfiguration()`. That is the default for services in
-`config/services.yaml`. With autoconfiguration disabled the authenticator falls
-back to a `NullLogger` and logs nothing, while the rest of the bundle keeps
-logging.
+Your authenticator must be an autoconfigured service to receive a configured
+logger, since it is applied through `registerForAutoconfiguration()`. That is the
+default for services in `config/services.yaml`. With autoconfiguration disabled
+the authenticator falls back to a `NullLogger` and logs nothing, while the rest of
+the bundle keeps logging.
 
 #### Configuring the HTTP client
 

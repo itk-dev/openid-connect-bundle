@@ -65,7 +65,7 @@ class CliLoginTokenAuthenticatorTest extends TestCase
         } catch (CustomUserMessageAuthenticationException $thrown) {
             $this->assertSame('No login token provided', $thrown->getMessage());
             $record = $this->logger->singleRecord();
-            $this->assertSame(LogLevel::ERROR, $record['level']);
+            $this->assertSame(LogLevel::WARNING, $record['level'], 'A missing token is client-driven');
             $this->assertStringContainsString('no login token provided', $record['message']);
 
             return;
@@ -102,7 +102,7 @@ class CliLoginTokenAuthenticatorTest extends TestCase
             $this->assertSame($cause, $thrown->getPrevious(), 'Original cause must be chained');
 
             $record = $this->logger->singleRecord();
-            $this->assertSame(LogLevel::ERROR, $record['level']);
+            $this->assertSame(LogLevel::ERROR, $record['level'], 'Could be a cache outage, so the operator must see it');
             $this->assertStringContainsString('cannot resolve token to a username', $record['message']);
             $this->assertSame($cause, $record['context']['exception'] ?? null, 'The cause must reach the log context');
 
@@ -127,7 +127,7 @@ class CliLoginTokenAuthenticatorTest extends TestCase
             $this->assertSame($cause, $thrown->getPrevious(), 'Original cause must be chained');
 
             $record = $this->logger->singleRecord();
-            $this->assertSame(LogLevel::ERROR, $record['level']);
+            $this->assertSame(LogLevel::ERROR, $record['level'], 'Could be a cache outage, so the operator must see it');
             $this->assertStringContainsString('cannot resolve token to a username', $record['message']);
             $this->assertSame($cause, $record['context']['exception'] ?? null, 'The cause must reach the log context');
 
@@ -148,7 +148,7 @@ class CliLoginTokenAuthenticatorTest extends TestCase
             $this->authenticator->authenticate($request);
         } catch (UsernameDoesNotExistException) {
             $record = $this->logger->singleRecord();
-            $this->assertSame(LogLevel::ERROR, $record['level']);
+            $this->assertSame(LogLevel::ERROR, $record['level'], 'The cache holds a bad value — an integrity problem');
             $this->assertStringContainsString('null username', $record['message']);
 
             return;

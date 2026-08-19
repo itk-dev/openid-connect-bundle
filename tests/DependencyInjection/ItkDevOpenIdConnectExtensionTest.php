@@ -10,7 +10,6 @@ use ItkDev\OpenIdConnectBundle\Security\OpenIdConfigurationProviderManager;
 use ItkDev\OpenIdConnectBundle\Security\OpenIdLoginAuthenticator;
 use ItkDev\OpenIdConnectBundle\Util\CliLoginHelper;
 use PHPUnit\Framework\TestCase;
-use Psr\Log\LogLevel;
 use Psr\Log\NullLogger;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Reference;
@@ -52,7 +51,7 @@ class ItkDevOpenIdConnectExtensionTest extends TestCase
         $this->assertTrue($container->hasDefinition(CliLoginTokenAuthenticator::class));
     }
 
-    public function testLoggingDefaultsToApplicationLoggerAtErrorLevel(): void
+    public function testLoggingDefaultsToTheAutowiredApplicationLogger(): void
     {
         $extension = new ItkDevOpenIdConnectExtension();
         $container = new ContainerBuilder();
@@ -61,8 +60,7 @@ class ItkDevOpenIdConnectExtensionTest extends TestCase
 
         foreach ([LoginController::class, CliLoginTokenAuthenticator::class] as $id) {
             $arguments = $container->getDefinition($id)->getArguments();
-            $this->assertSame(LogLevel::ERROR, $arguments['$logLevel']);
-            $this->assertArrayNotHasKey('$logger', $arguments, 'Without a configured logger the autowired one is used.');
+            $this->assertArrayNotHasKey('$logger', $arguments, 'Without a configured logger the autowired one is used, which is what puts records on the channel.');
         }
     }
 
@@ -91,16 +89,12 @@ class ItkDevOpenIdConnectExtensionTest extends TestCase
         $container = new ContainerBuilder();
 
         $config = $this->getBaseConfig();
-        $config['logging_options'] = [
-            'logger' => 'monolog.logger.openid_connect',
-            'level' => LogLevel::CRITICAL,
-        ];
+        $config['logging_options'] = ['logger' => 'monolog.logger.openid_connect'];
 
         $extension->load([$config], $container);
 
         foreach ([LoginController::class, CliLoginTokenAuthenticator::class] as $id) {
             $arguments = $container->getDefinition($id)->getArguments();
-            $this->assertSame(LogLevel::CRITICAL, $arguments['$logLevel']);
             $this->assertEquals(new Reference('monolog.logger.openid_connect'), $arguments['$logger']);
         }
     }
@@ -111,10 +105,7 @@ class ItkDevOpenIdConnectExtensionTest extends TestCase
         $container = new ContainerBuilder();
 
         $config = $this->getBaseConfig();
-        $config['logging_options'] = [
-            'logger' => 'monolog.logger.openid_connect',
-            'level' => LogLevel::WARNING,
-        ];
+        $config['logging_options'] = ['logger' => 'monolog.logger.openid_connect'];
 
         $extension->load([$config], $container);
 
@@ -124,21 +115,19 @@ class ItkDevOpenIdConnectExtensionTest extends TestCase
         $this->assertArrayHasKey(OpenIdLoginAuthenticator::class, $autoconfigured);
 
         $calls = $autoconfigured[OpenIdLoginAuthenticator::class]->getMethodCalls();
-        $this->assertEquals([
-            ['setLogLevel', [LogLevel::WARNING]],
-            ['setLogger', [new Reference('monolog.logger.openid_connect')]],
-        ], $calls);
+        $this->assertEquals([['setLogger', [new Reference('monolog.logger.openid_connect')]]], $calls);
     }
 
-    public function testAuthenticatorSubclassesGetLevelOnlyWhenNoLoggerConfigured(): void
+    public function testNoAutoconfigurationWhenNoLoggerConfigured(): void
     {
         $extension = new ItkDevOpenIdConnectExtension();
         $container = new ContainerBuilder();
 
         $extension->load([$this->getBaseConfig()], $container);
 
-        $calls = $container->getAutoconfiguredInstanceof()[OpenIdLoginAuthenticator::class]->getMethodCalls();
-        $this->assertSame([['setLogLevel', [LogLevel::ERROR]]], $calls);
+        // Nothing to override: subclasses keep the logger FrameworkBundle's own
+        // LoggerAwareInterface autoconfiguration gives them.
+        $this->assertArrayNotHasKey(OpenIdLoginAuthenticator::class, $container->getAutoconfiguredInstanceof());
     }
 
     public function testLoadWiresProviderManagerConfig(): void

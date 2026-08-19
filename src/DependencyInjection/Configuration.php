@@ -2,7 +2,6 @@
 
 namespace ItkDev\OpenIdConnectBundle\DependencyInjection;
 
-use Psr\Log\LogLevel;
 use Symfony\Component\Config\Definition\Builder\TreeBuilder;
 use Symfony\Component\Config\Definition\ConfigurationInterface;
 
@@ -49,11 +48,6 @@ class Configuration implements ConfigurationInterface
                             ->defaultNull()
                             ->cannotBeEmpty()
                         ->end() // logger
-                        ->enumNode('level')
-                            ->info('PSR-3 level the bundle logs failures at (default: error)')
-                            ->values($this->psrLogLevels())
-                            ->defaultValue(LogLevel::ERROR)
-                        ->end() // level
                     ->end()
                 ->end() // logging_options
                 ->arrayNode('openid_providers')
@@ -132,21 +126,5 @@ class Configuration implements ConfigurationInterface
         ->end();
 
         return $treeBuilder;
-    }
-
-    /**
-     * The PSR-3 levels, taken from `LogLevel` so the list cannot drift.
-     *
-     * Keys are irrelevant to `enumNode()->values()`, so the constant map is
-     * returned as-is.
-     *
-     * @return array<string, string>
-     */
-    private function psrLogLevels(): array
-    {
-        /** @var array<string, string> $levels */
-        $levels = (new \ReflectionClass(LogLevel::class))->getConstants();
-
-        return $levels;
     }
 }

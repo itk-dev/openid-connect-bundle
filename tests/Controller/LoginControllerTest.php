@@ -92,7 +92,7 @@ class LoginControllerTest extends TestCase
             $this->assertSame($cause, $thrown->getPrevious(), 'Original exception must be chained');
 
             $record = $this->logger->singleRecord();
-            $this->assertSame(LogLevel::ERROR, $record['level']);
+            $this->assertSame(LogLevel::WARNING, $record['level'], 'A client hitting an unknown URL is not an operator problem');
             $this->assertStringContainsString('unknown provider', $record['message']);
             $this->assertSame('bogus', $record['context']['provider'] ?? null);
             $this->assertSame($cause, $record['context']['exception'] ?? null);
@@ -130,7 +130,7 @@ class LoginControllerTest extends TestCase
             $this->assertSame($cause, $thrown->getPrevious(), 'Original exception must be chained');
 
             $record = $this->logger->singleRecord();
-            $this->assertSame(LogLevel::ERROR, $record['level']);
+            $this->assertSame(LogLevel::ERROR, $record['level'], 'IdP down or cache broken — operator action');
             $this->assertStringContainsString('cannot reach provider', $record['message']);
             $this->assertSame('test', $record['context']['provider'] ?? null);
             $this->assertSame($cause, $record['context']['exception'] ?? null);
@@ -138,25 +138,6 @@ class LoginControllerTest extends TestCase
             return;
         }
         $this->fail('Expected ServiceUnavailableHttpException');
-    }
-
-    public function testConfiguredLogLevelIsUsed(): void
-    {
-        $cause = new InvalidProviderException('Invalid provider: bogus');
-
-        $stubProviderManager = $this->createStub(OpenIdConfigurationProviderManager::class);
-        $stubProviderManager->method('getProvider')->willThrowException($cause);
-
-        $controller = new LoginController($stubProviderManager, $this->logger, LogLevel::CRITICAL);
-
-        try {
-            $controller->login(new Request(), $this->createStub(SessionInterface::class), 'bogus');
-        } catch (NotFoundHttpException) {
-            $this->assertSame(LogLevel::CRITICAL, $this->logger->singleRecord()['level']);
-
-            return;
-        }
-        $this->fail('Expected NotFoundHttpException');
     }
 
     private function createController(OpenIdConfigurationProvider $provider): LoginController

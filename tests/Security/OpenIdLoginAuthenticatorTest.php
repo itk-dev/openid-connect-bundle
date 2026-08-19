@@ -58,30 +58,9 @@ class OpenIdLoginAuthenticatorTest extends TestCase
             $this->assertSame($cause, $thrown->getPrevious(), 'Original exception must be chained as previous');
             $this->assertStringContainsString('Original cause message', $thrown->getMessage(), 'Cause message must be preserved for logs');
 
-            $record = $this->logger->singleRecord();
-            $this->assertSame(LogLevel::ERROR, $record['level']);
-            $this->assertStringContainsString('OIDC authentication failed', $record['message']);
-            $this->assertSame($cause, $record['context']['exception'] ?? null);
-            // Nothing chained on the incoming exception, so the logged cause
-            // falls back to its own message.
-            $this->assertSame('Original cause message', $record['context']['cause'] ?? null);
-        }
-    }
-
-    public function testOnAuthenticationFailureLogsTheChainedCause(): void
-    {
-        // `AuthenticatorManager` swaps in a generic BadCredentialsException for
-        // sensitive failures, keeping the real cause as previous. The log must
-        // report that cause, not the sanitised wrapper message.
-        $realCause = new ValidationException('invalid_client: client secret expired');
-        $sanitised = new AuthenticationException('Bad credentials.', 0, $realCause);
-
-        try {
-            $this->authenticator->onAuthenticationFailure(new Request(), $sanitised);
-            $this->fail('Expected AuthenticationException');
-        } catch (AuthenticationException) {
-            $record = $this->logger->singleRecord();
-            $this->assertSame('invalid_client: client secret expired', $record['context']['cause'] ?? null);
+            // Deliberately no record: the framework already logs the original
+            // exception, and validateClaims() logged the specific reason.
+            $this->assertSame([], $this->logger->records);
         }
     }
 
@@ -99,7 +78,7 @@ class OpenIdLoginAuthenticatorTest extends TestCase
             $this->assertSame($cause, $thrown, 'The provider exception must propagate unchanged');
 
             $record = $this->logger->singleRecord();
-            $this->assertSame(LogLevel::ERROR, $record['level']);
+            $this->assertSame(LogLevel::ERROR, $record['level'], 'A misconfigured or lost provider needs operator attention');
             $this->assertStringContainsString('provider not configured', $record['message']);
             $this->assertSame('test_provider_1', $record['context']['provider'] ?? null);
             $this->assertSame($cause, $record['context']['exception'] ?? null);
@@ -119,7 +98,7 @@ class OpenIdLoginAuthenticatorTest extends TestCase
         } catch (ValidationException $thrown) {
             $this->assertSame('Invalid state', $thrown->getMessage());
             $record = $this->logger->singleRecord();
-            $this->assertSame(LogLevel::ERROR, $record['level']);
+            $this->assertSame(LogLevel::WARNING, $record['level'], 'A stale bookmark or CSRF probe is routine, not an operator problem');
             $this->assertStringContainsString('invalid state', $record['message']);
             $this->assertSame('test_provider_1', $record['context']['provider'] ?? null);
 
@@ -138,7 +117,7 @@ class OpenIdLoginAuthenticatorTest extends TestCase
         } catch (ValidationException $thrown) {
             $this->assertSame('Nonce empty or not found', $thrown->getMessage());
             $record = $this->logger->singleRecord();
-            $this->assertSame(LogLevel::ERROR, $record['level']);
+            $this->assertSame(LogLevel::WARNING, $record['level'], 'Same class of cause as an invalid state');
             $this->assertStringContainsString('nonce empty or not found', $record['message']);
             $this->assertSame('test_provider_1', $record['context']['provider'] ?? null);
 
@@ -179,7 +158,7 @@ class OpenIdLoginAuthenticatorTest extends TestCase
             );
 
             $record = $this->logger->singleRecord();
-            $this->assertSame(LogLevel::ERROR, $record['level']);
+            $this->assertSame(LogLevel::ERROR, $record['level'], 'This is the expired-secret path — it must reach the operator');
             $this->assertStringContainsString('validating the authorization code', $record['message']);
             $this->assertSame($cause, $record['context']['exception'] ?? null);
             $this->assertSame('test_provider_1', $record['context']['provider'] ?? null);
@@ -220,25 +199,6 @@ class OpenIdLoginAuthenticatorTest extends TestCase
         $this->assertSame('Test Tester', $authenticator->lastClaims['name'] ?? null);
         $this->assertSame('test_provider_1', $authenticator->lastClaims['open_id_connect_provider'] ?? null);
         $this->assertSame([], $this->logger->records, 'A successful login must not log a failure.');
-    }
-
-    public function testConfiguredLogLevelIsUsed(): void
-    {
-        // `setLogLevel()` is applied to consumer subclasses through
-        // registerForAutoconfiguration(), driven by `logging_options.level`.
-        $this->authenticator->setLogLevel(LogLevel::CRITICAL);
-
-        $request = new Request(query: ['state' => 'wrong_test_state']);
-        $this->setSessionOnRequest($request);
-
-        try {
-            $this->authenticator->authenticate($request);
-        } catch (ValidationException) {
-            $this->assertSame(LogLevel::CRITICAL, $this->logger->singleRecord()['level']);
-
-            return;
-        }
-        $this->fail('Expected ValidationException');
     }
 
     /**

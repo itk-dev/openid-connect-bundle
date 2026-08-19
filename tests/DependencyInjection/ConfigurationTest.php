@@ -3,9 +3,7 @@
 namespace ItkDev\OpenIdConnectBundle\Tests\DependencyInjection;
 
 use ItkDev\OpenIdConnectBundle\DependencyInjection\Configuration;
-use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
-use Psr\Log\LogLevel;
 use Symfony\Component\Config\Definition\Exception\InvalidConfigurationException;
 use Symfony\Component\Config\Definition\Processor;
 
@@ -61,63 +59,18 @@ class ConfigurationTest extends TestCase
         $this->assertSame(86400, $provider['cache_duration']);
         $this->assertFalse($provider['allow_http']);
 
-        // Logging defaults: application logger, error level.
+        // Logging defaults to the application logger.
         $this->assertNull($config['logging_options']['logger']);
-        $this->assertSame(LogLevel::ERROR, $config['logging_options']['level']);
     }
 
     public function testLoggingOptionsAccepted(): void
     {
         $input = $this->getMinimalConfig();
-        $input['logging_options'] = [
-            'logger' => 'monolog.logger.openid_connect',
-            'level' => LogLevel::CRITICAL,
-        ];
+        $input['logging_options'] = ['logger' => 'monolog.logger.openid_connect'];
 
         $config = $this->processor->processConfiguration($this->configuration, [$input]);
 
         $this->assertSame('monolog.logger.openid_connect', $config['logging_options']['logger']);
-        $this->assertSame(LogLevel::CRITICAL, $config['logging_options']['level']);
-    }
-
-    /**
-     * @return iterable<string, array{string}>
-     */
-    public static function psrLogLevelProvider(): iterable
-    {
-        yield 'emergency' => [LogLevel::EMERGENCY];
-        yield 'alert' => [LogLevel::ALERT];
-        yield 'critical' => [LogLevel::CRITICAL];
-        yield 'error' => [LogLevel::ERROR];
-        yield 'warning' => [LogLevel::WARNING];
-        yield 'notice' => [LogLevel::NOTICE];
-        yield 'info' => [LogLevel::INFO];
-        yield 'debug' => [LogLevel::DEBUG];
-    }
-
-    /**
-     * Every PSR-3 level must be selectable, so the allowed list cannot silently
-     * lose one.
-     */
-    #[DataProvider('psrLogLevelProvider')]
-    public function testLoggingOptionsAcceptsEveryPsrLevel(string $level): void
-    {
-        $input = $this->getMinimalConfig();
-        $input['logging_options'] = ['level' => $level];
-
-        $config = $this->processor->processConfiguration($this->configuration, [$input]);
-
-        $this->assertSame($level, $config['logging_options']['level']);
-    }
-
-    public function testLoggingOptionsRejectsUnknownLevel(): void
-    {
-        $input = $this->getMinimalConfig();
-        $input['logging_options'] = ['level' => 'chatty'];
-
-        $this->expectException(InvalidConfigurationException::class);
-
-        $this->processor->processConfiguration($this->configuration, [$input]);
     }
 
     public function testLoggingOptionsRejectsEmptyLogger(): void
