@@ -15,6 +15,11 @@ use Psr\Log\LoggerInterface;
  * fixed context schema — is what makes the trail queryable rather than a pile of
  * prose. See the "Audit logging" section of the README.
  *
+ * Records carry both a coarse `method` and the concrete `authenticator` class.
+ * The method is what you query on — FQNs differ per application — while the class
+ * is what identifies *which* authenticator ran, which matters because consumers
+ * subclass `OpenIdLoginAuthenticator` and an application may well have several.
+ *
  * Audit records identify people, so the trail is **opt-in**: with
  * `audit_options.enabled` false every method returns before a record is built, so
  * no personal data is assembled at all.
@@ -49,10 +54,11 @@ class AuthenticationAuditLogger
     /**
      * A login that established a session.
      */
-    public function loginSucceeded(string $method, string $subject, ?string $provider, ?string $firewall, ?string $ip): void
+    public function loginSucceeded(string $method, string $authenticator, string $subject, ?string $provider, ?string $firewall, ?string $ip): void
     {
         $this->record(self::EVENT_LOGIN_SUCCEEDED, [
             'method' => $method,
+            'authenticator' => $authenticator,
             'subject' => $this->subject($subject),
             'provider' => $provider,
             'firewall' => $firewall,
@@ -70,10 +76,11 @@ class AuthenticationAuditLogger
      * events carry no identity to record. Inventing one would be worse than
      * leaving it absent.
      */
-    public function loginFailed(string $method, ?string $subject, ?string $provider, ?string $firewall, ?string $ip, string $reason): void
+    public function loginFailed(string $method, string $authenticator, ?string $subject, ?string $provider, ?string $firewall, ?string $ip, string $reason): void
     {
         $this->record(self::EVENT_LOGIN_FAILED, [
             'method' => $method,
+            'authenticator' => $authenticator,
             'subject' => null === $subject ? null : $this->subject($subject),
             'provider' => $provider,
             'firewall' => $firewall,
@@ -93,6 +100,8 @@ class AuthenticationAuditLogger
     {
         $this->record($reissued ? self::EVENT_CLI_TOKEN_REISSUED : self::EVENT_CLI_TOKEN_ISSUED, [
             'method' => self::METHOD_CLI_TOKEN,
+            // Issued from a console command, so no authenticator is involved.
+            'authenticator' => null,
             'subject' => $this->subject($subject),
             'provider' => null,
             'firewall' => null,
@@ -109,6 +118,7 @@ class AuthenticationAuditLogger
     {
         $this->record(self::EVENT_CLI_TOKEN_DENIED, [
             'method' => self::METHOD_CLI_TOKEN,
+            'authenticator' => null,
             'subject' => $this->subject($subject),
             'provider' => null,
             'firewall' => null,

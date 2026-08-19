@@ -277,7 +277,8 @@ fixed context schema so the trail can be queried:
 | Key | Meaning |
 | --- | ------- |
 | `event` | one of the event names below |
-| `method` | `oidc` or `cli_token` |
+| `method` | `oidc` or `cli_token` — the coarse category to query on |
+| `authenticator` | concrete authenticator class, `null` for CLI token issuance |
 | `subject` | user identifier, or `null` where none is available |
 | `provider` | OIDC provider key, `null` for CLI token logins |
 | `firewall` | firewall that handled the login |
@@ -302,7 +303,20 @@ monolog:
             level: info
 ```
 
-Two details worth knowing:
+Only logins that went through **this bundle's** authenticators are recorded.
+Symfony dispatches its login events for every authenticator in the application, so
+if a project also offers password or API-token login, those events reach this
+subscriber and are deliberately ignored: an OIDC bundle silently recording an
+application's password logins would extend the personal-data processing past what
+was opted into, and `provider` would be meaningless for them. Applications wanting
+a complete authentication trail should subscribe to the same events themselves.
+
+Both `method` and `authenticator` are recorded because they answer different
+questions. `method` is stable and queryable; `authenticator` says which class
+actually ran, which matters because consumers subclass `OpenIdLoginAuthenticator`
+and an application may have several — one per provider, for instance.
+
+Three details worth knowing:
 
 * **Failed OIDC logins carry no `subject`.** This bundle raises its failures while
   building the passport, so at that point Symfony has no authenticated identity to

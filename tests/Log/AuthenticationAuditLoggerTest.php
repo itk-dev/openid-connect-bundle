@@ -36,8 +36,8 @@ class AuthenticationAuditLoggerTest extends TestCase
      */
     public static function everyRecordProvider(): iterable
     {
-        yield 'login succeeded' => [fn (AuthenticationAuditLogger $l) => $l->loginSucceeded('oidc', 'user@example.org', 'azure', 'main', '203.0.113.4')];
-        yield 'login failed' => [fn (AuthenticationAuditLogger $l) => $l->loginFailed('oidc', null, 'azure', 'main', '203.0.113.4', 'Invalid state')];
+        yield 'login succeeded' => [fn (AuthenticationAuditLogger $l) => $l->loginSucceeded('oidc', 'App\\Security\\AppAuthenticator', 'user@example.org', 'azure', 'main', '203.0.113.4')];
+        yield 'login failed' => [fn (AuthenticationAuditLogger $l) => $l->loginFailed('oidc', 'App\\Security\\AppAuthenticator', null, 'azure', 'main', '203.0.113.4', 'Invalid state')];
         yield 'cli token issued' => [fn (AuthenticationAuditLogger $l) => $l->cliTokenIssued('user@example.org', reissued: false)];
         yield 'cli token reissued' => [fn (AuthenticationAuditLogger $l) => $l->cliTokenIssued('user@example.org', reissued: true)];
         yield 'cli token denied' => [fn (AuthenticationAuditLogger $l) => $l->cliTokenDenied('nobody@example.org', 'User does not exist')];
@@ -71,7 +71,7 @@ class AuthenticationAuditLoggerTest extends TestCase
         // The schema is the contract that makes the trail queryable; every record
         // carries every key, present or null.
         $this->assertSame(
-            ['event', 'method', 'subject', 'provider', 'firewall', 'ip', 'outcome', 'reason'],
+            ['event', 'method', 'authenticator', 'subject', 'provider', 'firewall', 'ip', 'outcome', 'reason'],
             array_keys($record['context']),
         );
         $this->assertSame($record['message'], $record['context']['event'] ?? null);
@@ -82,6 +82,7 @@ class AuthenticationAuditLoggerTest extends TestCase
     {
         $this->createLogger()->loginSucceeded(
             AuthenticationAuditLogger::METHOD_OIDC,
+            'App\\Security\\AppAuthenticator',
             'user@example.org',
             'azure',
             'main',
@@ -91,6 +92,7 @@ class AuthenticationAuditLoggerTest extends TestCase
         $record = $this->logger->singleRecord();
         $this->assertSame(AuthenticationAuditLogger::EVENT_LOGIN_SUCCEEDED, $record['message']);
         $this->assertSame('oidc', $record['context']['method']);
+        $this->assertSame('App\\Security\\AppAuthenticator', $record['context']['authenticator']);
         $this->assertSame('user@example.org', $record['context']['subject']);
         $this->assertSame('azure', $record['context']['provider']);
         $this->assertSame('main', $record['context']['firewall']);
@@ -103,6 +105,7 @@ class AuthenticationAuditLoggerTest extends TestCase
     {
         $this->createLogger()->loginFailed(
             AuthenticationAuditLogger::METHOD_OIDC,
+            'App\\Security\\AppAuthenticator',
             null,
             'azure',
             'main',
@@ -120,7 +123,7 @@ class AuthenticationAuditLoggerTest extends TestCase
     public function testLoginFailedHashesTheSubjectWhenOneIsAvailable(): void
     {
         $this->createLogger(identifier: AuthenticationAuditLogger::IDENTIFIER_HASHED)
-            ->loginFailed('oidc', 'user@example.org', null, 'main', null, 'nope');
+            ->loginFailed('oidc', 'App\\Security\\AppAuthenticator', 'user@example.org', null, 'main', null, 'nope');
 
         $subject = $this->logger->singleRecord()['context']['subject'];
         $this->assertNotSame('user@example.org', $subject);
@@ -143,6 +146,7 @@ class AuthenticationAuditLoggerTest extends TestCase
 
         $record = $this->logger->singleRecord();
         $this->assertSame(AuthenticationAuditLogger::EVENT_CLI_TOKEN_DENIED, $record['message']);
+        $this->assertNull($record['context']['authenticator'], 'A console command has no authenticator');
         $this->assertSame('nobody@example.org', $record['context']['subject']);
         $this->assertSame('failure', $record['context']['outcome']);
         $this->assertSame('User does not exist', $record['context']['reason']);

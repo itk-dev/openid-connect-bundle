@@ -9,6 +9,7 @@ use ItkDev\OpenIdConnectBundle\Security\OpenIdConfigurationProviderManager;
 use ItkDev\OpenIdConnectBundle\Security\OpenIdLoginAuthenticator;
 use ItkDev\OpenIdConnectBundle\Tests\Security\TestAuthenticator;
 use ItkDev\OpenIdConnectBundle\Tests\TestLogger;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
@@ -16,6 +17,8 @@ use Symfony\Component\Security\Core\Exception\AuthenticationException;
 use Symfony\Component\Security\Core\Exception\BadCredentialsException;
 use Symfony\Component\Security\Core\User\UserInterface;
 use Symfony\Component\Security\Http\Authenticator\AuthenticatorInterface;
+use Symfony\Component\Security\Http\Authenticator\FormLoginAuthenticator;
+use Symfony\Component\Security\Http\Authenticator\JsonLoginAuthenticator;
 use Symfony\Component\Security\Http\Authenticator\Passport\Badge\UserBadge;
 use Symfony\Component\Security\Http\Authenticator\Passport\Passport;
 use Symfony\Component\Security\Http\Authenticator\Passport\SelfValidatingPassport;
@@ -55,6 +58,7 @@ class AuthenticationAuditSubscriberTest extends TestCase
         $record = $this->logger->singleRecord();
         $this->assertSame(AuthenticationAuditLogger::EVENT_LOGIN_SUCCEEDED, $record['message']);
         $this->assertSame('oidc', $record['context']['method']);
+        $this->assertSame(TestAuthenticator::class, $record['context']['authenticator'], 'Consumers subclass the base authenticator, so the concrete class is what says which one ran');
         $this->assertSame('user@example.org', $record['context']['subject']);
         $this->assertSame('azure', $record['context']['provider']);
         $this->assertSame('main', $record['context']['firewall']);
@@ -72,15 +76,56 @@ class AuthenticationAuditSubscriberTest extends TestCase
 
         $record = $this->logger->singleRecord();
         $this->assertSame('cli_token', $record['context']['method']);
+        $authenticator = $record['context']['authenticator'];
+        $this->assertIsString($authenticator);
+        $this->assertStringContainsString('CliLoginTokenAuthenticator', $authenticator);
         $this->assertNull($record['context']['provider'], 'A CLI token login has no OIDC provider');
     }
 
-    public function testLoginSuccessFromAnotherAuthenticatorIsIgnored(): void
+    /**
+     * Authenticators from elsewhere in the application.
+     *
+     * These events fire for every authenticator, not just this bundle's. Projects
+     * using the bundle commonly offer password login alongside OIDC, and those
+     * logins must stay out of this trail.
+     *
+     * @return iterable<string, array{class-string<AuthenticatorInterface>}>
+     */
+    public static function foreignAuthenticatorProvider(): iterable
     {
-        // Other firewalls' logins must not land in this bundle's trail.
-        $authenticator = $this->createStub(AuthenticatorInterface::class);
+        yield 'form login (password)' => [FormLoginAuthenticator::class];
+        yield 'json login' => [JsonLoginAuthenticator::class];
+        yield 'any other authenticator' => [AuthenticatorInterface::class];
+    }
+
+    /**
+     * @param class-string<AuthenticatorInterface> $authenticatorClass
+     */
+    #[DataProvider('foreignAuthenticatorProvider')]
+    public function testLoginSuccessFromAnotherAuthenticatorIsIgnored(string $authenticatorClass): void
+    {
+        $authenticator = $this->createStub($authenticatorClass);
 
         $this->subscriber->onLoginSuccess($this->successEvent($authenticator, new Request(), 'user@example.org'));
+
+        $this->assertSame([], $this->logger->records);
+    }
+
+    /**
+     * @param class-string<AuthenticatorInterface> $authenticatorClass
+     */
+    #[DataProvider('foreignAuthenticatorProvider')]
+    public function testLoginFailureFromAnotherAuthenticatorIsIgnoredToo(string $authenticatorClass): void
+    {
+        $event = new LoginFailureEvent(
+            new AuthenticationException('not ours'),
+            $this->createStub($authenticatorClass),
+            new Request(),
+            null,
+            'main',
+        );
+
+        $this->subscriber->onLoginFailure($event);
 
         $this->assertSame([], $this->logger->records);
     }
@@ -147,21 +192,6 @@ class AuthenticationAuditSubscriberTest extends TestCase
         $this->subscriber->onLoginFailure($event);
 
         $this->assertSame('late@example.org', $this->logger->singleRecord()['context']['subject']);
-    }
-
-    public function testLoginFailureFromAnotherAuthenticatorIsIgnored(): void
-    {
-        $event = new LoginFailureEvent(
-            new AuthenticationException('not ours'),
-            $this->createStub(AuthenticatorInterface::class),
-            new Request(),
-            null,
-            'main',
-        );
-
-        $this->subscriber->onLoginFailure($event);
-
-        $this->assertSame([], $this->logger->records);
     }
 
     public function testMissingProviderAttributeIsRecordedAsNull(): void

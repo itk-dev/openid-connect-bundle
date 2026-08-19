@@ -21,6 +21,14 @@ use Symfony\Component\Security\Http\Event\LoginSuccessEvent;
  * dispatcher: `RegisterGlobalSecurityEventListenersPass` copies global listeners
  * onto the firewall-scoped dispatchers, and both events are in its bubbling list.
  *
+ * Both events fire for **every** authenticator in the application — form logins,
+ * JSON logins, remember-me, access tokens — so the first thing each handler does
+ * is establish whether one of this bundle's authenticators produced it, and return
+ * if not. The trail deliberately covers only logins that went through this bundle:
+ * an OIDC bundle silently recording an application's password logins would extend
+ * the personal-data processing past what the operator opted into, and the
+ * `provider` field would be meaningless for them.
+ *
  * The extension only registers this subscriber when `audit_options.enabled` is
  * true, so a deployment that has not opted in does no event handling at all.
  */
@@ -55,6 +63,10 @@ class AuthenticationAuditSubscriber implements EventSubscriberInterface
 
     public function onLoginSuccess(LoginSuccessEvent $event): void
     {
+        // Called for every successful login in the application, including ones
+        // this bundle knows nothing about — form logins, API tokens, remember-me.
+        // A null method means the login came from one of those, and nothing is
+        // recorded: no audit record, no personal data read from the event.
         $method = $this->method($event->getAuthenticator());
         if (null === $method) {
             return;
@@ -62,6 +74,7 @@ class AuthenticationAuditSubscriber implements EventSubscriberInterface
 
         $this->auditLogger->loginSucceeded(
             $method,
+            $event->getAuthenticator()::class,
             $event->getAuthenticatedToken()->getUserIdentifier(),
             $this->provider($event->getRequest()),
             $event->getFirewallName(),
@@ -71,6 +84,8 @@ class AuthenticationAuditSubscriber implements EventSubscriberInterface
 
     public function onLoginFailure(LoginFailureEvent $event): void
     {
+        // As above: a null method means some other authenticator rejected this
+        // attempt, so it is none of this trail's business and nothing is recorded.
         $method = $this->method($event->getAuthenticator());
         if (null === $method) {
             return;
@@ -86,6 +101,7 @@ class AuthenticationAuditSubscriber implements EventSubscriberInterface
 
         $this->auditLogger->loginFailed(
             $method,
+            $event->getAuthenticator()::class,
             $this->failedSubject($event),
             $this->provider($event->getRequest()),
             $event->getFirewallName(),
@@ -97,9 +113,15 @@ class AuthenticationAuditSubscriber implements EventSubscriberInterface
     /**
      * Which of this bundle's authenticators produced the event, if any.
      *
-     * Doubles as the filter that keeps other firewalls' logins out of this trail.
-     * `getAuthenticator()` already unwraps `TraceableAuthenticator`, so the check
-     * is reliable in the dev profiler too.
+     * **A null return is the filter**: it means the event came from an
+     * authenticator this bundle does not own, and the caller records nothing at
+     * all. That is what keeps an application's password, JSON and API-token logins
+     * out of an OIDC audit trail.
+     *
+     * `getAuthenticator()` already unwraps `TraceableAuthenticator`, so the
+     * `instanceof` checks hold in the dev profiler too. Consumer subclasses of
+     * `OpenIdLoginAuthenticator` match on the first arm, which is why the concrete
+     * class is recorded separately.
      */
     private function method(AuthenticatorInterface $authenticator): ?string
     {
