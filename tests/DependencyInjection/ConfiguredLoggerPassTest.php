@@ -5,6 +5,7 @@ namespace ItkDev\OpenIdConnectBundle\Tests\DependencyInjection;
 use ItkDev\OpenIdConnectBundle\DependencyInjection\Compiler\ConfiguredLoggerPass;
 use ItkDev\OpenIdConnectBundle\Security\OpenIdLoginAuthenticator;
 use ItkDev\OpenIdConnectBundle\Tests\ItkDevOpenIdConnectBundleTestingKernel;
+use ItkDev\OpenIdConnectBundle\Tests\RestoresExceptionHandlers;
 use ItkDev\OpenIdConnectBundle\Tests\Security\ConsumerAuthenticator;
 use ItkDev\OpenIdConnectBundle\Tests\TestLogger;
 use PHPUnit\Framework\TestCase;
@@ -31,6 +32,8 @@ use Symfony\Component\HttpFoundation\Session\Storage\MockArraySessionStorage;
  */
 class ConfiguredLoggerPassTest extends TestCase
 {
+    use RestoresExceptionHandlers;
+
     private ItkDevOpenIdConnectBundleTestingKernel $kernel;
 
     protected function setUp(): void

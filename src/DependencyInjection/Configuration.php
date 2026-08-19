@@ -124,7 +124,6 @@ class Configuration implements ConfigurationInterface
                                         // values regardless: ScalarNode::isValueEmpty() is
                                         // `null === $value || '' === $value`.
                                         ->info('Required. Date the client secret expires, e.g. "2027-01-31". Anything strtotime() understands, and usually an environment variable. An expired secret breaks every login, so the bundle warns while there is still time to rotate.')
-                                        ->defaultNull()
                                         ->validate()
                                             // '' is exempt because it is the dummy fixture Symfony
                                             // substitutes for %env(string:...)% while compiling

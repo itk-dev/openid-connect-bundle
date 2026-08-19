@@ -5,6 +5,7 @@ namespace ItkDev\OpenIdConnectBundle\Tests\Security;
 use ItkDev\OpenIdConnectBundle\EventSubscriber\AuthenticationAuditSubscriber;
 use ItkDev\OpenIdConnectBundle\Exception\AuthenticationFailedException;
 use ItkDev\OpenIdConnectBundle\Tests\ItkDevOpenIdConnectBundleTestingKernel;
+use ItkDev\OpenIdConnectBundle\Tests\RestoresExceptionHandlers;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -23,6 +24,8 @@ use Symfony\Component\Security\Core\Exception\AuthenticationException;
  */
 class FailedCallbackDoesNotLoopTest extends TestCase
 {
+    use RestoresExceptionHandlers;
+
     private ItkDevOpenIdConnectBundleTestingKernel $kernel;
 
     protected function setUp(): void

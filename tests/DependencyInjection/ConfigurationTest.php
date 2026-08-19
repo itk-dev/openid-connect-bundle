@@ -356,6 +356,40 @@ class ConfigurationTest extends TestCase
         $this->assertArrayNotHasKey('my_provider', $config['openid_providers']);
     }
 
+    /**
+     * The definition itself must be free of deprecations.
+     *
+     * Symfony reports a contradictory definition — a required node that also carries
+     * a default, say — by deprecating it rather than refusing it, and
+     * `trigger_deprecation()` raises that with `@`, which PHPUnit's own
+     * `failOnDeprecation` respects and therefore never sees. A handler installed here
+     * does see it. Otherwise the first report comes from a consuming application's
+     * console, which is where this one was found.
+     */
+    public function testTheDefinitionEmitsNoDeprecations(): void
+    {
+        $deprecations = [];
+        // All four arguments are forwarded: the handler being wrapped is PHPUnit's,
+        // whose __invoke() requires file and line.
+        $previous = set_error_handler(static function (int $level, string $message, string $file = '', int $line = 0) use (&$deprecations, &$previous): bool {
+            if (\E_USER_DEPRECATED === $level) {
+                $deprecations[] = $message;
+
+                return true;
+            }
+
+            return null !== $previous && false !== ($previous)($level, $message, $file, $line);
+        });
+
+        try {
+            $this->processor->processConfiguration($this->configuration, [$this->getMinimalConfig()]);
+        } finally {
+            restore_error_handler();
+        }
+
+        $this->assertSame([], $deprecations);
+    }
+
     public function testTheExpiryDateIsRequired(): void
     {
         $input = $this->getMinimalConfig();
