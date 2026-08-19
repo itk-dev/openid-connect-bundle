@@ -24,6 +24,12 @@ use Symfony\Component\DependencyInjection\Reference;
  *
  * Method calls carry no priority, so making that deterministic means rewriting them
  * once the instanceof conditionals that produced them have been resolved.
+ *
+ * Two consequences of rewriting rather than reordering: the configured logger also
+ * overrides an explicit `setLogger()` call on the definition, since nothing here can
+ * tell a consumer's deliberate call from FrameworkBundle's — disable
+ * autoconfiguration for the service to opt out of all of this — and the call now runs
+ * last among the setters rather than first.
  */
 final class ConfiguredLoggerPass implements CompilerPassInterface
 {
@@ -50,6 +56,17 @@ final class ConfiguredLoggerPass implements CompilerPassInterface
 
         if (!is_string($loggerId)) {
             return;
+        }
+
+        // References in existing method calls have already been rewritten to concrete
+        // ids by ResolveReferencesToAliasesPass, which runs in the optimization phase
+        // ahead of this one. Comparing an alias against them would never match, so a
+        // logger configured by alias id — `logger` among them — would silently leave
+        // the ordering unsettled. Emitting the alias would be worse still: private
+        // aliases are removed after this pass, leaving a dangling reference.
+        // That pass has already rejected circular aliases, so this terminates.
+        while ($container->hasAlias($loggerId)) {
+            $loggerId = (string) $container->getAlias($loggerId);
         }
 
         foreach ($container->getDefinitions() as $definition) {

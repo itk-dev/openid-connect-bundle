@@ -35,13 +35,20 @@ class ConfiguredLoggerPassTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->kernel = new ItkDevOpenIdConnectBundleTestingKernel([
+        $this->kernel = $this->boot('itkdev_openid_connect_configured_logger.yml');
+    }
+
+    private function boot(string $bundleConfig): ItkDevOpenIdConnectBundleTestingKernel
+    {
+        $kernel = new ItkDevOpenIdConnectBundleTestingKernel([
             __DIR__.'/../config/framework.yml',
             __DIR__.'/../config/framework_routing.yml',
             __DIR__.'/../config/security_consumer.yml',
-            __DIR__.'/../config/itkdev_openid_connect_configured_logger.yml',
+            __DIR__.'/../config/'.$bundleConfig,
         ]);
-        $this->kernel->boot();
+        $kernel->boot();
+
+        return $kernel;
     }
 
     private function configuredLogger(): TestLogger
@@ -85,6 +92,24 @@ class ConfiguredLoggerPassTest extends TestCase
             'OIDC login failed: invalid state',
             array_column($this->configuredLogger()->records, 'message'),
         );
+    }
+
+    /**
+     * An alias is a service id like any other as far as configuration goes, but by
+     * the time this pass runs the references it is compared against have already been
+     * rewritten to the concrete id — so matching on the alias would quietly fail and
+     * leave exactly the ordering dependency this pass exists to remove.
+     */
+    public function testALoggerConfiguredByAliasIsResolved(): void
+    {
+        $this->kernel = $this->boot('itkdev_openid_connect_alias_logger.yml');
+
+        $authenticator = $this->kernel->getContainer()->get(ConsumerAuthenticator::class);
+        $this->assertInstanceOf(ConsumerAuthenticator::class, $authenticator);
+
+        $logger = (new \ReflectionProperty(OpenIdLoginAuthenticator::class, 'logger'))->getValue($authenticator);
+
+        $this->assertSame($this->configuredLogger(), $logger);
     }
 
     /**

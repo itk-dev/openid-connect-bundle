@@ -32,24 +32,29 @@ class ItkDevOpenIdConnectBundleTestingKernel extends Kernel
     }
 
     /**
-     * A cache directory per config set, and per process.
+     * A cache directory per config set, and under Infection per process.
      *
      * Per config set, because otherwise every kernel in the suite shares
      * `var/cache/test`: the first container compiled is the one every later test
      * gets, silently, with whatever configuration that first test happened to use.
      *
-     * Per process, because Infection substitutes a mutated file through an include
-     * interceptor rather than by writing to disk, so nothing Symfony tracks as a
-     * resource changes and a cached container is served to the mutant unchanged.
-     * Every mutation of compile-time code then survives by default. Each mutant runs
-     * in its own process, so the pid is what distinguishes them.
+     * Per process under Infection, because it substitutes a mutated file through an
+     * include interceptor rather than by writing to disk. Nothing Symfony tracks as a
+     * resource changes, so a mutant is served the cached container and every mutation
+     * of compile-time code survives by default. Each mutant runs in its own process,
+     * so the pid separates them. Plain runs stay on the shared directory: they have
+     * nothing to isolate, and a recompile per process is a cost with no return.
      */
     #[\Override]
     public function getCacheDir(): string
     {
-        $key = hash('xxh128', implode('|', $this->pathToConfigs));
+        $key = substr(hash('xxh128', implode('|', $this->pathToConfigs)), 0, 12);
 
-        return parent::getCacheDir().'/'.substr($key, 0, 12).'-'.getmypid();
+        if (false !== getenv('INFECTION')) {
+            $key .= '-'.getmypid();
+        }
+
+        return parent::getCacheDir().'/'.$key;
     }
 
     /**
@@ -89,6 +94,9 @@ class ItkDevOpenIdConnectBundleTestingKernel extends Kernel
             // Available as a logger a config fixture can point at, so a test can
             // read what the bundle actually wrote through the container.
             $builder->register(TestLogger::class, TestLogger::class)->setPublic(true);
+            // Aliases are resolved out of method calls before this bundle's compiler
+            // pass runs, so a logger configured by alias needs its own coverage.
+            $builder->setAlias('test.logger_alias', TestLogger::class);
         });
 
         foreach ($this->pathToConfigs as $path) {
