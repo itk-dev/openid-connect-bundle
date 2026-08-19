@@ -1,0 +1,3 @@
+protected:
+  path: /protected
+  controller: ItkDev\OpenIdConnectBundle\Tests\Security\ProtectedController

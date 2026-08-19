@@ -18,6 +18,10 @@ See [ADR 002](docs/adr/002-fail-closed-on-authentication-failure.md).
 + } catch (\ItkDev\OpenIdConnectBundle\Exception\OpenIdConnectBundleExceptionInterface $e) {
 ```
 
+`getPrevious()` on the new exception is the underlying OpenID Connect exception,
+not Symfony's `AuthenticationException`: the security listener follows the chain,
+so one left there would loop again.
+
 If you catch nothing today, no code change is needed. Check that a failed login
 renders an acceptable error and that your error reporting picks it up.
 

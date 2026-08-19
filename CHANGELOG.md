@@ -19,6 +19,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `docs/adr/002-fail-closed-on-authentication-failure.md`.
   `CliLoginTokenAuthenticator` is unchanged: it has no entry point of its own,
   so it cannot loop.
+- `getPrevious()` on that exception is the underlying OpenID Connect exception
+  rather than the `AuthenticationException`, which the security component would
+  have followed straight back into the loop.
 
 ## [5.1.1] - 2026-08-19
 

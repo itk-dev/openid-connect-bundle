@@ -39,7 +39,16 @@ Anything else propagates to `HttpKernel`.
 
 Adopt option 1 in 6.0.0. `OpenIdLoginAuthenticator::onAuthenticationFailure()`
 throws `AuthenticationFailedException` — a `\RuntimeException` implementing the
-ADR 001 marker — chaining the cause.
+ADR 001 marker.
+
+**The cause has to stay outside the hierarchy as well.** `ExceptionListener` walks
+the whole `$previous` chain, so chaining the `AuthenticationException` it handed us
+re-enters the entry point exactly as throwing one would. The bundle chains the
+first cause below it instead — the library exception that says why the callback
+failed — and nothing at all when the chain holds only security exceptions. A
+knowing departure from ADR 001's "always pass `$previous`": the chain is kept as
+far as it can be without restoring the loop, and the message carries the original
+text either way.
 
 **Scope: the OIDC authenticator only.** `CliLoginTokenAuthenticator` is not an
 entry point, so its failures redirect to normal login and cannot loop: `supports()`
@@ -56,6 +65,8 @@ entry point re-triggers it.
   counter.
 - Consumers catching `AuthenticationException` around the callback must switch to
   `OpenIdConnectBundleExceptionInterface`. See `UPGRADE-6.0.md`.
+- `getPrevious()` is the underlying OpenID Connect exception, not the
+  `AuthenticationException` the firewall raised.
 - A transient identity-provider failure is now an error rather than a silent retry.
   Accepted: the bundle cannot tell transient from permanent, and retrying is what
   caused the outage.

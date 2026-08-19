@@ -158,6 +158,39 @@ abstract class OpenIdLoginAuthenticator extends AbstractAuthenticator implements
         // original exception, validateClaims() logged the specific reason, and the
         // application's error handling logs whatever escapes. A record here would be
         // the fourth for one failure.
-        throw new AuthenticationFailedException(sprintf('Error occurred validating openid login: %s', $exception->getMessage()), $exception->getCode(), $exception);
+        throw new AuthenticationFailedException(sprintf('Error occurred validating openid login: %s', $exception->getMessage()), $exception->getCode(), self::causeOutsideSecurity($exception));
+    }
+
+    /**
+     * The first cause carrying no `AuthenticationException` anywhere beneath it.
+     *
+     * Changing the thrown type is not enough on its own: the security
+     * `ExceptionListener` walks the whole `$previous` chain, so chaining the
+     * `AuthenticationException` it handed us would put one back within reach and it
+     * would redirect to the entry point regardless — the loop restored by the cause
+     * instead of by the type. The library exception underneath carries the reason
+     * worth keeping, and `validateClaims()` has already logged it with the full
+     * chain attached.
+     */
+    private static function causeOutsideSecurity(\Throwable $exception): ?\Throwable
+    {
+        for ($cause = $exception->getPrevious(); null !== $cause; $cause = $cause->getPrevious()) {
+            if (!self::containsSecurityException($cause)) {
+                return $cause;
+            }
+        }
+
+        return null;
+    }
+
+    private static function containsSecurityException(\Throwable $exception): bool
+    {
+        for ($current = $exception; null !== $current; $current = $current->getPrevious()) {
+            if ($current instanceof AuthenticationException) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

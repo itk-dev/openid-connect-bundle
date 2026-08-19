@@ -13,6 +13,7 @@ use ItkDev\OpenIdConnectBundle\Exception\OpenIdConnectBundleExceptionInterface;
 use ItkDev\OpenIdConnectBundle\Security\OpenIdConfigurationProviderManager;
 use ItkDev\OpenIdConnectBundle\Security\OpenIdLoginAuthenticator;
 use ItkDev\OpenIdConnectBundle\Tests\TestLogger;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LogLevel;
@@ -82,7 +83,12 @@ class OpenIdLoginAuthenticatorTest extends TestCase
             );
             $this->assertInstanceOf(AuthenticationFailedException::class, $thrown);
 
-            $this->assertSame($cause, $thrown->getPrevious(), 'Original exception must be chained as previous');
+            // Not chained, even though ADR 001 asks for a cause: the security
+            // ExceptionListener walks the whole $previous chain, so an
+            // AuthenticationException reachable through it is caught and turned back
+            // into a redirect exactly as if it had been thrown directly. The message
+            // carries the reason instead.
+            $this->assertNull($thrown->getPrevious(), 'An AuthenticationException must not be reachable through the chain');
             $this->assertStringContainsString('Original cause message', $thrown->getMessage(), 'Cause message must be preserved for logs');
 
             // Deliberately no record: the framework already logs the original
@@ -90,6 +96,35 @@ class OpenIdLoginAuthenticatorTest extends TestCase
             // application logs whatever escapes.
             $this->assertSame([], $this->logger->records);
         }
+    }
+
+    /**
+     * The chain is dropped only as far as it has to be. A library exception below
+     * the AuthenticationException is what says *why* the callback failed, and it
+     * is safe to keep because the listener does not act on it.
+     */
+    #[DataProvider('causeChainProvider')]
+    public function testACauseOutsideTheSecurityHierarchyIsKept(\Throwable $cause, ?\Throwable $expected): void
+    {
+        try {
+            $this->authenticator->onAuthenticationFailure(new Request(), new AuthenticationException('Sanitised by the firewall', 0, $cause));
+            $this->fail('Expected AuthenticationFailedException');
+        } catch (\Throwable $thrown) {
+            $this->assertSame($expected, $thrown->getPrevious());
+        }
+    }
+
+    /**
+     * @return iterable<string, array{\Throwable, ?\Throwable}>
+     */
+    public static function causeChainProvider(): iterable
+    {
+        $root = new ValidationException('Invalid state');
+
+        yield 'library cause is kept' => [$root, $root];
+        // The firewall wraps more than once in places, so one skip is not enough.
+        yield 'reached past nested security exceptions' => [new AuthenticationException('inner', 0, $root), $root];
+        yield 'nothing left to keep' => [new AuthenticationException('inner'), null];
     }
 
     public function testUnknownProviderIsLoggedAndRethrown(): void
