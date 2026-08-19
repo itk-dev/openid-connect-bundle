@@ -111,6 +111,7 @@ class Configuration implements ConfigurationInterface
                                         ->isRequired()->cannotBeEmpty()
                                     ->end()
                                     ->scalarNode('client_secret_expires_at')
+                                        ->isRequired()
                                         // No cannotBeEmpty() here, and it cannot come back:
                                         // VariableNode::finalizeValue() refuses an environment variable
                                         // whenever empty values are disallowed and the node has any
@@ -122,7 +123,7 @@ class Configuration implements ConfigurationInterface
                                         // ClientSecretExpiryChecker. It never caught whitespace-only
                                         // values regardless: ScalarNode::isValueEmpty() is
                                         // `null === $value || '' === $value`.
-                                        ->info('Date the client secret expires, e.g. "2027-01-31". Anything strtotime() understands, and usually an environment variable. An expired secret breaks every login, so configuring this lets the bundle warn while there is still time to rotate. Will be required in 6.0.')
+                                        ->info('Required. Date the client secret expires, e.g. "2027-01-31". Anything strtotime() understands, and usually an environment variable. An expired secret breaks every login, so the bundle warns while there is still time to rotate.')
                                         ->defaultNull()
                                         ->validate()
                                             // '' is exempt because it is the dummy fixture Symfony

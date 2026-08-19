@@ -115,9 +115,9 @@ itkdev_openid_connect:
         metadata_url: '%env(string:ADMIN_OIDC_METADATA_URL)%'
         client_id: '%env(string:ADMIN_OIDC_CLIENT_ID)%'
         client_secret: '%env(string:ADMIN_OIDC_CLIENT_SECRET)%'
-        # Date the client secret expires. An expired secret breaks every login,
-        # so setting this lets the bundle warn while there is still time to
-        # rotate. Will be REQUIRED in 6.0. See "Client secret expiry" below.
+        # Required. Date the client secret expires. An expired secret breaks
+        # every login, so the bundle warns while there is still time to rotate.
+        # See "Client secret expiry" below.
         client_secret_expires_at: '%env(string:ADMIN_OIDC_CLIENT_SECRET_EXPIRES_AT)%'
         # Specify redirect URI
         redirect_uri: '%env(string:ADMIN_OIDC_REDIRECT_URI)%'
@@ -226,13 +226,10 @@ For a genuinely expired secret that means the login still fails, at the callback
 with `invalid_client` — but the `critical` record here and the failure record from
 the callback together name the cause without anyone having to reproduce it.
 
-Until the date is configured a provider sits in `unknown`, where none of the above
-applies and nothing is reported.
-
-> [!NOTE]
-> `client_secret_expires_at` is optional in 5.x and **will be required in 6.0**.
-> Providers without it emit a deprecation warning, because the bundle cannot warn
-> about an expiry it does not know about.
+`client_secret_expires_at` is required, because the bundle cannot warn about an
+expiry it does not know about. A provider still reaches `unknown` when the value is
+set to something unusable — an environment variable that resolved to nothing, or a
+date `strtotime()` cannot read — and that is reported at `error`.
 
 ##### Monitoring expiry
 

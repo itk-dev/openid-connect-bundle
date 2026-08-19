@@ -10,6 +10,7 @@ itkdev_openid_connect:
         metadata_url: "https://provider.example.org/openid-configuration"
         client_id: "test_id"
         client_secret: "test_secret"
+        client_secret_expires_at: "2027-01-31"
         redirect_uri: "https://app.example.org/callback_uri"
     test_provider_2:
       options:
@@ -17,4 +18,5 @@ itkdev_openid_connect:
         client_id: "test_id"
         leeway: 5
         client_secret: "test_secret"
+        client_secret_expires_at: "2027-01-31"
         redirect_uri: "https://app.example.org/callback_uri"

@@ -35,6 +35,7 @@ class ConfigurationTest extends TestCase
                         'metadata_url' => 'https://example.com/.well-known/openid-configuration',
                         'client_id' => 'my_id',
                         'client_secret' => 'my_secret',
+                        'client_secret_expires_at' => '2027-01-31',
                     ],
                 ],
             ],
@@ -70,8 +71,7 @@ class ConfigurationTest extends TestCase
         $this->assertNull($config['audit_options']['logger']);
         $this->assertSame(AuthenticationAuditLogger::IDENTIFIER_RAW, $config['audit_options']['identifier']);
 
-        // No expiry date yet, and a 30-day default warning window.
-        $this->assertNull($provider['client_secret_expires_at']);
+        $this->assertSame('2027-01-31', $provider['client_secret_expires_at']);
         $this->assertSame(30, $config['secret_expiry_options']['warning_days']);
     }
 
@@ -356,6 +356,17 @@ class ConfigurationTest extends TestCase
         $this->assertArrayNotHasKey('my_provider', $config['openid_providers']);
     }
 
+    public function testTheExpiryDateIsRequired(): void
+    {
+        $input = $this->getMinimalConfig();
+        unset($input['openid_providers']['provider1']['options']['client_secret_expires_at']);
+
+        $this->expectException(InvalidConfigurationException::class);
+        $this->expectExceptionMessage('The child config "client_secret_expires_at" under "itkdev_openid_connect.openid_providers.provider1.options" must be configured');
+
+        $this->processor->processConfiguration($this->configuration, [$input]);
+    }
+
     public function testMultipleProviders(): void
     {
         $input = $this->getMinimalConfig();
@@ -364,6 +375,7 @@ class ConfigurationTest extends TestCase
                 'metadata_url' => 'https://other-provider.example.org/.well-known/openid-configuration',
                 'client_id' => 'other_id',
                 'client_secret' => 'other_secret',
+                'client_secret_expires_at' => '2028-06-30',
             ],
         ];
 
