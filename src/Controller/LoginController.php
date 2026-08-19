@@ -5,6 +5,7 @@ namespace ItkDev\OpenIdConnectBundle\Controller;
 use ItkDev\OpenIdConnect\Exception\OpenIdConnectExceptionInterface;
 use ItkDev\OpenIdConnectBundle\Exception\InvalidProviderException;
 use ItkDev\OpenIdConnectBundle\Security\OpenIdConfigurationProviderManager;
+use ItkDev\OpenIdConnectBundle\Util\ClientSecretExpiryChecker;
 use Psr\Log\LoggerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\RedirectResponse;
@@ -21,6 +22,7 @@ class LoginController extends AbstractController
     public function __construct(
         private readonly OpenIdConfigurationProviderManager $providerManager,
         private readonly LoggerInterface $logger,
+        private readonly ClientSecretExpiryChecker $expiryChecker,
     ) {
     }
 
@@ -44,6 +46,8 @@ class LoginController extends AbstractController
 
             throw new NotFoundHttpException(sprintf('Unknown OIDC provider "%s"', $providerKey), $e);
         }
+
+        $this->checkClientSecretExpiry($providerKey);
 
         $nonce = $provider->generateNonce();
         $state = $provider->generateState();
@@ -73,5 +77,38 @@ class LoginController extends AbstractController
         }
 
         return new RedirectResponse($authUrl);
+    }
+
+    /**
+     * Report on the client secret's expiry without standing in the way.
+     *
+     * Deliberately non-fatal, even once expired. The status depends on a manually
+     * maintained date, which can fall out of step with the secret it describes:
+     * rotate a secret without updating `client_secret_expires_at` and the date
+     * reads "expired" while the secret works perfectly. So the date is treated as
+     * an indicator rather than as authority — the identity provider is what
+     * actually decides whether a secret still works. These records exist so that
+     * when it does stop working, the reason is already in the log rather than
+     * something to be worked out afterwards.
+     */
+    private function checkClientSecretExpiry(string $providerKey): void
+    {
+        $expiry = $this->expiryChecker->getStatus($providerKey);
+
+        if ($expiry->isExpired()) {
+            // Critical because every login through this provider is expected to
+            // fail from here: the token exchange returns invalid_client at the
+            // callback. Paired with the failure record logged there, the cause is
+            // legible without reproducing anything.
+            $this->logger->critical(
+                'OIDC client secret is past its configured expiry; logins are expected to fail until it is rotated. If the secret has already been rotated, update client_secret_expires_at.',
+                $expiry->toArray(),
+            );
+        // The statuses are mutually exclusive, so this is an elseif rather than an
+        // early return: nothing to guard against, and nothing dead to trip over.
+        } elseif ($expiry->isExpiringSoon()) {
+            // The window in which someone can act before logins break.
+            $this->logger->warning('OIDC client secret expires soon', $expiry->toArray());
+        }
     }
 }

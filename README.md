@@ -202,6 +202,28 @@ Each provider is then in one of four states:
 `unknown` is deliberately distinct from `ok`: an installation that has not set a
 date is not fine, it is unmonitored.
 
+What the bundle does with each state, when a login is attempted:
+
+| Status | Behaviour |
+| ------ | --------- |
+| `expired` | a `critical` record; the login **still proceeds** |
+| `expiring_soon` | a `warning` record; the login proceeds |
+| `ok`, `unknown` | nothing logged |
+
+**Nothing here blocks a login.** The status depends on a manually maintained date,
+which can fall out of step with the secret it describes: rotate a secret without
+updating `client_secret_expires_at` and the date reads `expired` while the secret
+works perfectly. The date is therefore an indicator, not authority — the identity
+provider is what decides whether a secret still works. These records exist so that
+when it does stop working, the reason is already in the log.
+
+For a genuinely expired secret that means the login still fails, at the callback,
+with `invalid_client` — but the `critical` record here and the failure record from
+the callback together name the cause without anyone having to reproduce it.
+
+Until the date is configured a provider sits in `unknown`, where none of the above
+applies and nothing is reported.
+
 > [!NOTE]
 > `client_secret_expires_at` is optional in 5.x and **will be required in 6.0**.
 > Providers without it emit a deprecation warning, because the bundle cannot warn
