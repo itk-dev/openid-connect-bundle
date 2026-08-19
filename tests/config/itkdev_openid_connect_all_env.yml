@@ -12,7 +12,11 @@ itkdev_openid_connect:
     logger: "itkdev_openid_connect.null_logger"
   audit_options:
     enabled: "%env(bool:TEST_AUDIT_ENABLED)%"
-    identifier: "%env(string:TEST_AUDIT_IDENTIFIER)%"
+    logger: 'ItkDev\OpenIdConnectBundle\Tests\TestLogger'
+    # Not an environment variable, by design: the HMAC key is chosen while the
+    # container compiles, so the mode has to be known then. A literal here also
+    # keeps the hashing key wiring under test.
+    identifier: "hashed"
   secret_expiry_options:
     warning_days: "%env(int:TEST_WARNING_DAYS)%"
   openid_providers:

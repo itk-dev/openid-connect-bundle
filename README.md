@@ -491,6 +491,13 @@ the application secret. It is stable, so records for the same person still
 correlate, but it is not reversible from a list of known email addresses — which a
 plain digest would be.
 
+> [!NOTE]
+> `identifier` cannot come from an environment variable. The key is chosen while the
+> container compiles, so the mode has to be known then; an environment variable
+> would leave it hashing with an empty key, which looks pseudonymised without being
+> so. To vary it per environment, use Symfony's environment-specific configuration
+> (`when@prod:`), which is resolved at compile time.
+
 #### Configuring the HTTP client
 
 Each provider accepts an optional `http_client_options` block that is forwarded

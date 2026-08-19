@@ -38,6 +38,53 @@ class AuthenticationAuditSubscriberTest extends TestCase
         );
     }
 
+    public function testADisabledTrailReadsNothingFromTheEvent(): void
+    {
+        // Reachable whenever `enabled` comes from an environment variable: the
+        // extension cannot remove the subscriber then, so this guard is what keeps
+        // the "no personal data assembled" promise.
+        $subscriber = new AuthenticationAuditSubscriber(
+            new AuthenticationAuditLogger($this->logger, enabled: false)
+        );
+
+        $token = $this->createMock(TokenInterface::class);
+        $token->expects($this->never())->method('getUserIdentifier');
+
+        $subscriber->onLoginSuccess(new LoginSuccessEvent(
+            $this->oidcAuthenticator(),
+            $this->createStub(Passport::class),
+            $token,
+            new Request(),
+            null,
+            'main',
+        ));
+
+        $this->assertSame([], $this->logger->records);
+    }
+
+    public function testADisabledTrailIgnoresFailuresToo(): void
+    {
+        $subscriber = new AuthenticationAuditSubscriber(
+            new AuthenticationAuditLogger($this->logger, enabled: false)
+        );
+
+        // Nothing may be read off the request either — the client IP is personal
+        // data, and reading it is already doing what the guard exists to prevent.
+        // (The exception cannot serve as the sentinel: getPrevious() is final.)
+        $request = $this->createMock(Request::class);
+        $request->expects($this->never())->method('getClientIp');
+
+        $subscriber->onLoginFailure(new LoginFailureEvent(
+            new AuthenticationException('Invalid state'),
+            $this->oidcAuthenticator(),
+            $request,
+            null,
+            'main',
+        ));
+
+        $this->assertSame([], $this->logger->records);
+    }
+
     public function testSubscribesToBothSecurityEvents(): void
     {
         $this->assertSame([

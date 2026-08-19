@@ -59,6 +59,9 @@ class ItkDevOpenIdConnectBundleTestingKernel extends Kernel
     {
         $loader->load(function (ContainerBuilder $builder) {
             $builder->register(TestAuthenticator::class, TestAuthenticator::class);
+            // Available as a logger a config fixture can point at, so a test can
+            // read what the bundle actually wrote through the container.
+            $builder->register(TestLogger::class, TestLogger::class)->setPublic(true);
         });
 
         foreach ($this->pathToConfigs as $path) {

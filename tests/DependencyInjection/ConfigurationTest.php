@@ -198,6 +198,10 @@ class ConfigurationTest extends TestCase
         yield 'wrong case' => ['RAW'];
         yield 'not a string' => [123];
         yield 'explicit null' => [null];
+        // An environment variable would arrive as this fixture while compiling, and
+        // rejecting it is the point: the HMAC key is chosen then, so the mode has to
+        // be a literal. Varying it per environment is what `when@prod:` is for.
+        yield 'empty (the env placeholder fixture)' => [''];
     }
 
     #[DataProvider('invalidIdentifierModeProvider')]
@@ -209,18 +213,6 @@ class ConfigurationTest extends TestCase
         $this->expectException(InvalidConfigurationException::class);
 
         $this->processor->processConfiguration($this->configuration, [$input]);
-    }
-
-    public function testAuditOptionsAcceptsTheEmptyEnvironmentFixture(): void
-    {
-        // '' stands in for %env(string:...)% while the container compiles, so it has
-        // to pass; the audit logger pseudonymises anything it does not recognise.
-        $input = $this->getMinimalConfig();
-        $input['audit_options'] = ['identifier' => ''];
-
-        $config = $this->processor->processConfiguration($this->configuration, [$input]);
-
-        $this->assertSame('', $config['audit_options']['identifier']);
     }
 
     public function testLoggingOptionsAccepted(): void

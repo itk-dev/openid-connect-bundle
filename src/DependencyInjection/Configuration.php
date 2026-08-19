@@ -63,26 +63,19 @@ class Configuration implements ConfigurationInterface
                             ->defaultNull()
                             ->cannotBeEmpty()
                         ->end() // logger
-                        // A scalar rather than an enumNode, because enumNode cannot
-                        // take an environment variable: Symfony substitutes '' for a
-                        // string placeholder while compiling, and '' is not a
-                        // permissible value. The closure below enforces the same set
-                        // for literals while letting %env()% through. Should an
-                        // unrecognised value still reach the logger — a blank
-                        // environment variable, say — it pseudonymises, which is the
-                        // safe direction to fail for a value that decides whether
-                        // personal data is written in the clear.
-                        ->scalarNode('identifier')
-                            ->info('Record user identifiers as-is ("raw") or pseudonymised ("hashed"). Hashing is keyed with the application secret, so records still correlate.')
+                        // Deliberately NOT settable from an environment variable, and
+                        // an enumNode enforces that by refusing one. The extension
+                        // picks the HMAC key while the container compiles, so it has
+                        // to know the mode then; an environment variable would leave
+                        // it comparing against an unresolved placeholder and quietly
+                        // hashing with an empty key, which is worse than not hashing
+                        // at all because it looks pseudonymised. To vary this per
+                        // environment use Symfony's `when@prod:` blocks, which are
+                        // resolved at compile time and work here.
+                        ->enumNode('identifier')
+                            ->info('Record user identifiers as-is ("raw") or pseudonymised ("hashed"). Hashing is keyed with the application secret, so records still correlate. Cannot come from an environment variable; use environment-specific configuration instead.')
+                            ->values([AuthenticationAuditLogger::IDENTIFIER_RAW, AuthenticationAuditLogger::IDENTIFIER_HASHED])
                             ->defaultValue(AuthenticationAuditLogger::IDENTIFIER_RAW)
-                            ->validate()
-                                // Only the exact '' fixture is exempt. Anything else
-                                // that is not one of the two values — a typo, a
-                                // number, an explicit null — is a mistake worth
-                                // failing the build over.
-                                ->ifTrue(static fn (mixed $v): bool => '' !== $v && !in_array($v, [AuthenticationAuditLogger::IDENTIFIER_RAW, AuthenticationAuditLogger::IDENTIFIER_HASHED], true))
-                                ->thenInvalid('audit_options.identifier must be "raw" or "hashed". Got %s.')
-                            ->end()
                         ->end() // identifier
                     ->end()
                 ->end() // audit_options
@@ -127,7 +120,8 @@ class Configuration implements ConfigurationInterface
                                         // mistyped literal is the realistic mistake, while the empties
                                         // cannotBeEmpty() would have caught are reported at runtime by
                                         // ClientSecretExpiryChecker. It never caught whitespace-only
-                                        // values regardless, since isValueEmpty() is just `!$value`.
+                                        // values regardless: ScalarNode::isValueEmpty() is
+                                        // `null === $value || '' === $value`.
                                         ->info('Date the client secret expires, e.g. "2027-01-31". Anything strtotime() understands, and usually an environment variable. An expired secret breaks every login, so configuring this lets the bundle warn while there is still time to rotate. Will be required in 6.0.')
                                         ->defaultNull()
                                         ->validate()
