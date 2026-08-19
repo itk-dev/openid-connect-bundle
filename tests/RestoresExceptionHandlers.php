@@ -28,8 +28,11 @@ trait RestoresExceptionHandlers
     protected function restoreExceptionHandlers(): void
     {
         // Pops one handler at a time rather than draining the stack, which would
-        // discard a global handler registered before the suite ran.
-        while ($this->currentExceptionHandler() !== $this->handlerBeforeTest) {
+        // discard a global handler registered before the suite ran. The null check is
+        // the terminating condition for a test that removed the handler it inherited
+        // instead of adding on top of it: restore_exception_handler() on an empty
+        // stack is a no-op, so without it the loop would never finish.
+        while (null !== ($current = $this->currentExceptionHandler()) && $current !== $this->handlerBeforeTest) {
             restore_exception_handler();
         }
     }

@@ -40,15 +40,15 @@ class FailedCallbackDoesNotLoopTest extends TestCase
         $this->kernel->boot();
     }
 
-    /**
-     * A callback whose state does not match the session: the shape of every
-     * failure the outage produced, an expired client secret included.
-     */
     protected function tearDown(): void
     {
         $this->restoreExceptionHandlers();
     }
 
+    /**
+     * A callback whose state does not match the session: the shape of every
+     * failure the outage produced, an expired client secret included.
+     */
     private function failingCallback(): Request
     {
         $request = Request::create('/protected?state=does-not-match&code=some-code');
