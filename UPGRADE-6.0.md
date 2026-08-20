@@ -90,6 +90,50 @@ switch to `UserNotFoundException`: `UserLoginCommand` catches that and reports t
 username as unknown. Not to be confused with `UsernameDoesNotExistException`, which
 stays — the CLI authenticator throws it when a token resolves to no username.
 
+## Callbacks are only accepted on the configured callback path
+
+A request counts as a callback when it carries `state` and `code` **and** arrives on a
+provider's callback path. `?state=…&code=…` on any other URL is left to the firewall,
+as it was before 6.0 — which is the point: since a failed callback now escapes as an
+exception, any URL was otherwise a 500 an anonymous caller could trigger.
+
+Every provider must declare one of `redirect_uri`, `redirect_route` or the new
+`callback_path`, or the container will not compile:
+
+```text
+One of redirect_uri, redirect_route or callback_path must be set: it is how a
+callback is recognised.
+```
+
+Set `callback_path` if a reverse proxy rewrites the path, so an external
+`https://app.example.org/prefix/auth/callback` arrives here as `/auth/callback`:
+
+```yaml
+openid_providers:
+    admin:
+        options:
+            redirect_uri: 'https://app.example.org/prefix/auth/callback'
+            callback_path: '/auth/callback'
+```
+
+A proxy sending `X-Forwarded-Prefix` with trusted proxies configured needs none: the
+path already matches. If you run one authenticator per provider, override
+`getSupportedProviderKeys()` so each answers only its own callback; without it they
+behave exactly as in 5.x.
+
+## Redirecting back to the originally requested page
+
+`createTargetPathRedirect()` returns the user to the page that sent them to log in:
+
+```php
+public function onAuthenticationSuccess(Request $request, TokenInterface $token, string $firewallName): ?Response
+{
+    return $this->createTargetPathRedirect($request, $firewallName, $this->router->generate('dashboard'));
+}
+```
+
+Optional — existing `onAuthenticationSuccess()` implementations keep working.
+
 ## CLI login is unchanged
 
 `CliLoginTokenAuthenticator` still throws `AuthenticationException`, so a consumed
