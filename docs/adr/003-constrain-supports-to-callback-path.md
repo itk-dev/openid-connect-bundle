@@ -70,4 +70,11 @@ one of this authenticator's providers.
 
 - [ADR 002](002-fail-closed-on-authentication-failure.md) — the fail-closed decision
   that made this worth fixing now
-- Issue #63; the deferred `?target_path=` follow-up is filed separately
+- Issue #63
+
+## Not decided here
+
+A login link followed from a public page has no requested page to return to, so it
+lands on the application's fallback. Letting the link name its own destination
+(`?target_path=`) would need the firewall name, which `LoginController` does not have,
+and hard validation against open redirects. Left alone until a consumer needs it.
