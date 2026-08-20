@@ -131,7 +131,7 @@ class Configuration implements ConfigurationInterface
                                             // the provider unmonitored with nothing logged. Also catches an explicit
                                             // null, which isRequired() accepts because the key is present.
                                             ->ifTrue(static fn (mixed $v): bool => !is_string($v))
-                                            ->thenInvalid('client_secret_expires_at must be a quoted string: YAML reads an unquoted date as a number. Use client_secret_expires_at: "2027-01-31". Got %s.')
+                                            ->thenInvalid('client_secret_expires_at must be a string. YAML reads an unquoted date as a number, so quote it: "2027-01-31". From an environment variable, cast it as %%env(string:NAME)%%. Got %s.')
                                         ->end()
                                         ->validate()
                                             // '' is exempt because it is the dummy fixture Symfony
@@ -147,6 +147,10 @@ class Configuration implements ConfigurationInterface
                                             // a timestamp rather than false, the same "blank means now"
                                             // quirk DateTimeImmutable has, so whitespace would otherwise
                                             // sail through as a valid date.
+                                            // is_string() is unreachable-looking now that the closure above
+                                            // rejects non-strings, but it is what lets trim() and strtotime()
+                                            // take a mixed value under PHPStan, and it keeps this closure
+                                            // correct on its own terms rather than by ordering.
                                             ->ifTrue(static fn (mixed $v): bool => is_string($v) && '' !== $v && ('' === trim($v) || false === strtotime($v)))
                                             ->thenInvalid('client_secret_expires_at must be a date parseable by strtotime(), e.g. "2027-01-31". Got %s.')
                                         ->end()

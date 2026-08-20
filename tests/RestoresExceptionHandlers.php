@@ -27,6 +27,10 @@ trait RestoresExceptionHandlers
 
     protected function restoreExceptionHandlers(): void
     {
+        // Compares identity: a test that replaced the baseline handler with an equal
+        // but distinct instance would drain past it. Nothing does, and nothing in
+        // PHPUnit's lifecycle can.
+        //
         // Pops one handler at a time rather than draining the stack, which would
         // discard a global handler registered before the suite ran. The null check is
         // the terminating condition for a test that removed the handler it inherited

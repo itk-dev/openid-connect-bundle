@@ -406,7 +406,7 @@ class ConfigurationTest extends TestCase
         $input['openid_providers']['provider1']['options']['client_secret_expires_at'] = $configured;
 
         $this->expectException(InvalidConfigurationException::class);
-        $this->expectExceptionMessage('client_secret_expires_at must be a quoted string');
+        $this->expectExceptionMessage('client_secret_expires_at must be a string');
 
         $this->processor->processConfiguration($this->configuration, [$input]);
     }
