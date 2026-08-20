@@ -116,8 +116,11 @@ openid_providers:
             callback_path: '/auth/callback'
 ```
 
-A proxy sending `X-Forwarded-Prefix` with trusted proxies configured needs none: the
-path already matches. If you run one authenticator per provider, override
+A subdirectory deployment, or a proxy sending `X-Forwarded-Prefix` with trusted
+proxies configured, needs no `callback_path`: the path is matched against
+`getBaseUrl()` plus `getPathInfo()`, so the prefix is accounted for on both sides.
+`callback_path` is for a proxy that rewrites the path without announcing it, where
+nothing in the request says so. If you run one authenticator per provider, override
 `getSupportedProviderKeys()` so each answers only its own callback; without it they
 behave exactly as in 5.x.
 

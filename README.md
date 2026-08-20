@@ -121,10 +121,10 @@ itkdev_openid_connect:
         client_secret_expires_at: '%env(string:ADMIN_OIDC_CLIENT_SECRET_EXPIRES_AT)%'
         # Specify redirect URI
         redirect_uri: '%env(string:ADMIN_OIDC_REDIRECT_URI)%'
-        # Optional: the path the callback arrives on, when a reverse proxy rewrites
-        #           it so the path of redirect_uri is not the one this application
-        #           sees. Defaults to the path of redirect_uri, or of the generated
-        #           redirect_route. See "Which requests count as a callback" below.
+        # Optional: the path the callback arrives on, for a proxy that rewrites it
+        #           without sending X-Forwarded-Prefix. Defaults to the path of
+        #           redirect_uri, or of the generated redirect_route. See "Which
+        #           requests count as a callback" below.
         callback_path: '/auth/callback'
         # Optional: Specify leeway (seconds) to account for clock skew between provider and hosting
         #           Defaults to 10
@@ -699,10 +699,22 @@ provider must declare one of the three.
 handles the request as it would without them: an anonymous visitor is sent to your
 entry point, a logged-in one gets the page.
 
-Set `callback_path` when a reverse proxy rewrites the path, so that an external
-`https://app.example.org/prefix/auth/callback` reaches this application as
-`/auth/callback`. A proxy that sends `X-Forwarded-Prefix`, with Symfony's trusted
-proxies configured, needs no `callback_path` — the path then already matches.
+The path is matched against `getBaseUrl()` plus `getPathInfo()`, so an application
+deployed in a subdirectory, or behind a proxy that sends `X-Forwarded-Prefix` with
+Symfony's [trusted proxies](https://symfony.com/doc/current/deployment/proxies.html)
+configured, matches without further configuration: the prefix is part of the base URL
+on the way in and part of `redirect_uri` on the way out.
+
+Set `callback_path` when a proxy rewrites the path **without** announcing it — an
+external `https://app.example.org/prefix/auth/callback` that arrives here as
+`/auth/callback`. Nothing in the request says where the prefix went, so the path has to
+be declared:
+
+```yaml
+callback_path: '/auth/callback'
+```
+
+Give it the path as this application receives it, including any base path of its own.
 
 #### Returning to the originally requested page
 

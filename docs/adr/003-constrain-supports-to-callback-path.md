@@ -45,6 +45,14 @@ one of this authenticator's providers.
 - **`redirect_route` is generated as `ABSOLUTE_PATH`**, so host and scheme
   requirements on the route do not enter the comparison; a route whose path varies by
   host is not supported.
+- **The request path is `getBaseUrl().getPathInfo()`, not path info alone.**
+  `Request::preparePathInfo()` strips `getBaseUrlReal()`, so path info excludes a
+  subdirectory deployment's base path and any trusted `X-Forwarded-Prefix` — while a
+  `redirect_uri` contains them, being the URL the identity provider was given, and
+  `UrlGenerator` prepends the routing context's base URL, which includes the trusted
+  prefix. Comparing path info alone rejected every callback in either deployment.
+  Derived paths are therefore memoized per routing-context base URL, so a service that
+  sees both proxied and direct traffic is not frozen to whichever arrived first.
 - **A provider must declare `redirect_uri`, `redirect_route` or `callback_path`.**
   Enforced when the container compiles. A provider with none has no callback path, and
   "matches every path" is the defect being removed.
@@ -66,12 +74,6 @@ one of this authenticator's providers.
   the same way it always did, but changing it *only* at the provider now also stops
   callbacks being recognised.
 
-## References
-
-- [ADR 002](002-fail-closed-on-authentication-failure.md) — the fail-closed decision
-  that made this worth fixing now
-- Issue #63
-
 ## Returning to a page the firewall never saw
 
 Symfony saves the requested page when the entry point fires, which covers a user who
@@ -88,3 +90,9 @@ The parameter ends up in a `Location` header, so it is validated as a path withi
 application and dropped otherwise: a single leading `/`, no backslashes, no scheme
 separator, no control characters. A rejected value is logged at `warning`; correcting
 one would be guessing at intent on a security boundary.
+
+## References
+
+- [ADR 002](002-fail-closed-on-authentication-failure.md) — the fail-closed decision
+  that made this worth fixing now
+- Issue #63

@@ -175,7 +175,7 @@ class Configuration implements ConfigurationInterface
                                         ->info('Redirect route parameters')
                                     ->end()
                                     ->scalarNode('callback_path')
-                                        ->info('Optional. The request path the callback arrives on, when a reverse proxy rewrites it so that the path of redirect_uri is not the path this application sees. Defaults to the path of redirect_uri, or of the generated redirect_route.')
+                                        ->info('Optional. The request path the callback arrives on, for a proxy that rewrites it without sending X-Forwarded-Prefix. Include any base path. Defaults to the path of redirect_uri, or of the generated redirect_route; a trusted X-Forwarded-Prefix or a subdirectory deployment is already accounted for without this.')
                                         // As on client_secret_expires_at: a validated node that also
                                         // disallows empty values refuses environment variables, and the
                                         // closure is the half worth keeping.

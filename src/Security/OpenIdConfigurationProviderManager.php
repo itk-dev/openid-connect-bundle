@@ -5,6 +5,7 @@ namespace ItkDev\OpenIdConnectBundle\Security;
 use ItkDev\OpenIdConnect\Exception\OpenIdConnectExceptionInterface;
 use ItkDev\OpenIdConnect\Security\OpenIdConfigurationProvider;
 use ItkDev\OpenIdConnectBundle\Exception\InvalidProviderException;
+use Psr\Cache\CacheItemPoolInterface;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Routing\RouterInterface;
 
@@ -13,12 +14,12 @@ class OpenIdConfigurationProviderManager
     /** @var array<string,OpenIdConfigurationProvider> */
     private array $providers = [];
 
-    /** @var array<string, string>|null */
-    private ?array $redirectUriPaths = null;
+    /** @var array<string, array<string, string>> */
+    private array $redirectUriPaths = [];
 
     /**
      * @param array{
-     *     default_providers_options: array<string, mixed>,
+     *     default_providers_options: array{cacheItemPool?: CacheItemPoolInterface},
      *     providers: array<string, array{
      *         metadata_url: string,
      *         client_id: string,
@@ -66,8 +67,14 @@ class OpenIdConfigurationProviderManager
      */
     public function getRedirectUriPaths(): array
     {
-        if (null !== $this->redirectUriPaths) {
-            return $this->redirectUriPaths;
+        // Keyed by the routing context's base URL, not memoized flat: a generated
+        // route includes that base URL, and it differs between a proxied request
+        // carrying X-Forwarded-Prefix and a direct one. One frozen map could only
+        // ever match one of them.
+        $memoKey = $this->router->getContext()->getBaseUrl();
+
+        if (isset($this->redirectUriPaths[$memoKey])) {
+            return $this->redirectUriPaths[$memoKey];
         }
 
         $paths = [];
@@ -80,7 +87,31 @@ class OpenIdConfigurationProviderManager
             }
         }
 
-        return $this->redirectUriPaths = $paths;
+        return $this->redirectUriPaths[$memoKey] = $paths;
+    }
+
+    /**
+     * Whether a request path is the callback path of a given provider.
+     *
+     * Takes the path as `$request->getBaseUrl().$request->getPathInfo()`, which is
+     * what lines up with every derivation. `getPathInfo()` alone does not:
+     * `Request::preparePathInfo()` strips `getBaseUrlReal()`, so it excludes both a
+     * subdirectory deployment's base path and any trusted `X-Forwarded-Prefix` —
+     * while a `redirect_uri`'s path contains the prefix as the identity provider sees
+     * it, and `UrlGenerator` prepends the routing context's base URL, which includes
+     * the trusted prefix.
+     */
+    public function isCallbackPath(string $requestPath, string $providerKey): bool
+    {
+        $paths = $this->getRedirectUriPaths();
+
+        if (!isset($paths[$providerKey])) {
+            return false;
+        }
+
+        // Case-sensitive: paths are, and an identity provider sends the browser to
+        // the redirect URI exactly as it was registered.
+        return $paths[$providerKey] === $this->normalizePath($requestPath);
     }
 
     /**
@@ -90,7 +121,11 @@ class OpenIdConfigurationProviderManager
     {
         // callback_path first: it exists precisely for deployments where the
         // external redirect_uri path is not the path this application receives.
-        if (isset($options['callback_path'])) {
+        // '' passes configuration on purpose — it is the fixture Symfony substitutes
+        // for a string environment variable while compiling — so an environment
+        // variable that resolves to nothing arrives here. Normalizing it would make
+        // the site root the callback path and shadow redirect_uri.
+        if (isset($options['callback_path']) && '' !== $options['callback_path']) {
             return $this->normalizePath($options['callback_path']);
         }
 
@@ -169,7 +204,6 @@ class OpenIdConfigurationProviderManager
                 $providerOptions += $options['http_client_options'];
             }
 
-            // @phpstan-ignore argument.type (library 5.0 narrowed $options to a strict array shape; the incremental build above is verified by the manager's tests but PHPStan can't track its evolution to the final shape)
             $this->providers[$key] = new OpenIdConfigurationProvider($providerOptions);
         }
 

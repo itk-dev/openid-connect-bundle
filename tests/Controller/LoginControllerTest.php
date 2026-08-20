@@ -305,6 +305,26 @@ class LoginControllerTest extends TestCase
     }
 
     /**
+     * The last login link wins. A target left behind by an abandoned link would
+     * otherwise be spent by whatever login came next, sending the user somewhere they
+     * did not ask for this time.
+     */
+    public function testAPlainLoginLinkForgetsAnEarlierTarget(): void
+    {
+        $provider = $this->createStub(OpenIdConfigurationProvider::class);
+        $provider->method('generateNonce')->willReturn('1234');
+        $provider->method('generateState')->willReturn('abcd');
+        $provider->method('getAuthorizationUrl')->willReturn('https://provider.example.org/authorize');
+
+        $session = new Session(new MockArraySessionStorage());
+        $session->set(OpenIdLoginAuthenticator::TARGET_PATH_SESSION_KEY, '/admin/abandoned');
+
+        $this->createController($provider)->login(new Request(query: ['provider' => 'test']), $session, 'test');
+
+        $this->assertFalse($session->has(OpenIdLoginAuthenticator::TARGET_PATH_SESSION_KEY));
+    }
+
+    /**
      * This value reaches a `Location` header after a successful login, so anything
      * that is not plainly a path inside this application would make the login route
      * an open redirect for anyone who can get a user to follow a link.

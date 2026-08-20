@@ -21,6 +21,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Session\Session;
 use Symfony\Component\HttpFoundation\Session\SessionInterface;
 use Symfony\Component\HttpFoundation\Session\Storage\MockArraySessionStorage;
+use Symfony\Component\Routing\RouterInterface;
 use Symfony\Component\Security\Core\Exception\AuthenticationException;
 
 class OpenIdLoginAuthenticatorTest extends TestCase
@@ -41,15 +42,36 @@ class OpenIdLoginAuthenticatorTest extends TestCase
     }
 
     /**
+     * A real manager, not a stub: the path comparison lives there, and stubbing it
+     * would mean reimplementing normalization in the test — where a bug in the real
+     * one could not be seen.
+     *
+     * @param array<string, string> $paths callback_path per provider
+     */
+    private function managerWithPaths(array $paths): OpenIdConfigurationProviderManager
+    {
+        $providers = [];
+
+        foreach ($paths as $key => $path) {
+            $providers[$key] = [
+                'metadata_url' => 'https://provider.example.org/.well-known/openid-configuration',
+                'client_id' => 'id',
+                'client_secret' => 'secret',
+                'callback_path' => $path,
+            ];
+        }
+
+        $config = ['default_providers_options' => [], 'providers' => $providers];
+
+        return new OpenIdConfigurationProviderManager($this->createStub(RouterInterface::class), $config);
+    }
+
+    /**
      * @param array<string, string> $paths
      */
     private function authenticatorWithPaths(array $paths): TestAuthenticator
     {
-        $manager = $this->createStub(OpenIdConfigurationProviderManager::class);
-        $manager->method('getRedirectUriPaths')->willReturn($paths);
-        $manager->method('getProviderKeys')->willReturn(array_keys($paths));
-
-        $authenticator = new TestAuthenticator($manager);
+        $authenticator = new TestAuthenticator($this->managerWithPaths($paths));
         $authenticator->setLogger($this->logger);
 
         return $authenticator;
@@ -89,6 +111,38 @@ class OpenIdLoginAuthenticatorTest extends TestCase
     }
 
     /**
+     * Deployments where the request path is not the whole story.
+     *
+     * `getPathInfo()` has both a subdirectory's base path and a trusted
+     * `X-Forwarded-Prefix` stripped out of it, while a configured `redirect_uri`
+     * contains them — it is the URL the identity provider was given. Comparing path
+     * info alone would reject every callback in either deployment.
+     *
+     * @return iterable<string, array{string, string, bool}>
+     */
+    public static function baseUrlProvider(): iterable
+    {
+        //                                   configured path,          base url, request path info, expected
+        yield 'subdirectory deployment' => ['/app/callback_uri', '/app', true];
+        yield 'trusted proxy prefix' => ['/prefix/callback_uri', '/prefix', true];
+        yield 'root deployment' => ['/callback_uri', '', true];
+        // A proxy that rewrites without a prefix header: the internal path really is
+        // different, which is what callback_path exists to declare.
+        yield 'rewriting proxy, no header' => ['/prefix/callback_uri', '', false];
+    }
+
+    #[DataProvider('baseUrlProvider')]
+    public function testTheCallbackPathIncludesTheBaseUrl(string $configured, string $baseUrl, bool $expected): void
+    {
+        $authenticator = $this->authenticatorWithPaths(['test_provider_1' => $configured]);
+
+        $request = new RequestWithBaseUrl($baseUrl, ['state' => 'abcd', 'code' => 'xyz']);
+        $request->server->set('REQUEST_URI', $baseUrl.'/callback_uri?state=abcd&code=xyz');
+
+        $this->assertSame($expected, $authenticator->supports($request));
+    }
+
+    /**
      * @return iterable<string, array{array<string, string>}>
      */
     public static function incompleteCallbackProvider(): iterable
@@ -112,14 +166,10 @@ class OpenIdLoginAuthenticatorTest extends TestCase
      */
     public function testASubclassCanNarrowTheProvidersItAnswersFor(): void
     {
-        $manager = $this->createStub(OpenIdConfigurationProviderManager::class);
-        $manager->method('getRedirectUriPaths')->willReturn([
+        $authenticator = new SingleProviderAuthenticator($this->managerWithPaths([
             'test_provider_1' => '/callback_uri',
             'test_provider_2' => '/other_callback',
-        ]);
-        $manager->method('getProviderKeys')->willReturn(['test_provider_1', 'test_provider_2']);
-
-        $authenticator = new SingleProviderAuthenticator($manager);
+        ]));
 
         $this->assertTrue($authenticator->supports(Request::create('/callback_uri?state=a&code=b')));
         $this->assertFalse($authenticator->supports(Request::create('/other_callback?state=a&code=b')));
@@ -131,9 +181,15 @@ class OpenIdLoginAuthenticatorTest extends TestCase
      */
     public function testAProviderWithoutAPathMatchesNothing(): void
     {
-        $manager = $this->createStub(OpenIdConfigurationProviderManager::class);
-        $manager->method('getRedirectUriPaths')->willReturn([]);
-        $manager->method('getProviderKeys')->willReturn(['test_provider_1']);
+        // No redirect_uri, redirect_route or callback_path: nothing to match on, and
+        // matching everything is the defect this constraint removes.
+        $config = ['default_providers_options' => [], 'providers' => ['test_provider_1' => [
+            'metadata_url' => 'https://provider.example.org/.well-known/openid-configuration',
+            'client_id' => 'id',
+            'client_secret' => 'secret',
+        ]]];
+
+        $manager = new OpenIdConfigurationProviderManager($this->createStub(RouterInterface::class), $config);
 
         $authenticator = new TestAuthenticator($manager);
 

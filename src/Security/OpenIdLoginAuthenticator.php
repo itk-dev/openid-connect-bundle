@@ -95,15 +95,13 @@ abstract class OpenIdLoginAuthenticator extends AbstractAuthenticator implements
             return false;
         }
 
-        $path = rtrim($request->getPathInfo(), '/');
-        $path = '' === $path ? '/' : $path;
-
-        $paths = $this->providerManager->getRedirectUriPaths();
+        // Base URL included: getPathInfo() has any subdirectory base path and trusted
+        // proxy prefix stripped out, while the configured paths contain them. See
+        // OpenIdConfigurationProviderManager::isCallbackPath().
+        $path = $request->getBaseUrl().$request->getPathInfo();
 
         foreach ($this->getSupportedProviderKeys() as $providerKey) {
-            // Case-sensitive: paths are, and an identity provider sends the browser
-            // to the redirect URI exactly as it was registered.
-            if (($paths[$providerKey] ?? null) === $path) {
+            if ($this->providerManager->isCallbackPath($path, $providerKey)) {
                 return true;
             }
         }
