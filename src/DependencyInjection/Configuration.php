@@ -111,6 +111,7 @@ class Configuration implements ConfigurationInterface
                                         ->isRequired()->cannotBeEmpty()
                                     ->end()
                                     ->scalarNode('client_secret_expires_at')
+                                        ->isRequired()
                                         // No cannotBeEmpty() here, and it cannot come back:
                                         // VariableNode::finalizeValue() refuses an environment variable
                                         // whenever empty values are disallowed and the node has any
@@ -122,8 +123,16 @@ class Configuration implements ConfigurationInterface
                                         // ClientSecretExpiryChecker. It never caught whitespace-only
                                         // values regardless: ScalarNode::isValueEmpty() is
                                         // `null === $value || '' === $value`.
-                                        ->info('Date the client secret expires, e.g. "2027-01-31". Anything strtotime() understands, and usually an environment variable. An expired secret breaks every login, so configuring this lets the bundle warn while there is still time to rotate. Will be required in 6.0.')
-                                        ->defaultNull()
+                                        ->info('Required. Date the client secret expires, e.g. "2027-01-31". Anything strtotime() understands, and usually an environment variable. An expired secret breaks every login, so the bundle warns while there is still time to rotate.')
+                                        ->validate()
+                                            // YAML reads an unquoted 2027-01-31 as the integer 1801353600, and the
+                                            // closure below only inspects strings, so without this the most natural
+                                            // way to write the value would pass, be discarded as untyped, and leave
+                                            // the provider unmonitored with nothing logged. Also catches an explicit
+                                            // null, which isRequired() accepts because the key is present.
+                                            ->ifTrue(static fn (mixed $v): bool => !is_string($v))
+                                            ->thenInvalid('client_secret_expires_at must be a string. YAML reads an unquoted date as a number, so quote it: "2027-01-31". From an environment variable, cast it as %%env(string:NAME)%%. Got %s.')
+                                        ->end()
                                         ->validate()
                                             // '' is exempt because it is the dummy fixture Symfony
                                             // substitutes for %env(string:...)% while compiling
@@ -138,6 +147,10 @@ class Configuration implements ConfigurationInterface
                                             // a timestamp rather than false, the same "blank means now"
                                             // quirk DateTimeImmutable has, so whitespace would otherwise
                                             // sail through as a valid date.
+                                            // is_string() is unreachable-looking now that the closure above
+                                            // rejects non-strings, but it is what lets trim() and strtotime()
+                                            // take a mixed value under PHPStan, and it keeps this closure
+                                            // correct on its own terms rather than by ordering.
                                             ->ifTrue(static fn (mixed $v): bool => is_string($v) && '' !== $v && ('' === trim($v) || false === strtotime($v)))
                                             ->thenInvalid('client_secret_expires_at must be a date parseable by strtotime(), e.g. "2027-01-31". Got %s.')
                                         ->end()

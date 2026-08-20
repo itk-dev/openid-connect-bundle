@@ -145,7 +145,7 @@ class ItkDevOpenIdConnectExtension extends Extension
     }
 
     /**
-     * Wire the expiry checker, and nudge installations that have not set a date.
+     * Wire the expiry checker.
      *
      * @param array<string, array{options: array<string, mixed>}> $providers
      * @param array{warning_days: int}                            $options
@@ -156,19 +156,11 @@ class ItkDevOpenIdConnectExtension extends Extension
 
         foreach ($providers as $providerKey => $provider) {
             $expiresAt = $provider['options']['client_secret_expires_at'] ?? null;
+            // Configuration requires the key and rejects a non-string, so the
+            // fallback is unreachable and kept only because the shape here is mixed.
+            // It must not become the quiet path it used to be: a null reaches
+            // ClientSecretExpiryChecker as Unknown with nothing logged.
             $expiryDates[$providerKey] = is_string($expiresAt) ? $expiresAt : null;
-
-            if (null === $expiryDates[$providerKey]) {
-                // Symfony's setDeprecated() fires when a node *is* used, which is
-                // the inverse of what is needed: the point is to nudge the
-                // installations that have not set a date yet.
-                trigger_deprecation(
-                    'itk-dev/openid-connect-bundle',
-                    '5.1',
-                    'Not configuring "client_secret_expires_at" for OIDC provider "%s" is deprecated. Without it the bundle cannot warn before the secret expires, and an expired secret breaks every login. It will be required in 6.0.',
-                    $providerKey,
-                );
-            }
         }
 
         $definition = $container->getDefinition(ClientSecretExpiryChecker::class);

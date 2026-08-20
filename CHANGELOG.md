@@ -7,10 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-> **Note**
-> Do not tag from here until `client_secret_expires_at` is required. The breaking
-> changes below are 6.0.0 and incomplete on their own.
-
 ### Fixed
 
 - `logging_options.logger` no longer depends on bundle registration order.
@@ -35,6 +31,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `getPrevious()` on that exception is the underlying OpenID Connect exception
   rather than the `AuthenticationException`, which the security component would
   have followed straight back into the loop.
+- `client_secret_expires_at` is now required for every provider, and must be a
+  string. A missing date fails while the container compiles instead of emitting the
+  5.1 deprecation, and an unquoted `2027-01-31` — which YAML reads as a number — is
+  rejected rather than silently leaving the provider unmonitored. See
+  `UPGRADE-6.0.md`.
+
+### Removed (BREAKING)
+
+- `ItkOpenIdConnectBundleException`, `@deprecated` since 5.0. Catch
+  `OpenIdConnectBundleExceptionInterface` instead.
+- `UserDoesNotExistException`, which was thrown nowhere. Symfony's
+  `UserNotFoundException` covers the case and `UserLoginCommand` already handles
+  it. `UsernameDoesNotExistException` is unaffected.
+- `symfony/deprecation-contracts` from `require`, the last
+  `trigger_deprecation()` call having gone with the option becoming required.
 
 ## [5.1.1] - 2026-08-19
 

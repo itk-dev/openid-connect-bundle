@@ -85,9 +85,12 @@ class ClientSecretExpiryChecker
     /**
      * Report a date that cannot be used.
      *
-     * Neither an empty nor a malformed value can be rejected when the container
-     * compiles: this comes from the environment in every real deployment, and
-     * Symfony will not accept an environment variable on a node that is validated.
+     * A literal is rejected when the container compiles, but the value comes from
+     * the environment in every real deployment and is still an unresolved
+     * placeholder then, so what it resolves to can only be judged here. Validation
+     * closures and environment variables do coexist on that node; what Symfony
+     * refuses is a validated node that also disallows empty values, which is why
+     * `cannotBeEmpty()` is absent from it.
      * So it is reported rather than thrown — a mistyped date must not take an
      * application down — but reported loudly, because the effect is that nothing is
      * monitoring this secret, and silence would equal not having the feature.
