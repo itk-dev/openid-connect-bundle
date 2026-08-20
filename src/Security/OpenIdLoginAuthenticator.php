@@ -49,6 +49,15 @@ abstract class OpenIdLoginAuthenticator extends AbstractAuthenticator implements
 {
     use TargetPathTrait;
 
+    /**
+     * Where `LoginController` puts a target named on the login link itself.
+     *
+     * Not `TargetPathTrait`'s key, which is per firewall: the controller has no
+     * firewall name, and inventing one to write into Symfony's slot would put a value
+     * there that the firewall never saved.
+     */
+    public const string TARGET_PATH_SESSION_KEY = '_itkdev_oidc.target_path';
+
     private LoggerInterface $logger;
 
     /**
@@ -115,15 +124,28 @@ abstract class OpenIdLoginAuthenticator extends AbstractAuthenticator implements
      */
     protected function createTargetPathRedirect(Request $request, string $firewallName, string $fallbackUrl): RedirectResponse
     {
-        $targetPath = $this->getTargetPath($request->getSession(), $firewallName);
+        $session = $request->getSession();
 
-        if (null === $targetPath || '' === $targetPath) {
-            return new RedirectResponse($fallbackUrl);
+        // The firewall's record first: it is the page the user was actually denied.
+        $targetPath = $this->getTargetPath($session, $firewallName);
+
+        if (null !== $targetPath && '' !== $targetPath) {
+            $this->removeTargetPath($session, $firewallName);
+            $session->remove(self::TARGET_PATH_SESSION_KEY);
+
+            return new RedirectResponse($targetPath);
         }
 
-        $this->removeTargetPath($request->getSession(), $firewallName);
+        // Then a target named on the login link, for a user who was never denied
+        // anything — they followed a login link from a public page.
+        $named = $session->get(self::TARGET_PATH_SESSION_KEY);
+        $session->remove(self::TARGET_PATH_SESSION_KEY);
 
-        return new RedirectResponse($targetPath);
+        if (is_string($named) && '' !== $named) {
+            return new RedirectResponse($named);
+        }
+
+        return new RedirectResponse($fallbackUrl);
     }
 
     /**

@@ -9,6 +9,7 @@ use ItkDev\OpenIdConnect\Security\OpenIdConfigurationProvider;
 use ItkDev\OpenIdConnectBundle\Controller\LoginController;
 use ItkDev\OpenIdConnectBundle\Exception\InvalidProviderException;
 use ItkDev\OpenIdConnectBundle\Security\OpenIdConfigurationProviderManager;
+use ItkDev\OpenIdConnectBundle\Security\OpenIdLoginAuthenticator;
 use ItkDev\OpenIdConnectBundle\Tests\TestLogger;
 use ItkDev\OpenIdConnectBundle\Util\ClientSecretExpiryChecker;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -16,7 +17,9 @@ use PHPUnit\Framework\TestCase;
 use Psr\Log\LogLevel;
 use Symfony\Component\Clock\MockClock;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Session\Session;
 use Symfony\Component\HttpFoundation\Session\SessionInterface;
+use Symfony\Component\HttpFoundation\Session\Storage\MockArraySessionStorage;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\HttpKernel\Exception\ServiceUnavailableHttpException;
 
@@ -263,5 +266,79 @@ class LoginControllerTest extends TestCase
             ->willReturn($provider);
 
         return new LoginController($mockProviderManager, $this->logger, $expiryChecker ?? $this->createExpiryChecker());
+    }
+
+    private function loginWith(?string $target): Session
+    {
+        // A stub, not a mock: nothing here asserts on the provider itself.
+        $provider = $this->createStub(OpenIdConfigurationProvider::class);
+        $provider->method('generateNonce')->willReturn('1234');
+        $provider->method('generateState')->willReturn('abcd');
+        $provider->method('getAuthorizationUrl')->willReturn('https://provider.example.org/authorize');
+
+        $query = ['provider' => 'test'];
+
+        if (null !== $target) {
+            $query[LoginController::TARGET_PATH_PARAMETER] = $target;
+        }
+
+        $session = new Session(new MockArraySessionStorage());
+        $this->createController($provider)->login(new Request(query: $query), $session, 'test');
+
+        return $session;
+    }
+
+    public function testATargetPathOnTheLinkIsRemembered(): void
+    {
+        $session = $this->loginWith('/admin/reports?page=2');
+
+        $this->assertSame('/admin/reports?page=2', $session->get(OpenIdLoginAuthenticator::TARGET_PATH_SESSION_KEY));
+        $this->assertSame([], $this->logger->records);
+    }
+
+    public function testWithoutATargetPathNothingIsRememberedOrLogged(): void
+    {
+        $session = $this->loginWith(null);
+
+        $this->assertFalse($session->has(OpenIdLoginAuthenticator::TARGET_PATH_SESSION_KEY));
+        $this->assertSame([], $this->logger->records);
+    }
+
+    /**
+     * This value reaches a `Location` header after a successful login, so anything
+     * that is not plainly a path inside this application would make the login route
+     * an open redirect for anyone who can get a user to follow a link.
+     *
+     * @return iterable<string, array{string}>
+     */
+    public static function unusableTargetPathProvider(): iterable
+    {
+        yield 'absolute url' => ['https://evil.example.org/phish'];
+        yield 'scheme relative' => ['//evil.example.org/phish'];
+        yield 'backslash scheme relative' => ['/\evil.example.org/phish'];
+        yield 'backslash anywhere' => ['/admin\reports'];
+        yield 'a scheme further in' => ['/redirect?to=https://evil.example.org'];
+        yield 'no leading slash' => ['admin/reports'];
+        yield 'empty' => [''];
+        yield 'a bare word' => ['dashboard'];
+        yield 'header split attempt' => ["/admin\r\nSet-Cookie: session=stolen"];
+        yield 'null byte' => ["/admin\0/reports"];
+        yield 'javascript' => ['javascript:alert(1)'];
+    }
+
+    #[DataProvider('unusableTargetPathProvider')]
+    public function testAnUnusableTargetPathIsDroppedAndReported(string $target): void
+    {
+        $session = $this->loginWith($target);
+
+        $this->assertFalse(
+            $session->has(OpenIdLoginAuthenticator::TARGET_PATH_SESSION_KEY),
+            'A value that is not a local path must never reach a Location header'
+        );
+
+        $record = $this->logger->singleRecord();
+        $this->assertSame(LogLevel::WARNING, $record['level']);
+        $this->assertStringContainsString('ignoring an unusable target_path', $record['message']);
+        $this->assertSame($target, $record['context']['target_path']);
     }
 }

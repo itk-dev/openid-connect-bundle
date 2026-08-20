@@ -72,9 +72,19 @@ one of this authenticator's providers.
   that made this worth fixing now
 - Issue #63
 
-## Not decided here
+## Returning to a page the firewall never saw
 
-A login link followed from a public page has no requested page to return to, so it
-lands on the application's fallback. Letting the link name its own destination
-(`?target_path=`) would need the firewall name, which `LoginController` does not have,
-and hard validation against open redirects. Left alone until a consumer needs it.
+Symfony saves the requested page when the entry point fires, which covers a user who
+was denied something. A login link followed from a public page has no such record, so
+`?target_path=` on the login route lets the link name where to go.
+
+It is stored under a bundle-private session key rather than in `TargetPathTrait`'s
+slot: that slot is keyed by firewall, `LoginController` has no firewall name, and
+writing there would put a value in the firewall's own record that the firewall never
+saved. `createTargetPathRedirect()` prefers the firewall's record when both exist —
+that is the page the user was actually stopped from reaching — and clears both.
+
+The parameter ends up in a `Location` header, so it is validated as a path within the
+application and dropped otherwise: a single leading `/`, no backslashes, no scheme
+separator, no control characters. A rejected value is logged at `warning`; correcting
+one would be guessing at intent on a security boundary.

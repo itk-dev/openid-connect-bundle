@@ -722,6 +722,18 @@ login screen with a provider link on it. The fallback covers a user who went to 
 login link directly. The saved page is cleared on use, so a later visit to that link
 does not replay it.
 
+For a login link on a public page, where nothing was denied and so nothing was saved,
+name the destination on the link itself:
+
+```twig
+<a href="{{ path('itkdev_openid_connect_login', {provider: 'admin', target_path: '/admin/reports'}) }}">Log in</a>
+```
+
+The value must be a path within the application: a single leading `/`, no backslash,
+no `://`, no control characters. Anything else is dropped and logged at `warning`,
+because it would otherwise turn the login route into an open redirect. When a page was
+also denied, that page wins — it is what the user was actually stopped from reaching.
+
 Only pages that exist and are access-controlled return this way, and that is by
 design. Routing runs before security — `RouterListener` on `kernel.request` at
 priority 32, the firewall at 8 — so a link to a URL with no route is a 404 before the

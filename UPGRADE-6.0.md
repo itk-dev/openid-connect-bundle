@@ -138,6 +138,10 @@ Only pages that exist and are access-controlled come back this way: routing runs
 before security, so a link to a URL with no route is a 404 before the firewall sees
 it and there is nothing to return to.
 
+A login link on a public page can name its own destination with
+`?target_path=/admin/reports`. The value must be a path within the application, or it
+is dropped and logged.
+
 ## CLI login is unchanged
 
 `CliLoginTokenAuthenticator` still throws `AuthenticationException`, so a consumed

@@ -5,6 +5,7 @@ namespace ItkDev\OpenIdConnectBundle\Controller;
 use ItkDev\OpenIdConnect\Exception\OpenIdConnectExceptionInterface;
 use ItkDev\OpenIdConnectBundle\Exception\InvalidProviderException;
 use ItkDev\OpenIdConnectBundle\Security\OpenIdConfigurationProviderManager;
+use ItkDev\OpenIdConnectBundle\Security\OpenIdLoginAuthenticator;
 use ItkDev\OpenIdConnectBundle\Util\ClientSecretExpiryChecker;
 use Psr\Log\LoggerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -19,6 +20,11 @@ use Symfony\Component\HttpKernel\Exception\ServiceUnavailableHttpException;
  */
 class LoginController extends AbstractController
 {
+    /**
+     * Query parameter naming where to go after a successful login.
+     */
+    public const string TARGET_PATH_PARAMETER = 'target_path';
+
     public function __construct(
         private readonly OpenIdConfigurationProviderManager $providerManager,
         private readonly LoggerInterface $logger,
@@ -51,6 +57,8 @@ class LoginController extends AbstractController
 
         $nonce = $provider->generateNonce();
         $state = $provider->generateState();
+
+        $this->rememberNamedTargetPath($request, $session);
 
         // Save to session
         $session->set('oauth2provider', $providerKey);
@@ -91,6 +99,58 @@ class LoginController extends AbstractController
      * when it does stop working, the reason is already in the log rather than
      * something to be worked out afterwards.
      */
+    /**
+     * Remember a return target named on the login link.
+     *
+     * For a login link followed from a public page: the firewall saves nothing,
+     * because nothing was denied, so there is no requested page for
+     * `createTargetPathRedirect()` to return to. A link may name one instead.
+     *
+     * Anything not plainly a path within this application is dropped rather than
+     * corrected. This value ends up in a `Location` header after a successful login,
+     * so a permissive reading turns the login route into an open redirect for anyone
+     * who can get a user to follow a link.
+     */
+    private function rememberNamedTargetPath(Request $request, SessionInterface $session): void
+    {
+        $target = $request->query->get(self::TARGET_PATH_PARAMETER);
+
+        if (null === $target) {
+            return;
+        }
+
+        if (!self::isLocalPath($target)) {
+            $this->logger->warning('OIDC login: ignoring an unusable target_path', [
+                'target_path' => $target,
+            ]);
+
+            return;
+        }
+
+        $session->set(OpenIdLoginAuthenticator::TARGET_PATH_SESSION_KEY, $target);
+    }
+
+    /**
+     * Whether a value is a path into this application and nothing else.
+     *
+     * Rejected, in order: anything not starting with a single `/` (absolute URLs,
+     * scheme-relative `//host`, bare words); a backslash anywhere, since browsers
+     * have historically read `/\host` as scheme-relative; a scheme separator
+     * anywhere; and control characters, which belong to header-splitting attempts.
+     */
+    private static function isLocalPath(string $target): bool
+    {
+        if (!str_starts_with($target, '/') || str_starts_with($target, '//')) {
+            return false;
+        }
+
+        if (str_contains($target, '\\') || str_contains($target, '://')) {
+            return false;
+        }
+
+        return 1 !== preg_match('/[\x00-\x1F\x7F]/', $target);
+    }
+
     private function checkClientSecretExpiry(string $providerKey): void
     {
         $expiry = $this->expiryChecker->getStatus($providerKey);

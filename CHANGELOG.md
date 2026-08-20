@@ -53,6 +53,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   them, so existing multi-authenticator firewalls are unaffected.
 - `OpenIdLoginAuthenticator::createTargetPathRedirect()`, for returning the user to
   the page that sent them to log in.
+- `?target_path=` on the login route, for a login link on a public page where the
+  firewall saved no requested page. Validated as a path within the application and
+  otherwise dropped and logged, since the value reaches a `Location` header. A page
+  the firewall denied takes precedence over it.
 - `OpenIdConfigurationProviderManager::getRedirectUriPaths()`.
 
 ### Removed (BREAKING)

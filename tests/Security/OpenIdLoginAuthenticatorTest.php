@@ -526,4 +526,54 @@ class OpenIdLoginAuthenticatorTest extends TestCase
         $this->assertSame('/dashboard', $response->getTargetUrl());
         $this->assertTrue($request->getSession()->has('_security.main.target_path'), 'Another firewall\'s target path is left alone');
     }
+
+    public function testATargetNamedOnTheLoginLinkIsUsedWhenNothingWasDenied(): void
+    {
+        // The case the firewall cannot cover: the user was never refused anything, so
+        // Symfony saved nothing. They followed a login link that named where to go.
+        $request = $this->requestWithSession(null);
+        $request->getSession()->set(OpenIdLoginAuthenticator::TARGET_PATH_SESSION_KEY, '/admin/reports');
+
+        $response = $this->fixtureAuthenticator()->callCreateTargetPathRedirect($request, 'main', '/dashboard');
+
+        $this->assertSame('/admin/reports', $response->getTargetUrl());
+        $this->assertFalse($request->getSession()->has(OpenIdLoginAuthenticator::TARGET_PATH_SESSION_KEY), 'Consumed, so it cannot replay');
+    }
+
+    public function testTheDeniedPageWinsOverATargetNamedOnTheLink(): void
+    {
+        // Both present: the firewall's record is what the user was actually stopped
+        // from reaching, so it is the more faithful answer.
+        $request = $this->requestWithSession('/admin/denied-page');
+        $request->getSession()->set(OpenIdLoginAuthenticator::TARGET_PATH_SESSION_KEY, '/admin/reports');
+
+        $response = $this->fixtureAuthenticator()->callCreateTargetPathRedirect($request, 'main', '/dashboard');
+
+        $this->assertSame('/admin/denied-page', $response->getTargetUrl());
+        // Both cleared, or the unused one would resurface on a later login.
+        $this->assertFalse($request->getSession()->has('_security.main.target_path'));
+        $this->assertFalse($request->getSession()->has(OpenIdLoginAuthenticator::TARGET_PATH_SESSION_KEY));
+    }
+
+    /**
+     * @return iterable<string, array{mixed}>
+     */
+    public static function unusableNamedTargetProvider(): iterable
+    {
+        yield 'empty' => [''];
+        // Nothing writes a non-string, but the session is shared with the application.
+        yield 'not a string' => [['/admin/reports']];
+    }
+
+    #[DataProvider('unusableNamedTargetProvider')]
+    public function testAnUnusableNamedTargetFallsBack(mixed $stored): void
+    {
+        $request = $this->requestWithSession(null);
+        $request->getSession()->set(OpenIdLoginAuthenticator::TARGET_PATH_SESSION_KEY, $stored);
+
+        $response = $this->fixtureAuthenticator()->callCreateTargetPathRedirect($request, 'main', '/dashboard');
+
+        $this->assertSame('/dashboard', $response->getTargetUrl());
+        $this->assertFalse($request->getSession()->has(OpenIdLoginAuthenticator::TARGET_PATH_SESSION_KEY));
+    }
 }
