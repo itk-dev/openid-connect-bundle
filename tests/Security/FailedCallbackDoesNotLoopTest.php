@@ -51,7 +51,7 @@ class FailedCallbackDoesNotLoopTest extends TestCase
      */
     private function failingCallback(): Request
     {
-        $request = Request::create('/protected?state=does-not-match&code=some-code');
+        $request = Request::create('/callback_uri?state=does-not-match&code=some-code');
         $session = new Session(new MockArraySessionStorage());
         $session->set('oauth2provider', 'test_provider_1');
         $session->set('oauth2state', 'the-real-state');
@@ -118,5 +118,46 @@ class FailedCallbackDoesNotLoopTest extends TestCase
 
             $this->assertStringContainsString('Invalid state', $exception->getMessage(), 'The cause is still reported');
         }
+    }
+
+    /**
+     * The observable fix for issue #63.
+     *
+     * `state` and `code` on a path that is not a callback used to enter the flow and,
+     * since the bundle fails closed, surface as a 500 that any unauthenticated caller
+     * could raise on any URL. It is the firewall's business again: an anonymous
+     * request is sent to the entry point, exactly as it would be without the query
+     * string.
+     */
+    public function testAStrayCallbackIsLeftToTheFirewall(): void
+    {
+        $request = Request::create('/protected?state=forged&code=forged');
+        $request->setSession(new Session(new MockArraySessionStorage()));
+
+        $response = $this->kernel->handle($request, catch: true);
+
+        $this->assertSame(Response::HTTP_FOUND, $response->getStatusCode());
+        $this->assertSame(ConsumerAuthenticator::LOGIN_PATH, $response->headers->get('Location'));
+        $this->assertNull(
+            $request->attributes->get(AuthenticationAuditSubscriber::PROVIDER_ATTRIBUTE),
+            'validateClaims() ran, so the authenticator accepted a callback on a path that is not one'
+        );
+    }
+
+    /**
+     * Symfony's half of "return to the page you asked for": the entry point fires and
+     * the target path is saved. Pinned here so a framework upgrade cannot quietly
+     * drop it and leave createTargetPathRedirect() with nothing to read.
+     */
+    public function testTheEntryPointSavesTheRequestedPage(): void
+    {
+        $request = Request::create('/protected');
+        $session = new Session(new MockArraySessionStorage());
+        $request->setSession($session);
+
+        $response = $this->kernel->handle($request, catch: true);
+
+        $this->assertSame(ConsumerAuthenticator::LOGIN_PATH, $response->headers->get('Location'));
+        $this->assertSame('http://localhost/protected', $session->get('_security.main.target_path'));
     }
 }

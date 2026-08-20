@@ -88,7 +88,7 @@ class ConfiguredLoggerPassTest extends TestCase
      */
     public function testAFailedLoginIsWrittenToTheConfiguredLogger(): void
     {
-        $request = Request::create('/protected?state=does-not-match&code=some-code');
+        $request = Request::create('/callback_uri?state=does-not-match&code=some-code');
         $session = new Session(new MockArraySessionStorage());
         $session->set('oauth2provider', 'test_provider_1');
         $session->set('oauth2state', 'the-real-state');

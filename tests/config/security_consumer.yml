@@ -19,3 +19,7 @@ security:
         - ItkDev\OpenIdConnectBundle\Security\CliLoginTokenAuthenticator
       entry_point: ItkDev\OpenIdConnectBundle\Tests\Security\ConsumerAuthenticator
       provider: test_users_1
+  # Without this nothing demands authentication, so the entry point never fires and
+  # there is no target path to save — the behaviour these tests are about.
+  access_control:
+    - { path: "^/protected", roles: "ROLE_ADMIN" }

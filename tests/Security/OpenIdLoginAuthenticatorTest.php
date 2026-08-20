@@ -18,7 +18,9 @@ use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LogLevel;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Session\Session;
 use Symfony\Component\HttpFoundation\Session\SessionInterface;
+use Symfony\Component\HttpFoundation\Session\Storage\MockArraySessionStorage;
 use Symfony\Component\Security\Core\Exception\AuthenticationException;
 
 class OpenIdLoginAuthenticatorTest extends TestCase
@@ -38,17 +40,104 @@ class OpenIdLoginAuthenticatorTest extends TestCase
         $this->authenticator->setLogger($this->logger);
     }
 
-    public function testSupports(): void
+    /**
+     * @param array<string, string> $paths
+     */
+    private function authenticatorWithPaths(array $paths): TestAuthenticator
     {
-        $request = new Request();
+        $manager = $this->createStub(OpenIdConfigurationProviderManager::class);
+        $manager->method('getRedirectUriPaths')->willReturn($paths);
+        $manager->method('getProviderKeys')->willReturn(array_keys($paths));
 
-        $this->assertFalse($this->authenticator->supports($request));
+        $authenticator = new TestAuthenticator($manager);
+        $authenticator->setLogger($this->logger);
 
-        $request->query->set('state', 'abcd');
-        $this->assertFalse($this->authenticator->supports($request));
+        return $authenticator;
+    }
 
-        $request->query->set('code', 'xyz');
-        $this->assertTrue($this->authenticator->supports($request));
+    /**
+     * `state` and `code` are necessary but no longer sufficient: without the path
+     * check any URL under the firewall is a callback, so an unauthenticated caller
+     * can turn any page into a failed login — a 500, since the bundle fails closed.
+     *
+     * @return iterable<string, array{string, bool}>
+     */
+    public static function callbackPathProvider(): iterable
+    {
+        yield 'the configured path' => ['/callback_uri', true];
+        yield 'trailing slash is the same path' => ['/callback_uri/', true];
+        yield 'another provider on this authenticator' => ['/other_callback', true];
+        yield 'a protected page' => ['/protected', false];
+        yield 'the root' => ['/', false];
+        yield 'below the callback path' => ['/callback_uri/extra', false];
+        yield 'above the callback path' => ['/callback', false];
+        yield 'differing in case' => ['/Callback_Uri', false];
+        yield 'the path as a query parameter' => ['/protected/callback_uri', false];
+    }
+
+    #[DataProvider('callbackPathProvider')]
+    public function testSupportsOnlyTheConfiguredCallbackPaths(string $path, bool $expected): void
+    {
+        $authenticator = $this->authenticatorWithPaths([
+            'test_provider_1' => '/callback_uri',
+            'test_provider_2' => '/other_callback',
+        ]);
+
+        $request = Request::create($path.'?state=abcd&code=xyz');
+
+        $this->assertSame($expected, $authenticator->supports($request));
+    }
+
+    /**
+     * @return iterable<string, array{array<string, string>}>
+     */
+    public static function incompleteCallbackProvider(): iterable
+    {
+        yield 'neither' => [[]];
+        yield 'state only' => [['state' => 'abcd']];
+        yield 'code only' => [['code' => 'xyz']];
+    }
+
+    #[DataProvider('incompleteCallbackProvider')]
+    public function testTheRightPathAloneIsNotACallback(array $query): void
+    {
+        $authenticator = $this->authenticatorWithPaths(['test_provider_1' => '/callback_uri']);
+
+        $this->assertFalse($authenticator->supports(Request::create('/callback_uri?'.http_build_query($query))));
+    }
+
+    /**
+     * A subclass bound to one provider does not answer another provider's callback,
+     * which is what lets one authenticator per provider share a firewall.
+     */
+    public function testASubclassCanNarrowTheProvidersItAnswersFor(): void
+    {
+        $manager = $this->createStub(OpenIdConfigurationProviderManager::class);
+        $manager->method('getRedirectUriPaths')->willReturn([
+            'test_provider_1' => '/callback_uri',
+            'test_provider_2' => '/other_callback',
+        ]);
+        $manager->method('getProviderKeys')->willReturn(['test_provider_1', 'test_provider_2']);
+
+        $authenticator = new SingleProviderAuthenticator($manager);
+
+        $this->assertTrue($authenticator->supports(Request::create('/callback_uri?state=a&code=b')));
+        $this->assertFalse($authenticator->supports(Request::create('/other_callback?state=a&code=b')));
+    }
+
+    /**
+     * A provider with no derivable path contributes no match rather than matching
+     * everything, which would be the bug this constraint removes.
+     */
+    public function testAProviderWithoutAPathMatchesNothing(): void
+    {
+        $manager = $this->createStub(OpenIdConfigurationProviderManager::class);
+        $manager->method('getRedirectUriPaths')->willReturn([]);
+        $manager->method('getProviderKeys')->willReturn(['test_provider_1']);
+
+        $authenticator = new TestAuthenticator($manager);
+
+        $this->assertFalse($authenticator->supports(Request::create('/callback_uri?state=a&code=b')));
     }
 
     /**
@@ -369,5 +458,72 @@ class OpenIdLoginAuthenticatorTest extends TestCase
         $stubSession->method('remove')->willReturnMap($map);
 
         $request->setSession($stubSession);
+    }
+
+    /**
+     * The property above is deliberately typed as the abstract class, so the fixture
+     * method exposing the protected helper needs a concrete local.
+     */
+    private function fixtureAuthenticator(): TestAuthenticator
+    {
+        $authenticator = new TestAuthenticator($this->stubProviderManager);
+        $authenticator->setLogger($this->logger);
+
+        return $authenticator;
+    }
+
+    private function requestWithSession(?string $targetPath): Request
+    {
+        $request = new Request();
+        $session = new Session(new MockArraySessionStorage());
+
+        if (null !== $targetPath) {
+            $session->set('_security.main.target_path', $targetPath);
+        }
+
+        $request->setSession($session);
+
+        return $request;
+    }
+
+    public function testTheRequestedPageIsReturnedToAndThenForgotten(): void
+    {
+        $request = $this->requestWithSession('/admin/reports');
+
+        $response = $this->fixtureAuthenticator()->callCreateTargetPathRedirect($request, 'main', '/dashboard');
+
+        $this->assertSame('/admin/reports', $response->getTargetUrl());
+        // Cleared, so a later visit to the login link does not replay it.
+        $this->assertFalse($request->getSession()->has('_security.main.target_path'));
+    }
+
+    /**
+     * @return iterable<string, array{?string}>
+     */
+    public static function noTargetPathProvider(): iterable
+    {
+        yield 'nothing saved' => [null];
+        yield 'saved but empty' => [''];
+    }
+
+    #[DataProvider('noTargetPathProvider')]
+    public function testTheFallbackIsUsedWhenNoPageWasRequested(?string $targetPath): void
+    {
+        // A user who went to the login link directly, rather than being sent there.
+        $request = $this->requestWithSession($targetPath);
+
+        $response = $this->fixtureAuthenticator()->callCreateTargetPathRedirect($request, 'main', '/dashboard');
+
+        $this->assertSame('/dashboard', $response->getTargetUrl());
+    }
+
+    public function testTheTargetPathIsReadForTheRightFirewall(): void
+    {
+        $request = $this->requestWithSession('/admin/reports');
+
+        $response = $this->fixtureAuthenticator()->callCreateTargetPathRedirect($request, 'other_firewall', '/dashboard');
+
+        $this->assertSame('/dashboard', $response->getTargetUrl());
+        $this->assertTrue($request->getSession()->has('_security.main.target_path'), 'Another firewall\'s target path is left alone');
     }
 }

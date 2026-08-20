@@ -1,3 +1,9 @@
 protected:
   path: /protected
   controller: ItkDev\OpenIdConnectBundle\Tests\Security\ProtectedController
+
+# The path of the test providers' redirect_uri. supports() only recognises a
+# callback here, so a request has to be able to reach it.
+callback:
+  path: /callback_uri
+  controller: ItkDev\OpenIdConnectBundle\Tests\Security\ProtectedController

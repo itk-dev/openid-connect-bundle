@@ -9,11 +9,13 @@ use ItkDev\OpenIdConnectBundle\Exception\AuthenticationFailedException;
 use Psr\Log\LoggerAwareInterface;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
+use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Security\Core\Exception\AuthenticationException;
 use Symfony\Component\Security\Http\Authenticator\AbstractAuthenticator;
 use Symfony\Component\Security\Http\EntryPoint\AuthenticationEntryPointInterface;
+use Symfony\Component\Security\Http\Util\TargetPathTrait;
 
 /**
  * Authenticator for OpenId Connect login.
@@ -45,6 +47,8 @@ use Symfony\Component\Security\Http\EntryPoint\AuthenticationEntryPointInterface
  */
 abstract class OpenIdLoginAuthenticator extends AbstractAuthenticator implements AuthenticationEntryPointInterface, LoggerAwareInterface
 {
+    use TargetPathTrait;
+
     private LoggerInterface $logger;
 
     /**
@@ -61,10 +65,85 @@ abstract class OpenIdLoginAuthenticator extends AbstractAuthenticator implements
         $this->logger = $logger;
     }
 
+    /**
+     * Whether this request is a callback for one of this authenticator's providers.
+     *
+     * `state` and `code` alone used to be enough, which made every URL under the
+     * firewall a callback: anyone could turn any page into a failed login, and since
+     * the bundle fails closed that means a 500 raised by an unauthenticated caller.
+     * Requiring the configured callback path as well leaves a forged callback to the
+     * firewall's ordinary handling.
+     *
+     * Nothing here touches the session. This runs on every request through the
+     * firewall, so starting a session for anonymous traffic would be a real cost, and
+     * "is this a callback" must not depend on whether this browser began the login.
+     * The session's provider key is still what decides which provider validates it,
+     * in `validateClaims()`.
+     */
     public function supports(Request $request): ?bool
     {
-        // Check if request has state and code
-        return $request->query->has('state') && $request->query->has('code');
+        if (!$request->query->has('state') || !$request->query->has('code')) {
+            return false;
+        }
+
+        $path = rtrim($request->getPathInfo(), '/');
+        $path = '' === $path ? '/' : $path;
+
+        $paths = $this->providerManager->getRedirectUriPaths();
+
+        foreach ($this->getSupportedProviderKeys() as $providerKey) {
+            // Case-sensitive: paths are, and an identity provider sends the browser
+            // to the redirect URI exactly as it was registered.
+            if (($paths[$providerKey] ?? null) === $path) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Redirect to the page the user originally asked for.
+     *
+     * Symfony saves that page when the entry point fires, which covers both shapes of
+     * consumer: one that redirects straight to the identity provider, and one that
+     * shows a login screen carrying a link to it. `$fallbackUrl` is for a user who
+     * reached the login link without being sent there — nothing was saved then.
+     *
+     * The saved path is cleared on use, so a later visit to the login link does not
+     * replay a stale target.
+     */
+    protected function createTargetPathRedirect(Request $request, string $firewallName, string $fallbackUrl): RedirectResponse
+    {
+        $targetPath = $this->getTargetPath($request->getSession(), $firewallName);
+
+        if (null === $targetPath || '' === $targetPath) {
+            return new RedirectResponse($fallbackUrl);
+        }
+
+        $this->removeTargetPath($request->getSession(), $firewallName);
+
+        return new RedirectResponse($targetPath);
+    }
+
+    /**
+     * Provider keys whose callbacks this authenticator answers.
+     *
+     * Every configured provider by default, which is what keeps several
+     * `OpenIdLoginAuthenticator` subclasses on one firewall working as they do
+     * today: each supports every callback path, Symfony asks them in the order
+     * `security.yaml` lists them, and the session's provider key decides which
+     * provider validates the callback.
+     *
+     * Override in a subclass bound to particular providers so that, with a distinct
+     * callback path per provider, each callback is answered by the authenticator that
+     * owns it.
+     *
+     * @return string[]
+     */
+    protected function getSupportedProviderKeys(): array
+    {
+        return $this->providerManager->getProviderKeys();
     }
 
     /**

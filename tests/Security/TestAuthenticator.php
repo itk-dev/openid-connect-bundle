@@ -3,6 +3,7 @@
 namespace ItkDev\OpenIdConnectBundle\Tests\Security;
 
 use ItkDev\OpenIdConnectBundle\Security\OpenIdLoginAuthenticator;
+use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
@@ -42,5 +43,14 @@ class TestAuthenticator extends OpenIdLoginAuthenticator
     public function start(Request $request, ?AuthenticationException $authException = null): Response
     {
         throw new \LogicException('Test stub: start() is not implemented for this fixture.');
+    }
+
+    /**
+     * `createTargetPathRedirect()` is protected, as consumers call it from their own
+     * `onAuthenticationSuccess()`.
+     */
+    public function callCreateTargetPathRedirect(Request $request, string $firewallName, string $fallbackUrl): RedirectResponse
+    {
+        return $this->createTargetPathRedirect($request, $firewallName, $fallbackUrl);
     }
 }
