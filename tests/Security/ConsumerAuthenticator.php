@@ -27,6 +27,7 @@ use Symfony\Component\Security\Http\Authenticator\Passport\SelfValidatingPasspor
 class ConsumerAuthenticator extends OpenIdLoginAuthenticator
 {
     public const string LOGIN_PATH = '/openidconnect/login/test_provider_1';
+    public const string FALLBACK_PATH = '/dashboard';
 
     public function authenticate(Request $request): Passport
     {
@@ -46,7 +47,8 @@ class ConsumerAuthenticator extends OpenIdLoginAuthenticator
 
     public function onAuthenticationSuccess(Request $request, TokenInterface $token, string $firewallName): ?Response
     {
-        return null;
+        // As the README tells consumers to write it.
+        return $this->createTargetPathRedirect($request, $firewallName, self::FALLBACK_PATH);
     }
 
     public function start(Request $request, ?AuthenticationException $authException = null): Response

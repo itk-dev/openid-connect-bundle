@@ -7,10 +7,12 @@ use ItkDev\OpenIdConnectBundle\Exception\AuthenticationFailedException;
 use ItkDev\OpenIdConnectBundle\Tests\ItkDevOpenIdConnectBundleTestingKernel;
 use ItkDev\OpenIdConnectBundle\Tests\RestoresExceptionHandlers;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\Session\Session;
 use Symfony\Component\HttpFoundation\Session\Storage\MockArraySessionStorage;
+use Symfony\Component\Security\Core\Authentication\Token\PreAuthenticatedToken;
 use Symfony\Component\Security\Core\Exception\AuthenticationException;
 
 /**
@@ -159,5 +161,62 @@ class FailedCallbackDoesNotLoopTest extends TestCase
 
         $this->assertSame(ConsumerAuthenticator::LOGIN_PATH, $response->headers->get('Location'));
         $this->assertSame('http://localhost/protected', $session->get('_security.main.target_path'));
+    }
+
+    /**
+     * The deep link, end to end.
+     *
+     * A user follows a link to a page they cannot see yet, logs in through the
+     * identity provider, and lands on the page they asked for — not on a default.
+     * Both halves are needed and neither is enough: the firewall saves the target
+     * when the entry point fires, and the authenticator reads it back on success.
+     */
+    public function testADeepLinkSurvivesTheLoginRoundTrip(): void
+    {
+        $deepLink = Request::create('/protected/report/7');
+        $session = new Session(new MockArraySessionStorage());
+        $deepLink->setSession($session);
+
+        // Leg one: denied, sent to the login flow, target remembered.
+        $response = $this->kernel->handle($deepLink, catch: true);
+        $this->assertSame(ConsumerAuthenticator::LOGIN_PATH, $response->headers->get('Location'));
+
+        // Leg two: the same session, now arriving back from the identity provider.
+        $authenticator = $this->kernel->getContainer()->get(ConsumerAuthenticator::class);
+        $this->assertInstanceOf(ConsumerAuthenticator::class, $authenticator);
+
+        $callback = Request::create('/callback_uri?state=s&code=c');
+        $callback->setSession($session);
+
+        $success = $authenticator->onAuthenticationSuccess(
+            $callback,
+            new PreAuthenticatedToken(new TestUser('someone@example.com'), 'main'),
+            'main'
+        );
+
+        $this->assertInstanceOf(RedirectResponse::class, $success);
+        $this->assertSame('http://localhost/protected/report/7', $success->getTargetUrl());
+    }
+
+    /**
+     * Nothing was requested, so there is nothing to return to: a user who went
+     * straight to the login link gets the application's default.
+     */
+    public function testWithoutARequestedPageTheFallbackIsUsed(): void
+    {
+        $authenticator = $this->kernel->getContainer()->get(ConsumerAuthenticator::class);
+        $this->assertInstanceOf(ConsumerAuthenticator::class, $authenticator);
+
+        $callback = Request::create('/callback_uri?state=s&code=c');
+        $callback->setSession(new Session(new MockArraySessionStorage()));
+
+        $success = $authenticator->onAuthenticationSuccess(
+            $callback,
+            new PreAuthenticatedToken(new TestUser('someone@example.com'), 'main'),
+            'main'
+        );
+
+        $this->assertInstanceOf(RedirectResponse::class, $success);
+        $this->assertSame(ConsumerAuthenticator::FALLBACK_PATH, $success->getTargetUrl());
     }
 }

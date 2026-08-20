@@ -722,6 +722,13 @@ login screen with a provider link on it. The fallback covers a user who went to 
 login link directly. The saved page is cleared on use, so a later visit to that link
 does not replay it.
 
+Only pages that exist and are access-controlled return this way, and that is by
+design. Routing runs before security — `RouterListener` on `kernel.request` at
+priority 32, the firewall at 8 — so a link to a URL with no route is a 404 before the
+firewall is reached: no entry point fires, nothing is saved, and there is nothing to
+come back to. A link to a page that exists but is public simply loads. Neither is
+affected by the login flow.
+
 #### Example authenticator functions
 
 Here is an example using a `User` with a name and email property. First we
