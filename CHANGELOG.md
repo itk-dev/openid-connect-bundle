@@ -14,12 +14,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   therefore uninstallable — and so unanalysed — in the PHP 8.3 container it ran in.
   Analysis is pinned to the PHP range `composer.json` declares, so moving up cannot
   silently stop protecting the `^8.3` floor.
-- `UPGRADE-6.0.md` is ordered by what a consumer hits first, names the two required
-  configuration keys up front, quotes the compile errors as they actually read, and
-  documents both outcomes of an undefined environment variable behind
-  `client_secret_expires_at`: a broken login route with the bundle's `LoginController`,
-  and silently absent monitoring with your own. `README.md` links the upgrade guides,
-  which nothing did.
+- `UPGRADE-6.0.md` is ordered by what a consumer hits first, leads with the one key
+  that is required, quotes the compile errors as they actually read, and says where to
+  put `client_secret_expires_at` and why a committed default is worse than leaving it
+  out. `README.md` links the upgrade guides, which nothing did.
 - `supports()` no longer treats `?state=…&code=…` on an arbitrary path as a
   callback (#63). A forged callback is handled by the firewall — an entry point
   redirect for anonymous visitors — instead of surfacing as a 500 that any
