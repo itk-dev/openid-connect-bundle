@@ -61,6 +61,9 @@ Symfony bundle for authorization via OpenID Connect.
 > If your application needs browser-based OIDC login, this bundle is still
 > required.
 
+Upgrading from an earlier major? See [UPGRADE-6.0.md](UPGRADE-6.0.md) and
+[UPGRADE-5.0.md](UPGRADE-5.0.md).
+
 ## Installation
 
 To install run
@@ -980,6 +983,9 @@ checks on all PRs.
 We use [SemVer](http://semver.org/) for versioning. For the versions available,
 see the [tags on this
 repository](https://github.com/itk-dev/openid-connect/tags).
+
+Upgrading across a major: [UPGRADE-6.0.md](UPGRADE-6.0.md),
+[UPGRADE-5.0.md](UPGRADE-5.0.md). [CHANGELOG.md](CHANGELOG.md) has the rest.
 
 ## License
 

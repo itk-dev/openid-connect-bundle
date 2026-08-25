@@ -4,25 +4,17 @@ Two configuration keys become required, a failed callback becomes an error inste
 a redirect, and a callback is only recognised on its configured path. Everything else
 is optional.
 
-Coming from 4.x? Do [UPGRADE-5.0.md](UPGRADE-5.0.md) first — this guide assumes 5.x.
-
-## 1. Update the bundle
-
 ```sh
 composer update itk-dev/openid-connect-bundle
 ```
 
-Coming from 4.x the library moves with it, and a partial update refuses — `the package
-is fixed to 4.1.2 (lock file version) by a partial update`. Name both:
+Coming from 4.x? Do [UPGRADE-5.0.md](UPGRADE-5.0.md) first — this guide assumes 5.x. On
+that hop the library moves too and a partial update refuses (`the package is fixed to
+4.1.2 (lock file version) by a partial update`), so name both packages. From 5.x the
+bundle alone is enough: the only requirement that changes is `symfony/deprecation-contracts`,
+which is dropped.
 
-```sh
-composer update itk-dev/openid-connect-bundle itk-dev/openid-connect
-```
-
-From 5.x the bundle alone is enough: its `itk-dev/openid-connect` `^5.0` requirement is
-already satisfied.
-
-## 2. Declare when each client secret expires
+## 1. Declare when each client secret expires
 
 `client_secret_expires_at` is now required for every provider. Without it the bundle
 cannot warn before an expiry takes every login down, which is what it exists for.
@@ -35,17 +27,25 @@ itkdev_openid_connect:
                 client_secret_expires_at: '%env(string:ADMIN_OIDC_CLIENT_SECRET_EXPIRES_AT)%'
 ```
 
-A missing key stops the container compiling:
+A missing key stops the container compiling — the message continues with the option's
+own description, so search for the first line rather than the whole string:
 
 ```text
 The child config "client_secret_expires_at" under
-"itkdev_openid_connect.openid_providers.admin.options" must be configured
+"itkdev_openid_connect.openid_providers.admin.options" must be configured: Required.
+Date the client secret expires, e.g. "2027-01-31". …
 ```
 
 **Define the variable in every environment**, including `.env` and your production
-secrets. An environment variable that does not exist compiles perfectly well and then
-fails on the first login with `Environment variable not found` — a deploy that looks
-clean and a login route that is broken.
+secrets. An environment variable that does not exist compiles perfectly well, and what
+happens next depends on whose login route you use:
+
+- **The bundle's `LoginController`** — the first login fails with `Environment variable
+  not found`. A deploy that looks clean and a broken login route.
+- **Your own login controller** — nothing breaks, and nothing says so. Only
+  `ClientSecretExpiryChecker` reads the value, only `LoginController` injects it, and
+  the key is stripped before the provider manager sees it. You silently lose the
+  monitoring the key exists to provide, which is the harder failure to notice.
 
 Anything `strtotime()` understands, and **quote it**: YAML reads an unquoted
 `2027-01-31` as the number `1801353600`, and a non-string is rejected. Keep the value
@@ -55,14 +55,15 @@ The date is an indicator, not authority: nothing here blocks a login, and a valu
 cannot be parsed is reported at `error` and treated as `unknown`. The 5.1 deprecation
 warning for a missing date is gone with it.
 
-## 3. Declare where each callback arrives
+## 2. Declare where each callback arrives
 
 Every provider must set one of `redirect_uri`, `redirect_route` or the new
 `callback_path`, or the container will not compile:
 
 ```text
-One of redirect_uri, redirect_route or callback_path must be set: it is how a
-callback is recognised.
+Invalid configuration for path "itkdev_openid_connect.openid_providers.admin.options":
+One of redirect_uri, redirect_route or callback_path must be set: it is how a callback
+is recognised.
 ```
 
 Most applications already have `redirect_uri` and need no change.
@@ -70,7 +71,7 @@ Most applications already have `redirect_uri` and need no change.
 A request is treated as a callback when it carries `state` and `code` **and** arrives
 on that path. `?state=…&code=…` on any other URL is left to the firewall, exactly as
 before 6.0 — an anonymous visitor goes to your entry point, a logged-in one gets the
-page. Without the path check, and with failures now raising an exception (step 4), any URL
+page. Without the path check, and with failures now raising an exception (step 3), any URL
 in the application was a 500 an anonymous caller could trigger.
 
 ### When you need `callback_path`
@@ -106,7 +107,7 @@ protected function getSupportedProviderKeys(): array
 Without the override every authenticator supports every callback path and the
 session's provider key decides which provider validates it — exactly as in 5.x.
 
-## 4. A failed callback is now an error, not another redirect
+## 3. A failed callback is now an error, not another redirect
 
 `OpenIdLoginAuthenticator::onAuthenticationFailure()` throws
 `\ItkDev\OpenIdConnectBundle\Exception\AuthenticationFailedException` instead of
@@ -159,7 +160,7 @@ Render your own template rather than `getMessage()`: the message carries the ide
 provider's error text, which the security component used to reduce to a safe message
 key before anything could display it.
 
-## 5. Removed exceptions
+## 4. Removed exceptions
 
 | Removed | Use instead |
 | --- | --- |
