@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Static analysis is pinned to the PHP range `composer.json` declares rather than
+  whichever version it happens to run on, so analysing on a newer PHP cannot silently
+  stop protecting the `^8.3` floor.
 - `supports()` no longer treats `?state=…&code=…` on an arbitrary path as a
   callback (#63). A forged callback is handled by the firewall — an entry point
   redirect for anonymous visitors — instead of surfacing as a 500 that any
