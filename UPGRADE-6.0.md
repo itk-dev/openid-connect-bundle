@@ -6,14 +6,23 @@ applications already satisfy the first, in which case there is nothing to change
 you catch `AuthenticationException` around the callback.
 
 ```sh
-composer update itk-dev/openid-connect-bundle
+composer require itk-dev/openid-connect-bundle:^6.0
 ```
 
+`require`, not `update`: your `composer.json` pins a major — `^5.0` or similar — and
+`composer update` will not cross it, so it would report nothing to do and leave you on
+5.x wondering why none of this applies.
+
 Coming from 4.x? Do [UPGRADE-5.0.md](UPGRADE-5.0.md) first — this guide assumes 5.x. On
-that hop the library moves too and a partial update refuses (`the package is fixed to
-4.1.2 (lock file version) by a partial update`), so name both packages. From 5.x the
-bundle alone is enough: the only requirement that changes is `symfony/deprecation-contracts`,
-which is dropped.
+that hop the library moves with the bundle, and naming the bundle alone refuses with
+`the package is fixed to 4.1.2 (lock file version) by a partial update`, so name both:
+
+```sh
+composer require itk-dev/openid-connect-bundle:^5.0 itk-dev/openid-connect:^5.0
+```
+
+From 5.x to 6.0 the bundle alone is enough: the only requirement that changes is
+`symfony/deprecation-contracts`, which is dropped.
 
 ## 1. Declare where each callback arrives
 
