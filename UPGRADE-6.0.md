@@ -1,34 +1,142 @@
 # Upgrading from 5.x to 6.0
 
-A failed OpenID Connect callback now throws
+Two configuration keys become required, a failed callback becomes an error instead of
+a redirect, and a callback is only recognised on its configured path. Everything else
+is optional.
+
+Coming from 4.x? Do [UPGRADE-5.0.md](UPGRADE-5.0.md) first — this guide assumes 5.x.
+
+## 1. Update the bundle
+
+```sh
+composer update itk-dev/openid-connect-bundle
+```
+
+Coming from 4.x the library moves with it, and a partial update refuses — `the package
+is fixed to 4.1.2 (lock file version) by a partial update`. Name both:
+
+```sh
+composer update itk-dev/openid-connect-bundle itk-dev/openid-connect
+```
+
+From 5.x the bundle alone is enough: its `itk-dev/openid-connect` `^5.0` requirement is
+already satisfied.
+
+## 2. Declare when each client secret expires
+
+`client_secret_expires_at` is now required for every provider. Without it the bundle
+cannot warn before an expiry takes every login down, which is what it exists for.
+
+```yaml
+itkdev_openid_connect:
+    openid_providers:
+        admin:
+            options:
+                client_secret_expires_at: '%env(string:ADMIN_OIDC_CLIENT_SECRET_EXPIRES_AT)%'
+```
+
+A missing key stops the container compiling:
+
+```text
+The child config "client_secret_expires_at" under
+"itkdev_openid_connect.openid_providers.admin.options" must be configured
+```
+
+**Define the variable in every environment**, including `.env` and your production
+secrets. An environment variable that does not exist compiles perfectly well and then
+fails on the first login with `Environment variable not found` — a deploy that looks
+clean and a login route that is broken.
+
+Anything `strtotime()` understands, and **quote it**: YAML reads an unquoted
+`2027-01-31` as the number `1801353600`, and a non-string is rejected. Keep the value
+beside the secret itself, so rotating one prompts updating the other.
+
+The date is an indicator, not authority: nothing here blocks a login, and a value that
+cannot be parsed is reported at `error` and treated as `unknown`. The 5.1 deprecation
+warning for a missing date is gone with it.
+
+## 3. Declare where each callback arrives
+
+Every provider must set one of `redirect_uri`, `redirect_route` or the new
+`callback_path`, or the container will not compile:
+
+```text
+One of redirect_uri, redirect_route or callback_path must be set: it is how a
+callback is recognised.
+```
+
+Most applications already have `redirect_uri` and need no change.
+
+A request is treated as a callback when it carries `state` and `code` **and** arrives
+on that path. `?state=…&code=…` on any other URL is left to the firewall, exactly as
+before 6.0 — an anonymous visitor goes to your entry point, a logged-in one gets the
+page. Without the path check, and with failures now raising an exception (step 4), any URL
+in the application was a 500 an anonymous caller could trigger.
+
+### When you need `callback_path`
+
+Only for a reverse proxy that rewrites the path **without announcing it** — an
+external `https://app.example.org/prefix/auth/callback` that arrives here as
+`/auth/callback`:
+
+```yaml
+openid_providers:
+    admin:
+        options:
+            redirect_uri: 'https://app.example.org/prefix/auth/callback'
+            callback_path: '/auth/callback'
+```
+
+A subdirectory deployment, or a proxy sending `X-Forwarded-Prefix` with Symfony's
+trusted proxies configured, needs none: the request path is matched as `getBaseUrl()`
+plus `getPathInfo()`, so the prefix is accounted for on both sides.
+
+### One authenticator per provider
+
+Override `getSupportedProviderKeys()` so each answers only its own provider's
+callback:
+
+```php
+protected function getSupportedProviderKeys(): array
+{
+    return ['admin'];
+}
+```
+
+Without the override every authenticator supports every callback path and the
+session's provider key decides which provider validates it — exactly as in 5.x.
+
+## 4. A failed callback is now an error, not another redirect
+
+`OpenIdLoginAuthenticator::onAuthenticationFailure()` throws
 `\ItkDev\OpenIdConnectBundle\Exception\AuthenticationFailedException` instead of
-Symfony's `AuthenticationException`.
+Symfony's `AuthenticationException`. The security component used to catch the latter
+and call your entry point again, so a permanent failure such as an expired client
+secret looped forever with no error page. The new exception escapes the firewall and
+your application renders it — a 500 by default. See
+[ADR 002](docs/adr/002-fail-closed-on-authentication-failure.md).
 
-Before 6.0 the security component caught that exception and redirected to the
-identity provider again, so a permanent failure such as an expired client secret
-looped forever with no error page. The new exception escapes the firewall, so your
-application renders it — a 500 by default.
-
-See [ADR 002](docs/adr/002-fail-closed-on-authentication-failure.md).
-
-## Migrate catch blocks
+**Most applications need no code change.** Catching library exceptions *inside*
+`authenticate()` — the pattern in this README — is unaffected. What needs attention is
+a `catch` of Symfony's `AuthenticationException` around the callback, or an overridden
+`onAuthenticationFailure()`:
 
 ```diff
 - } catch (\Symfony\Component\Security\Core\Exception\AuthenticationException $e) {
 + } catch (\ItkDev\OpenIdConnectBundle\Exception\OpenIdConnectBundleExceptionInterface $e) {
 ```
 
-`getPrevious()` on the new exception is the underlying OpenID Connect exception,
-not Symfony's `AuthenticationException`: the security listener follows the chain,
-so one left there would loop again.
+`getPrevious()` is the underlying OpenID Connect exception rather than the
+`AuthenticationException`, because the security listener walks the chain and one left
+there would loop again.
 
-If you catch nothing today, no code change is needed. Check that a failed login
-renders an acceptable error and that your error reporting picks it up.
+Then check that a failed login renders something acceptable and that your error
+reporting picks it up.
 
-## Rendering something friendlier than a 500
+### Rendering something friendlier than a 500
 
-Listen for the exception. Do not answer with a redirect to the login route — that
-reintroduces the loop.
+Listen for the exception, and do not answer with a redirect to the login route — that
+reintroduces the loop:
 
 ```php
 #[AsEventListener]
@@ -47,38 +155,11 @@ final class LoginFailureListener
 }
 ```
 
-Render your own template, as above, rather than `getMessage()`. The message carries
-the identity provider's error text, which the security component used to reduce to
-a safe message key before anything could display it.
+Render your own template rather than `getMessage()`: the message carries the identity
+provider's error text, which the security component used to reduce to a safe message
+key before anything could display it.
 
-## `client_secret_expires_at` is now required
-
-Every provider must declare when its client secret expires. Without it the bundle
-cannot warn before an expiry takes every login down, which is what happened.
-
-```yaml
-itkdev_openid_connect:
-    openid_providers:
-        admin:
-            options:
-                client_secret_expires_at: '%env(string:ADMIN_OIDC_CLIENT_SECRET_EXPIRES_AT)%'
-```
-
-Anything `strtotime()` understands, but **quote it** — YAML reads an unquoted
-`2027-01-31` as the number `1801353600`, and a non-string is rejected. A missing key
-fails at compile time too:
-
-```text
-The child config "client_secret_expires_at" under
-"itkdev_openid_connect.openid_providers.admin.options" must be configured
-```
-
-The value is not trusted as fact — nothing here blocks a login, and a value that
-cannot be parsed is reported at `error` and treated as `unknown`. Keep it beside the
-secret itself, so rotating one prompts updating the other. The 5.1 deprecation
-warning for a missing date is gone with it.
-
-## Removed exceptions
+## 5. Removed exceptions
 
 | Removed | Use instead |
 | --- | --- |
@@ -90,43 +171,13 @@ switch to `UserNotFoundException`: `UserLoginCommand` catches that and reports t
 username as unknown. Not to be confused with `UsernameDoesNotExistException`, which
 stays — the CLI authenticator throws it when a token resolves to no username.
 
-## Callbacks are only accepted on the configured callback path
+`symfony/deprecation-contracts` is no longer required by the bundle. Require it
+yourself if your own code calls `trigger_deprecation()`.
 
-A request counts as a callback when it carries `state` and `code` **and** arrives on a
-provider's callback path. `?state=…&code=…` on any other URL is left to the firewall,
-as it was before 6.0 — which is the point: since a failed callback now escapes as an
-exception, any URL was otherwise a 500 an anonymous caller could trigger.
+## Optional: return users to the page they asked for
 
-Every provider must declare one of `redirect_uri`, `redirect_route` or the new
-`callback_path`, or the container will not compile:
-
-```text
-One of redirect_uri, redirect_route or callback_path must be set: it is how a
-callback is recognised.
-```
-
-Set `callback_path` if a reverse proxy rewrites the path, so an external
-`https://app.example.org/prefix/auth/callback` arrives here as `/auth/callback`:
-
-```yaml
-openid_providers:
-    admin:
-        options:
-            redirect_uri: 'https://app.example.org/prefix/auth/callback'
-            callback_path: '/auth/callback'
-```
-
-A subdirectory deployment, or a proxy sending `X-Forwarded-Prefix` with trusted
-proxies configured, needs no `callback_path`: the path is matched against
-`getBaseUrl()` plus `getPathInfo()`, so the prefix is accounted for on both sides.
-`callback_path` is for a proxy that rewrites the path without announcing it, where
-nothing in the request says so. If you run one authenticator per provider, override
-`getSupportedProviderKeys()` so each answers only its own callback; without it they
-behave exactly as in 5.x.
-
-## Redirecting back to the originally requested page
-
-`createTargetPathRedirect()` returns the user to the page that sent them to log in:
+`createTargetPathRedirect()` sends the user back to whatever sent them to log in,
+falling back to a URL of your choosing:
 
 ```php
 public function onAuthenticationSuccess(Request $request, TokenInterface $token, string $firewallName): ?Response
@@ -135,18 +186,18 @@ public function onAuthenticationSuccess(Request $request, TokenInterface $token,
 }
 ```
 
-Optional — existing `onAuthenticationSuccess()` implementations keep working.
+Existing `onAuthenticationSuccess()` implementations keep working unchanged.
 
 Only pages that exist and are access-controlled come back this way: routing runs
-before security, so a link to a URL with no route is a 404 before the firewall sees
-it and there is nothing to return to.
+before security, so a link to a URL with no route is a 404 before the firewall sees it
+and there is nothing to return to.
 
 A login link on a public page can name its own destination with
 `?target_path=/admin/reports`. The value must be a path within the application, or it
 is dropped and logged.
 
-## CLI login is unchanged
+## Unchanged: CLI login
 
-`CliLoginTokenAuthenticator` still throws `AuthenticationException`, so a consumed
-or invalid login token still sends the user to your login page. That path has no
-entry point of its own and cannot loop.
+`CliLoginTokenAuthenticator` still throws `AuthenticationException`, so a consumed or
+invalid login token still sends the user to your login page. That path has no entry
+point of its own and cannot loop.

@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `UPGRADE-6.0.md` is ordered by what a consumer hits first, names the two required
+  configuration keys up front, and says to define the environment variable behind
+  `client_secret_expires_at` — an undefined one compiles and then breaks the login
+  route at runtime.
 - `supports()` no longer treats `?state=…&code=…` on an arbitrary path as a
   callback (#63). A forged callback is handled by the firewall — an entry point
   redirect for anonymous visitors — instead of surfacing as a 500 that any
