@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `UPGRADE-6.0.md` opens with `composer require …:^6.0` rather than
+  `composer update`, which cannot cross the major consumers pin and so reported
+  nothing to do.
 - `actions/checkout` updated from v6 to v7 across every workflow.
   `codecov/codecov-action` was already current.
 - `getContainerExtension()` no longer returns `mixed` on Symfony 6.4, which declares
