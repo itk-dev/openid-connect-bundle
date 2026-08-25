@@ -45,6 +45,10 @@ class ClientSecretExpiryCheckerTest extends TestCase
         $this->assertNull($status->daysRemaining);
         $this->assertFalse($status->isExpired());
         $this->assertFalse($status->isExpiringSoon());
+        // And nothing logged: the option is optional, so an unset date is a decision
+        // rather than a fault. A value that is set but unusable is the opposite, and
+        // is reported at error. The gap is visible as this status, not as a record.
+        $this->assertSame([], $this->logger->records);
     }
 
     public function testUnknownForAProviderWithNoEntryAtAll(): void
