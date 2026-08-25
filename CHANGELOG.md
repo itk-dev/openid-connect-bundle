@@ -7,95 +7,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Fixed
+## [6.0.0] - 2026-08-25
 
-- `UPGRADE-6.0.md` opens with `composer require …:^6.0` rather than
-  `composer update`, which cannot cross the major consumers pin and so reported
-  nothing to do.
-- `actions/checkout` updated from v6 to v7 across every workflow.
-  `codecov/codecov-action` was already current.
-- `getContainerExtension()` no longer returns `mixed` on Symfony 6.4, which declares
-  `Bundle::$extension` untyped where 7.0 typed it. Found by analysing the dependency
-  floor, which nothing did before.
-- Static analysis now covers the Symfony versions this bundle claims to support. It
-  runs on the highest supported PHP, since Symfony 8.1 requires PHP >= 8.4.1 and was
-  therefore uninstallable — and so unanalysed — in the PHP 8.3 container it ran in.
-  Analysis is pinned to the PHP range `composer.json` declares, so moving up cannot
-  silently stop protecting the `^8.3` floor. A second job analyses the dependency
-  floor, lowering only what `require` names so the result is about Symfony 6.4 rather
-  than about a downgraded PHPUnit.
-- `UPGRADE-6.0.md` is ordered by what a consumer hits first, leads with the one key
-  that is required, quotes the compile errors as they actually read, and says where to
-  put `client_secret_expires_at` and why a committed default is worse than leaving it
-  out. `README.md` links the upgrade guides, which nothing did.
-- `supports()` no longer treats `?state=…&code=…` on an arbitrary path as a
-  callback (#63). A forged callback is handled by the firewall — an entry point
-  redirect for anonymous visitors — instead of surfacing as a 500 that any
-  unauthenticated caller could raise on any URL.
-- `logging_options.logger` no longer depends on bundle registration order.
-  FrameworkBundle autoconfigures a `setLogger()` call onto every
-  `LoggerAwareInterface` service and the last call wins, so an application
-  registering this bundle before FrameworkBundle received the application logger
-  instead of the configured one — `itkdev_openid_connect.null_logger` included.
-  The conventional order, FrameworkBundle first, was unaffected.
+See [UPGRADE-6.0.md](UPGRADE-6.0.md).
 
 ### Changed (BREAKING)
 
-- A failed OpenID Connect callback now throws
-  `AuthenticationFailedException` instead of Symfony's
-  `AuthenticationException`. The security component caught the latter and
-  answered by redirecting to the identity provider again, so a permanent
-  failure such as an expired client secret produced an unbreakable redirect
-  loop. The exception now escapes the firewall and the application renders its
-  own error. See `UPGRADE-6.0.md` and
-  `docs/adr/002-fail-closed-on-authentication-failure.md`.
-  `CliLoginTokenAuthenticator` is unchanged: it has no entry point of its own,
-  so it cannot loop.
-- `getPrevious()` on that exception is the underlying OpenID Connect exception
-  rather than the `AuthenticationException`, which the security component would
-  have followed straight back into the loop.
+- A failed OpenID Connect callback throws `AuthenticationFailedException` instead of
+  Symfony's `AuthenticationException`, so it escapes the firewall rather than
+  redirecting to the identity provider again. `CliLoginTokenAuthenticator` is
+  unchanged.
+- `getPrevious()` on that exception is the underlying OpenID Connect exception.
+- A callback is recognised only on the provider's callback path, not on any URL
+  carrying `state` and `code` (#63).
 - Each provider must declare `redirect_uri`, `redirect_route` or `callback_path`.
-  It is how a callback is recognised, so a provider without one could never
-  complete a login. Enforced while the container compiles.
-
-### Changed
-
-- `client_secret_expires_at` stays optional, and the 5.1 deprecation for leaving it
-  unset is gone. A required key can force a value but never a correct one, and Symfony
-  compiles a container per environment, so requiring it meant a date in a committed
-  default — reporting `ok` while measuring nothing. Unset now means the provider is not
-  monitored and reports `unknown`, which monitoring can alert on. A value that *is* set
-  must be a string and parseable: an unquoted `2027-01-31`, which YAML reads as a
-  number, is rejected while the container compiles, and an unparseable one is reported
-  at `error`.
 
 ### Added
 
-- `callback_path` per provider, for a reverse proxy that rewrites the path without
-  announcing it, so the path of `redirect_uri` is not the one the application
-  receives. A subdirectory deployment or a trusted `X-Forwarded-Prefix` needs none:
-  the request path is matched as `getBaseUrl()` plus `getPathInfo()`.
-- `OpenIdLoginAuthenticator::getSupportedProviderKeys()`, to narrow an
-  authenticator to the providers whose callbacks it answers. Defaults to all of
-  them, so existing multi-authenticator firewalls are unaffected.
-- `OpenIdLoginAuthenticator::createTargetPathRedirect()`, for returning the user to
-  the page that sent them to log in.
-- `?target_path=` on the login route, for a login link on a public page where the
-  firewall saved no requested page. Validated as a path within the application and
-  otherwise dropped and logged, since the value reaches a `Location` header. A page
-  the firewall denied takes precedence over it.
-- `OpenIdConfigurationProviderManager::getRedirectUriPaths()` and
-  `isCallbackPath()`.
+- `callback_path` per provider, for a proxy that rewrites the path without announcing
+  it.
+- `OpenIdLoginAuthenticator::getSupportedProviderKeys()`, to narrow an authenticator to
+  named providers. Defaults to all of them.
+- `OpenIdLoginAuthenticator::createTargetPathRedirect()`, returning the user to the
+  page that sent them to log in.
+- `?target_path=` on the login route, validated as a path within the application.
+- `OpenIdConfigurationProviderManager::getRedirectUriPaths()` and `isCallbackPath()`.
+
+### Changed
+
+- `client_secret_expires_at` remains optional, and the 5.1 deprecation for leaving it
+  unset is gone. Unset reports `unknown`; a value that is set must be a string and
+  parseable.
+- `UPGRADE-6.0.md` rewritten and linked from `README.md`.
+- Static analysis runs against both ends of the supported dependency range.
+- `actions/checkout` updated to v7.
+
+### Fixed
+
+- `logging_options.logger` no longer depends on bundle registration order.
+- `getContainerExtension()` no longer returns `mixed` on Symfony 6.4.
 
 ### Removed (BREAKING)
 
-- `ItkOpenIdConnectBundleException`, `@deprecated` since 5.0. Catch
-  `OpenIdConnectBundleExceptionInterface` instead.
-- `UserDoesNotExistException`, which was thrown nowhere. Symfony's
-  `UserNotFoundException` covers the case and `UserLoginCommand` already handles
-  it. `UsernameDoesNotExistException` is unaffected.
-- `symfony/deprecation-contracts` from `require`, the last
-  `trigger_deprecation()` call having gone with the option becoming required.
+- `ItkOpenIdConnectBundleException`. Catch `OpenIdConnectBundleExceptionInterface`.
+- `UserDoesNotExistException`. Use Symfony's `UserNotFoundException`.
+- `symfony/deprecation-contracts` from `require`.
 
 ## [5.1.1] - 2026-08-19
 
@@ -371,7 +327,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `itk-dev/openid-connect` 1.0.0 to 2.1.0
 - OpenId Connect Bundle: Added CLI login feature.
 
-[unreleased]: https://github.com/itk-dev/openid-connect-bundle/compare/5.1.1...HEAD
+[unreleased]: https://github.com/itk-dev/openid-connect-bundle/compare/6.0.0...HEAD
+[6.0.0]: https://github.com/itk-dev/openid-connect-bundle/compare/5.1.1...6.0.0
 [5.1.1]: https://github.com/itk-dev/openid-connect-bundle/compare/5.1.0...5.1.1
 [5.1.0]: https://github.com/itk-dev/openid-connect-bundle/compare/5.0.0...5.1.0
 [5.0.0]: https://github.com/itk-dev/openid-connect-bundle/compare/4.2.0...5.0.0
