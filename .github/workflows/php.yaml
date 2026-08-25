@@ -15,7 +15,7 @@ jobs:
     name: PHP - Check Coding Standards
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Create docker network
         run: |
@@ -33,7 +33,7 @@ jobs:
     name: PHPStan
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Create docker network
         run: |
@@ -60,7 +60,7 @@ jobs:
     name: PHPStan (lowest runtime dependencies)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Create docker network
         run: |
@@ -98,7 +98,7 @@ jobs:
             php: "8.5"
             prefer: prefer-stable
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Create docker network
         run: |
@@ -129,7 +129,7 @@ jobs:
             php: "8.3"
             prefer: prefer-stable
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Create docker network
         run: |

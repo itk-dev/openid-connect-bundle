@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `actions/checkout` updated from v6 to v7 across every workflow.
+  `codecov/codecov-action` was already current.
 - `getContainerExtension()` no longer returns `mixed` on Symfony 6.4, which declares
   `Bundle::$extension` untyped where 7.0 typed it. Found by analysing the dependency
   floor, which nothing did before.
