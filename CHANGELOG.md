@@ -9,11 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `getContainerExtension()` no longer returns `mixed` on Symfony 6.4, which declares
+  `Bundle::$extension` untyped where 7.0 typed it. Found by analysing the dependency
+  floor, which nothing did before.
 - Static analysis now covers the Symfony versions this bundle claims to support. It
   runs on the highest supported PHP, since Symfony 8.1 requires PHP >= 8.4.1 and was
   therefore uninstallable — and so unanalysed — in the PHP 8.3 container it ran in.
   Analysis is pinned to the PHP range `composer.json` declares, so moving up cannot
-  silently stop protecting the `^8.3` floor.
+  silently stop protecting the `^8.3` floor. A second job analyses the dependency
+  floor, lowering only what `require` names so the result is about Symfony 6.4 rather
+  than about a downgraded PHPUnit.
 - `UPGRADE-6.0.md` is ordered by what a consumer hits first, leads with the one key
   that is required, quotes the compile errors as they actually read, and says where to
   put `client_secret_expires_at` and why a committed default is worse than leaving it
