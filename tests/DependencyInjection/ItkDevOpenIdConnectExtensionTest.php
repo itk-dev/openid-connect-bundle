@@ -185,6 +185,35 @@ class ItkDevOpenIdConnectExtensionTest extends TestCase
         $this->assertSame('%kernel.secret%', $arguments['$identifierSecret']);
     }
 
+    public function testAProviderWithoutAnExpiryDateIsWiredAsUnmonitored(): void
+    {
+        $extension = new ItkDevOpenIdConnectExtension();
+        $container = new ContainerBuilder();
+
+        $config = $this->getBaseConfig();
+        // Built without the date rather than unset from the base config, which is
+        // untyped and would need narrowing for no gain.
+        $config['openid_providers'] = [
+            'test_provider' => [
+                'options' => [
+                    'metadata_url' => 'https://example.com/.well-known/openid-configuration',
+                    'client_id' => 'test_id',
+                    'client_secret' => 'test_secret',
+                    'redirect_uri' => 'https://app.example.org/callback_uri',
+                ],
+            ],
+        ];
+
+        $extension->load([$config], $container);
+
+        // null, not absent: the checker reports every configured provider, and one
+        // without a date has to be reportable as `unknown` rather than missing.
+        $this->assertSame(
+            ['test_provider' => null],
+            $container->getDefinition(ClientSecretExpiryChecker::class)->getArgument('$expiryDates')
+        );
+    }
+
     public function testSecretExpiryIsWired(): void
     {
         $extension = new ItkDevOpenIdConnectExtension();

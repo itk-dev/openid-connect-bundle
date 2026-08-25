@@ -44,11 +44,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Each provider must declare `redirect_uri`, `redirect_route` or `callback_path`.
   It is how a callback is recognised, so a provider without one could never
   complete a login. Enforced while the container compiles.
-- `client_secret_expires_at` is now required for every provider, and must be a
-  string. A missing date fails while the container compiles instead of emitting the
-  5.1 deprecation, and an unquoted `2027-01-31` — which YAML reads as a number — is
-  rejected rather than silently leaving the provider unmonitored. See
-  `UPGRADE-6.0.md`.
+
+### Changed
+
+- `client_secret_expires_at` stays optional, and the 5.1 deprecation for leaving it
+  unset is gone. A required key can force a value but never a correct one, and Symfony
+  compiles a container per environment, so requiring it meant a date in a committed
+  default — reporting `ok` while measuring nothing. Unset now means the provider is not
+  monitored and reports `unknown`, which monitoring can alert on. A value that *is* set
+  must be a string and parseable: an unquoted `2027-01-31`, which YAML reads as a
+  number, is rejected while the container compiles, and an unparseable one is reported
+  at `error`.
 
 ### Added
 

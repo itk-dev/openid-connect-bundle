@@ -1,8 +1,9 @@
 # Upgrading from 5.x to 6.0
 
-Two configuration keys become required, a failed callback becomes an error instead of
-a redirect, and a callback is only recognised on its configured path. Everything else
-is optional.
+Every provider must declare where its callback arrives, a failed callback becomes an
+error instead of a redirect, and a callback is only recognised on that path. Most
+applications already satisfy the first, in which case there is nothing to change unless
+you catch `AuthenticationException` around the callback.
 
 ```sh
 composer update itk-dev/openid-connect-bundle
@@ -14,48 +15,7 @@ that hop the library moves too and a partial update refuses (`the package is fix
 bundle alone is enough: the only requirement that changes is `symfony/deprecation-contracts`,
 which is dropped.
 
-## 1. Declare when each client secret expires
-
-`client_secret_expires_at` is now required for every provider. Without it the bundle
-cannot warn before an expiry takes every login down, which is what it exists for.
-
-```yaml
-itkdev_openid_connect:
-    openid_providers:
-        admin:
-            options:
-                client_secret_expires_at: '%env(string:ADMIN_OIDC_CLIENT_SECRET_EXPIRES_AT)%'
-```
-
-A missing key stops the container compiling — the message continues with the option's
-own description, so search for the first line rather than the whole string:
-
-```text
-The child config "client_secret_expires_at" under
-"itkdev_openid_connect.openid_providers.admin.options" must be configured: Required.
-Date the client secret expires, e.g. "2027-01-31". …
-```
-
-**Define the variable in every environment**, including `.env` and your production
-secrets. An environment variable that does not exist compiles perfectly well, and what
-happens next depends on whose login route you use:
-
-- **The bundle's `LoginController`** — the first login fails with `Environment variable
-  not found`. A deploy that looks clean and a broken login route.
-- **Your own login controller** — nothing breaks, and nothing says so. Only
-  `ClientSecretExpiryChecker` reads the value, only `LoginController` injects it, and
-  the key is stripped before the provider manager sees it. You silently lose the
-  monitoring the key exists to provide, which is the harder failure to notice.
-
-Anything `strtotime()` understands, and **quote it**: YAML reads an unquoted
-`2027-01-31` as the number `1801353600`, and a non-string is rejected. Keep the value
-beside the secret itself, so rotating one prompts updating the other.
-
-The date is an indicator, not authority: nothing here blocks a login, and a value that
-cannot be parsed is reported at `error` and treated as `unknown`. The 5.1 deprecation
-warning for a missing date is gone with it.
-
-## 2. Declare where each callback arrives
+## 1. Declare where each callback arrives
 
 Every provider must set one of `redirect_uri`, `redirect_route` or the new
 `callback_path`, or the container will not compile:
@@ -71,7 +31,7 @@ Most applications already have `redirect_uri` and need no change.
 A request is treated as a callback when it carries `state` and `code` **and** arrives
 on that path. `?state=…&code=…` on any other URL is left to the firewall, exactly as
 before 6.0 — an anonymous visitor goes to your entry point, a logged-in one gets the
-page. Without the path check, and with failures now raising an exception (step 3), any URL
+page. Without the path check, and with failures now raising an exception (step 2), any URL
 in the application was a 500 an anonymous caller could trigger.
 
 ### When you need `callback_path`
@@ -107,7 +67,7 @@ protected function getSupportedProviderKeys(): array
 Without the override every authenticator supports every callback path and the
 session's provider key decides which provider validates it — exactly as in 5.x.
 
-## 3. A failed callback is now an error, not another redirect
+## 2. A failed callback is now an error, not another redirect
 
 `OpenIdLoginAuthenticator::onAuthenticationFailure()` throws
 `\ItkDev\OpenIdConnectBundle\Exception\AuthenticationFailedException` instead of
@@ -160,7 +120,7 @@ Render your own template rather than `getMessage()`: the message carries the ide
 provider's error text, which the security component used to reduce to a safe message
 key before anything could display it.
 
-## 4. Removed exceptions
+## 3. Removed exceptions
 
 | Removed | Use instead |
 | --- | --- |
@@ -174,6 +134,35 @@ stays — the CLI authenticator throws it when a token resolves to no username.
 
 `symfony/deprecation-contracts` is no longer required by the bundle. Require it
 yourself if your own code calls `trigger_deprecation()`.
+
+## Recommended: monitor client secret expiry
+
+`client_secret_expires_at` stays optional. Set it and the bundle warns before a secret
+expires; leave it unset and the provider reports `unknown` and is not monitored.
+
+```yaml
+itkdev_openid_connect:
+    openid_providers:
+        admin:
+            options:
+                client_secret_expires_at: '%env(string:ADMIN_OIDC_CLIENT_SECRET_EXPIRES_AT)%'
+```
+
+**Set it where the real secret lives** — the production secret store, or a `when@prod`
+block. A date carried in a committed `.env` default is a date nobody maintains: it
+reports `ok` while measuring nothing, which is worse than reporting `unknown`. That is
+also why the key is not required: a required key can force a value, never a correct
+one, and Symfony compiles a container per environment, so it would have to be set in
+all of them.
+
+Anything `strtotime()` understands, and **quote it**: YAML reads an unquoted
+`2027-01-31` as the number `1801353600`, and a non-string is rejected while the
+container compiles. A value that is set but cannot be parsed is reported at `error` and
+treated as `unknown` — set-but-broken is a mistake, unset is a decision.
+
+Nothing here blocks a login. An unmonitored provider shows up as `unknown` in
+`ClientSecretExpiryChecker::getAllStatuses()`, which is where monitoring should alert
+on it. The 5.1 deprecation for leaving the date unset is gone.
 
 ## Optional: return users to the page they asked for
 

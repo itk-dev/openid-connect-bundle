@@ -111,7 +111,6 @@ class Configuration implements ConfigurationInterface
                                         ->isRequired()->cannotBeEmpty()
                                     ->end()
                                     ->scalarNode('client_secret_expires_at')
-                                        ->isRequired()
                                         // No cannotBeEmpty() here, and it cannot come back:
                                         // VariableNode::finalizeValue() refuses an environment variable
                                         // whenever empty values are disallowed and the node has any
@@ -123,13 +122,14 @@ class Configuration implements ConfigurationInterface
                                         // ClientSecretExpiryChecker. It never caught whitespace-only
                                         // values regardless: ScalarNode::isValueEmpty() is
                                         // `null === $value || '' === $value`.
-                                        ->info('Required. Date the client secret expires, e.g. "2027-01-31". Anything strtotime() understands, and usually an environment variable. An expired secret breaks every login, so the bundle warns while there is still time to rotate.')
+                                        ->info('Optional. Date the client secret expires, e.g. "2027-01-31". Anything strtotime() understands, and usually an environment variable. Set it and the bundle warns before the secret expires; leave it unset and the provider reports "unknown" and is not monitored. Set it where the real secret lives — a date carried in a committed default is a date nobody maintains.')
                                         ->validate()
                                             // YAML reads an unquoted 2027-01-31 as the integer 1801353600, and the
                                             // closure below only inspects strings, so without this the most natural
                                             // way to write the value would pass, be discarded as untyped, and leave
-                                            // the provider unmonitored with nothing logged. Also catches an explicit
-                                            // null, which isRequired() accepts because the key is present.
+                                            // the provider unmonitored with nothing logged. Leaving the key out
+                                            // entirely is a decision and reports "unknown"; writing a value that
+                                            // cannot be one is a mistake, including an explicit null.
                                             ->ifTrue(static fn (mixed $v): bool => !is_string($v))
                                             ->thenInvalid('client_secret_expires_at must be a string. YAML reads an unquoted date as a number, so quote it: "2027-01-31". From an environment variable, cast it as %%env(string:NAME)%%. Got %s.')
                                         ->end()
