@@ -15,6 +15,8 @@ Symfony bundle for authorization via OpenID Connect.
 >
 > ## Symfony Native OIDC Support
 >
+> Status as of August 2026.
+>
 > Since this bundle was created Symfony has added [support for OpenID Connect](https://symfony.com/blog/new-in-symfony-6-3-openid-connect-token-handler)
 > as documented in ["Using OpenID Connect (OIDC)"](https://symfony.com/doc/current/security/access_token.html#using-openid-connect-oidc).
 >
@@ -30,36 +32,56 @@ Symfony bundle for authorization via OpenID Connect.
 > * [JWE (encrypted token) support](https://github.com/symfony/symfony/pull/57721)
 >   was added in Symfony 7.3 for OIDC token handlers.
 >
-> However, Symfony's native OIDC support is designed for **stateless bearer
-> token validation** (the `access_token` authenticator) only. It validates tokens
-> that are already present on the request (e.g. in an `Authorization: Bearer`
-> header).
->
-> It does **not** implement the **authorization code flow** — the browser-based
+> Everything released so far is designed for **stateless bearer token
+> validation** (the `access_token` authenticator) only. It validates tokens that
+> are already present on the request (e.g. in an `Authorization: Bearer` header),
+> and does not implement the **authorization code flow** — the browser-based
 > login where the application redirects to the IdP, handles the callback with an
-> authorization code, exchanges it for tokens, and establishes a session. This
-> is tracked upstream in [symfony/symfony#50896](https://github.com/symfony/symfony/issues/50896).
+> authorization code, exchanges it for tokens, and establishes a session. That
+> gap is tracked in [symfony/symfony#50896](https://github.com/symfony/symfony/issues/50896).
 >
-> This means the following features of this bundle have no native Symfony
-> equivalent:
+> ### The authorization code flow is coming upstream
+>
+> A native `oidc_login` authenticator is being added in
+> [symfony/symfony#64954](https://github.com/symfony/symfony/pull/64954),
+> targeted at **Symfony 8.2 (November 2026)**. The pull request is in active
+> review and is being reworked into a feature-complete implementation covering
+> discovery, PKCE, configurable scopes and claims mapping, token-endpoint client
+> authentication, and RP-initiated logout. One review question is still open —
+> ID token signature verification, which this bundle's underlying library
+> already does.
+>
+> ### What this bundle still provides
 >
 > | Feature                        | This bundle | Symfony native |
 > |--------------------------------|:-----------:|:--------------:|
-> | Authorization code flow        | ✅          | ❌             |
-> | Session-based browser login    | ✅          | ❌             |
-> | Multiple named OIDC providers  | ✅          | ❌ ¹           |
+> | Authorization code flow        | ✅          | ⏳ ¹           |
+> | Session-based browser login    | ✅          | ⏳ ¹           |
+> | Multiple named OIDC providers  | ✅          | ❌ ²           |
 > | CLI login tokens               | ✅          | ❌             |
+> | Client secret expiry checks    | ✅          | ❌             |
 > | OIDC discovery                 | ✅          | ✅             |
 > | Bearer token validation (API)  | ❌          | ✅             |
 > | OAuth2 token introspection     | ❌          | ✅             |
 >
-> ¹ Symfony's `access_token` handler accepts multiple `issuers` for token
+> ¹ In review for Symfony 8.2, see above.
+>
+> ² Symfony's `access_token` handler accepts multiple `issuers` for token
 > validation, but this is not the same as this bundle's named provider model
 > with distinct client credentials, redirect URIs, and selectable login routes
 > per provider.
 >
-> If your application needs browser-based OIDC login, this bundle is still
-> required.
+> ### What this means for the bundle
+>
+> Long term we expect Symfony core to replace most of this bundle. It is not
+> there yet: multiple providers per firewall, CLI login and the client secret
+> expiry checks have no upstream equivalent, and our applications track Symfony
+> LTS releases.
+>
+> Until those gaps close the bundle remains fully supported. New features that
+> upstream will provide are frozen; security and compatibility fixes continue. A
+> deprecation will be announced here and in the [CHANGELOG](CHANGELOG.md) once a
+> migration path exists — realistically no earlier than 2028.
 
 Upgrading from an earlier major? See [UPGRADE-6.0.md](UPGRADE-6.0.md) and
 [UPGRADE-5.0.md](UPGRADE-5.0.md).
