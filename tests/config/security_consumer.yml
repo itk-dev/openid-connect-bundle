@@ -1,0 +1,25 @@
+security:
+  providers:
+    test_users_1:
+      memory:
+        users:
+          admin: { password: "test", roles: ["ROLE_ADMIN"] }
+    test_users_2:
+      memory:
+        users:
+          admin: { password: "test", roles: ["ROLE_ADMIN"] }
+  firewalls:
+    dev:
+      pattern: ^/(_(profiler|wdt)|css|images|js)/
+      security: false
+    main:
+      lazy: true
+      custom_authenticators:
+        - ItkDev\OpenIdConnectBundle\Tests\Security\ConsumerAuthenticator
+        - ItkDev\OpenIdConnectBundle\Security\CliLoginTokenAuthenticator
+      entry_point: ItkDev\OpenIdConnectBundle\Tests\Security\ConsumerAuthenticator
+      provider: test_users_1
+  # Without this nothing demands authentication, so the entry point never fires and
+  # there is no target path to save — the behaviour these tests are about.
+  access_control:
+    - { path: "^/protected", roles: "ROLE_ADMIN" }

@@ -1,0 +1,6 @@
+# framework.yml disables the router with `resource: ~`, which makes any request
+# fail at boot. Load this after it when a test dispatches a real request.
+framework:
+  router:
+    resource: "%kernel.project_dir%/tests/config/routes.yml"
+    utf8: true

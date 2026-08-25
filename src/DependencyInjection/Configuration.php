@@ -122,8 +122,17 @@ class Configuration implements ConfigurationInterface
                                         // ClientSecretExpiryChecker. It never caught whitespace-only
                                         // values regardless: ScalarNode::isValueEmpty() is
                                         // `null === $value || '' === $value`.
-                                        ->info('Date the client secret expires, e.g. "2027-01-31". Anything strtotime() understands, and usually an environment variable. An expired secret breaks every login, so configuring this lets the bundle warn while there is still time to rotate. Will be required in 6.0.')
-                                        ->defaultNull()
+                                        ->info('Optional. Date the client secret expires, e.g. "2027-01-31". Anything strtotime() understands, and usually an environment variable. Set it and the bundle warns before the secret expires; leave it unset and the provider reports "unknown" and is not monitored. Set it where the real secret lives — a date carried in a committed default is a date nobody maintains.')
+                                        ->validate()
+                                            // YAML reads an unquoted 2027-01-31 as the integer 1801353600, and the
+                                            // closure below only inspects strings, so without this the most natural
+                                            // way to write the value would pass, be discarded as untyped, and leave
+                                            // the provider unmonitored with nothing logged. Leaving the key out
+                                            // entirely is a decision and reports "unknown"; writing a value that
+                                            // cannot be one is a mistake, including an explicit null.
+                                            ->ifTrue(static fn (mixed $v): bool => !is_string($v))
+                                            ->thenInvalid('client_secret_expires_at must be a string. YAML reads an unquoted date as a number, so quote it: "2027-01-31". From an environment variable, cast it as %%env(string:NAME)%%. Got %s.')
+                                        ->end()
                                         ->validate()
                                             // '' is exempt because it is the dummy fixture Symfony
                                             // substitutes for %env(string:...)% while compiling
@@ -138,6 +147,10 @@ class Configuration implements ConfigurationInterface
                                             // a timestamp rather than false, the same "blank means now"
                                             // quirk DateTimeImmutable has, so whitespace would otherwise
                                             // sail through as a valid date.
+                                            // is_string() is unreachable-looking now that the closure above
+                                            // rejects non-strings, but it is what lets trim() and strtotime()
+                                            // take a mixed value under PHPStan, and it keeps this closure
+                                            // correct on its own terms rather than by ordering.
                                             ->ifTrue(static fn (mixed $v): bool => is_string($v) && '' !== $v && ('' === trim($v) || false === strtotime($v)))
                                             ->thenInvalid('client_secret_expires_at must be a date parseable by strtotime(), e.g. "2027-01-31". Got %s.')
                                         ->end()
@@ -160,6 +173,22 @@ class Configuration implements ConfigurationInterface
                                     ->end()
                                     ->arrayNode('redirect_route_parameters')
                                         ->info('Redirect route parameters')
+                                    ->end()
+                                    ->scalarNode('callback_path')
+                                        ->info('Optional. The request path the callback arrives on, for a proxy that rewrites it without sending X-Forwarded-Prefix. Include any base path. Defaults to the path of redirect_uri, or of the generated redirect_route; a trusted X-Forwarded-Prefix or a subdirectory deployment is already accounted for without this.')
+                                        // As on client_secret_expires_at: a validated node that also
+                                        // disallows empty values refuses environment variables, and the
+                                        // closure is the half worth keeping.
+                                        ->validate()
+                                            ->ifTrue(static fn (mixed $v): bool => !is_string($v))
+                                            ->thenInvalid('callback_path must be a string, e.g. "/auth/callback". Got %s.')
+                                        ->end()
+                                        ->validate()
+                                            // '' is the fixture Symfony substitutes for a string
+                                            // environment variable while compiling, so it has to pass.
+                                            ->ifTrue(static fn (mixed $v): bool => is_string($v) && '' !== $v && !str_starts_with($v, '/'))
+                                            ->thenInvalid('callback_path must start with "/", e.g. "/auth/callback". Got %s.')
+                                        ->end()
                                     ->end()
                                     ->booleanNode('allow_http')
                                         ->info('Whether to allow http or not (default: false)')
@@ -189,6 +218,14 @@ class Configuration implements ConfigurationInterface
                                 ->validate()
                                     ->ifTrue(static fn (array $v) => isset($v['redirect_uri'], $v['redirect_route']))
                                     ->thenInvalid('Only one of redirect_uri or redirect_route must be set.')
+                                ->end()
+                                ->validate()
+                                    // Without one of these there is no path to recognise a callback on,
+                                    // and since 6.0 that means the provider can never complete a login:
+                                    // supports() matches the configured callback path, not any path
+                                    // carrying state and code.
+                                    ->ifTrue(static fn (array $v) => !isset($v['redirect_uri']) && !isset($v['redirect_route']) && !isset($v['callback_path']))
+                                    ->thenInvalid('One of redirect_uri, redirect_route or callback_path must be set: it is how a callback is recognised.')
                             ->end()
                         ->end()
                     ->end()

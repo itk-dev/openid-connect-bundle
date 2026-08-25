@@ -8,6 +8,8 @@
 namespace ItkDev\OpenIdConnectBundle\Tests;
 
 use ItkDev\OpenIdConnectBundle\ItkDevOpenIdConnectBundle;
+use ItkDev\OpenIdConnectBundle\Tests\Security\ConsumerAuthenticator;
+use ItkDev\OpenIdConnectBundle\Tests\Security\ProtectedController;
 use ItkDev\OpenIdConnectBundle\Tests\Security\TestAuthenticator;
 use Symfony\Bundle\FrameworkBundle\FrameworkBundle;
 use Symfony\Bundle\SecurityBundle\SecurityBundle;
@@ -30,19 +32,45 @@ class ItkDevOpenIdConnectBundleTestingKernel extends Kernel
     }
 
     /**
-     * A cache directory per config set.
+     * A cache directory per config set, and under Infection per process.
      *
-     * Without this every kernel in the suite shares `var/cache/test`, so the first
-     * container compiled is the one every later test gets — silently, and with
-     * whatever configuration that first test happened to use. Any test that boots a
-     * different configuration is then asserting against the wrong container.
+     * Per config set, because otherwise every kernel in the suite shares
+     * `var/cache/test`: the first container compiled is the one every later test
+     * gets, silently, with whatever configuration that first test happened to use.
+     *
+     * Per process under Infection, because it substitutes a mutated file through an
+     * include interceptor rather than by writing to disk. Nothing Symfony tracks as a
+     * resource changes, so a mutant is served the cached container and every mutation
+     * of compile-time code survives by default. Each mutant runs in its own process,
+     * so the pid separates them. Plain runs stay on the shared directory: they have
+     * nothing to isolate, and a recompile per process is a cost with no return.
      */
     #[\Override]
     public function getCacheDir(): string
     {
-        return parent::getCacheDir().'/'.substr(hash('xxh128', implode('|', $this->pathToConfigs)), 0, 12);
+        $key = substr(hash('xxh128', implode('|', $this->pathToConfigs)), 0, 12);
+
+        if (false !== getenv('INFECTION')) {
+            $key .= '-'.getmypid();
+        }
+
+        return parent::getCacheDir().'/'.$key;
     }
 
+    /**
+     * This bundle is registered before FrameworkBundle deliberately. It is the
+     * unconventional order, and the one where autoconfigured method calls land in the
+     * losing order — so it is the order that holds ConfiguredLoggerPass to its job.
+     *
+     * The return is annotated with the three bundle classes rather than inherited as
+     * `iterable<BundleInterface>`: Symfony 8.1 deprecates
+     * `HttpKernel\Bundle\BundleInterface` in favour of
+     * `DependencyInjection\Kernel\BundleInterface`, and naming either one would break
+     * on the other end of the supported range. The concrete classes are covariant with
+     * both, and more precise than either.
+     *
+     * @return list<ItkDevOpenIdConnectBundle|SecurityBundle|FrameworkBundle>
+     */
     public function registerBundles(): iterable
     {
         return [
@@ -59,9 +87,25 @@ class ItkDevOpenIdConnectBundleTestingKernel extends Kernel
     {
         $loader->load(function (ContainerBuilder $builder) {
             $builder->register(TestAuthenticator::class, TestAuthenticator::class);
+            // Autowired and autoconfigured, the way a consumer registers its own
+            // authenticator: autoconfiguration is what delivers the configured logger
+            // to `setLogger()`, and without it this fixture gets a NullLogger.
+            $builder->register(ConsumerAuthenticator::class, ConsumerAuthenticator::class)
+                ->setAutowired(true)
+                ->setAutoconfigured(true)
+                ->setPublic(true);
+            // A consumer who turned autoconfiguration off. Nothing calls setLogger on
+            // this one, and nothing should start.
+            $builder->register(ConsumerAuthenticator::class.'.not_autoconfigured', ConsumerAuthenticator::class)
+                ->setAutowired(true)
+                ->setPublic(true);
+            $builder->register(ProtectedController::class, ProtectedController::class)->setPublic(true);
             // Available as a logger a config fixture can point at, so a test can
             // read what the bundle actually wrote through the container.
             $builder->register(TestLogger::class, TestLogger::class)->setPublic(true);
+            // Aliases are resolved out of method calls before this bundle's compiler
+            // pass runs, so a logger configured by alias needs its own coverage.
+            $builder->setAlias('test.logger_alias', TestLogger::class);
         });
 
         foreach ($this->pathToConfigs as $path) {

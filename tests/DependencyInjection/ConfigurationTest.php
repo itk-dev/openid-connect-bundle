@@ -35,6 +35,8 @@ class ConfigurationTest extends TestCase
                         'metadata_url' => 'https://example.com/.well-known/openid-configuration',
                         'client_id' => 'my_id',
                         'client_secret' => 'my_secret',
+                        'client_secret_expires_at' => '2027-01-31',
+                        'redirect_uri' => 'https://app.example.org/callback_uri',
                     ],
                 ],
             ],
@@ -70,8 +72,7 @@ class ConfigurationTest extends TestCase
         $this->assertNull($config['audit_options']['logger']);
         $this->assertSame(AuthenticationAuditLogger::IDENTIFIER_RAW, $config['audit_options']['identifier']);
 
-        // No expiry date yet, and a 30-day default warning window.
-        $this->assertNull($provider['client_secret_expires_at']);
+        $this->assertSame('2027-01-31', $provider['client_secret_expires_at']);
         $this->assertSame(30, $config['secret_expiry_options']['warning_days']);
     }
 
@@ -105,27 +106,18 @@ class ConfigurationTest extends TestCase
         $this->processor->processConfiguration($this->configuration, [$input]);
     }
 
-    /**
-     * @return iterable<string, array{string|null}>
-     */
-    public static function toleratedEmptyDateProvider(): iterable
+    public function testClientSecretExpiresAtToleratesAnEmptyString(): void
     {
-        // '' is the fixture Symfony substitutes for a string env var while
-        // compiling, so it has to pass here; the checker reports it at runtime.
-        yield 'empty string' => [''];
-        // An explicit null is a deliberate "not configured", not a typo.
-        yield 'explicit null' => [null];
-    }
-
-    #[DataProvider('toleratedEmptyDateProvider')]
-    public function testClientSecretExpiresAtToleratesEmptyValues(?string $date): void
-    {
+        // '' is the fixture Symfony substitutes for a string env var while compiling,
+        // so it has to pass here; the checker reports it at runtime. An explicit null
+        // is no longer tolerated — see testANonStringExpiryDateIsRejected. It used to
+        // mean "not configured", which is not a thing a required option has.
         $input = $this->getMinimalConfig();
-        $input['openid_providers']['provider1']['options']['client_secret_expires_at'] = $date;
+        $input['openid_providers']['provider1']['options']['client_secret_expires_at'] = '';
 
         $config = $this->processor->processConfiguration($this->configuration, [$input]);
 
-        $this->assertSame($date, $config['openid_providers']['provider1']['options']['client_secret_expires_at']);
+        $this->assertSame('', $config['openid_providers']['provider1']['options']['client_secret_expires_at']);
     }
 
     public function testClientSecretExpiresAtAccepted(): void
@@ -261,6 +253,8 @@ class ConfigurationTest extends TestCase
     public function testRedirectRouteConfig(): void
     {
         $input = $this->getMinimalConfig();
+        // Mutually exclusive with redirect_uri, which the minimal config sets.
+        unset($input['openid_providers']['provider1']['options']['redirect_uri']);
         $input['openid_providers']['provider1']['options']['redirect_route'] = 'my_redirect_route';
 
         $config = $this->processor->processConfiguration(
@@ -356,6 +350,88 @@ class ConfigurationTest extends TestCase
         $this->assertArrayNotHasKey('my_provider', $config['openid_providers']);
     }
 
+    /**
+     * The definition itself must be free of deprecations.
+     *
+     * Symfony reports a contradictory definition — a required node that also carries
+     * a default, say — by deprecating it rather than refusing it, and
+     * `trigger_deprecation()` raises that with `@`, which PHPUnit's own
+     * `failOnDeprecation` respects and therefore never sees. A handler installed here
+     * does see it. Otherwise the first report comes from a consuming application's
+     * console, which is where this one was found.
+     */
+    public function testTheDefinitionEmitsNoDeprecations(): void
+    {
+        $deprecations = [];
+        // All four arguments are forwarded: the handler being wrapped is PHPUnit's,
+        // whose __invoke() requires file and line.
+        $previous = set_error_handler(static function (int $level, string $message, string $file = '', int $line = 0) use (&$deprecations, &$previous): bool {
+            if (\E_USER_DEPRECATED === $level) {
+                $deprecations[] = $message;
+
+                return true;
+            }
+
+            return null !== $previous && false !== ($previous)($level, $message, $file, $line);
+        });
+
+        try {
+            $this->processor->processConfiguration($this->configuration, [$this->getMinimalConfig()]);
+        } finally {
+            restore_error_handler();
+        }
+
+        $this->assertSame([], $deprecations);
+    }
+
+    /**
+     * The value a reader would most likely write.
+     *
+     * `client_secret_expires_at: 2027-01-31` without quotes is the integer
+     * 1801353600 by the time configuration sees it. Accepting it would discard the
+     * date and leave the provider unmonitored with nothing logged anywhere, which is
+     * the exact outcome this option exists to prevent.
+     *
+     * @return iterable<string, array{mixed}>
+     */
+    public static function nonStringDateProvider(): iterable
+    {
+        yield 'unquoted date, read as a timestamp' => [1801353600];
+        yield 'digits' => [20270131];
+        yield 'boolean' => [true];
+        yield 'explicit null, which isRequired() accepts' => [null];
+    }
+
+    #[DataProvider('nonStringDateProvider')]
+    public function testANonStringExpiryDateIsRejected(mixed $configured): void
+    {
+        $input = $this->getMinimalConfig();
+        $input['openid_providers']['provider1']['options']['client_secret_expires_at'] = $configured;
+
+        $this->expectException(InvalidConfigurationException::class);
+        $this->expectExceptionMessage('client_secret_expires_at must be a string');
+
+        $this->processor->processConfiguration($this->configuration, [$input]);
+    }
+
+    /**
+     * Optional on purpose. A required key can force a value, never a correct one, and
+     * it cannot be scoped to the environment where the real secret lives — Symfony
+     * compiles a container per environment, so a required node has to appear in all of
+     * them. What that produces is a date in a committed default, which reports `ok`
+     * forever while monitoring nothing. Unset is the honest state, and it is visible:
+     * the provider reports `unknown`.
+     */
+    public function testTheExpiryDateIsOptional(): void
+    {
+        $input = $this->getMinimalConfig();
+        unset($input['openid_providers']['provider1']['options']['client_secret_expires_at']);
+
+        $config = $this->processor->processConfiguration($this->configuration, [$input]);
+
+        $this->assertArrayNotHasKey('client_secret_expires_at', $config['openid_providers']['provider1']['options']);
+    }
+
     public function testMultipleProviders(): void
     {
         $input = $this->getMinimalConfig();
@@ -364,6 +440,8 @@ class ConfigurationTest extends TestCase
                 'metadata_url' => 'https://other-provider.example.org/.well-known/openid-configuration',
                 'client_id' => 'other_id',
                 'client_secret' => 'other_secret',
+                'client_secret_expires_at' => '2028-06-30',
+                'redirect_uri' => 'https://app.example.org/other_callback',
             ],
         ];
 
@@ -375,5 +453,77 @@ class ConfigurationTest extends TestCase
         $this->assertCount(2, $config['openid_providers']);
         $this->assertArrayHasKey('provider1', $config['openid_providers']);
         $this->assertArrayHasKey('provider2', $config['openid_providers']);
+    }
+
+    /**
+     * @return iterable<string, array{mixed, string}>
+     */
+    public static function invalidCallbackPathProvider(): iterable
+    {
+        yield 'not a string' => [42, 'callback_path must be a string'];
+        yield 'null' => [null, 'callback_path must be a string'];
+        yield 'no leading slash' => ['auth/callback', 'callback_path must start with "/"'];
+        yield 'a full url' => ['https://app.example.org/auth/callback', 'callback_path must start with "/"'];
+    }
+
+    #[DataProvider('invalidCallbackPathProvider')]
+    public function testAnInvalidCallbackPathIsRejected(mixed $configured, string $expectedMessage): void
+    {
+        $input = $this->getMinimalConfig();
+        $input['openid_providers']['provider1']['options']['callback_path'] = $configured;
+
+        $this->expectException(InvalidConfigurationException::class);
+        $this->expectExceptionMessage($expectedMessage);
+
+        $this->processor->processConfiguration($this->configuration, [$input]);
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function validCallbackPathProvider(): iterable
+    {
+        yield 'a path' => ['/auth/callback'];
+        yield 'the root' => ['/'];
+        // As on client_secret_expires_at: '' is the fixture Symfony substitutes for a
+        // string environment variable while compiling, so it must pass here.
+        yield 'the environment variable fixture' => [''];
+    }
+
+    #[DataProvider('validCallbackPathProvider')]
+    public function testAValidCallbackPathIsAccepted(string $configured): void
+    {
+        $input = $this->getMinimalConfig();
+        $input['openid_providers']['provider1']['options']['callback_path'] = $configured;
+
+        $config = $this->processor->processConfiguration($this->configuration, [$input]);
+
+        $this->assertSame($configured, $config['openid_providers']['provider1']['options']['callback_path']);
+    }
+
+    /**
+     * A provider that declares no callback target cannot recognise a callback, so it
+     * could never complete a login.
+     */
+    public function testAProviderMustDeclareACallbackTarget(): void
+    {
+        $input = $this->getMinimalConfig();
+        unset($input['openid_providers']['provider1']['options']['redirect_uri']);
+
+        $this->expectException(InvalidConfigurationException::class);
+        $this->expectExceptionMessage('One of redirect_uri, redirect_route or callback_path must be set');
+
+        $this->processor->processConfiguration($this->configuration, [$input]);
+    }
+
+    public function testCallbackPathAloneSatisfiesTheRequirement(): void
+    {
+        $input = $this->getMinimalConfig();
+        unset($input['openid_providers']['provider1']['options']['redirect_uri']);
+        $input['openid_providers']['provider1']['options']['callback_path'] = '/auth/callback';
+
+        $config = $this->processor->processConfiguration($this->configuration, [$input]);
+
+        $this->assertSame('/auth/callback', $config['openid_providers']['provider1']['options']['callback_path']);
     }
 }

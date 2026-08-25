@@ -36,6 +36,7 @@ class ItkDevOpenIdConnectExtensionTest extends TestCase
                         'client_id' => 'test_id',
                         'client_secret' => 'test_secret',
                         'client_secret_expires_at' => '2027-01-31',
+                        'redirect_uri' => 'https://app.example.org/callback_uri',
                     ],
                 ],
             ],
@@ -184,6 +185,35 @@ class ItkDevOpenIdConnectExtensionTest extends TestCase
         $this->assertSame('%kernel.secret%', $arguments['$identifierSecret']);
     }
 
+    public function testAProviderWithoutAnExpiryDateIsWiredAsUnmonitored(): void
+    {
+        $extension = new ItkDevOpenIdConnectExtension();
+        $container = new ContainerBuilder();
+
+        $config = $this->getBaseConfig();
+        // Built without the date rather than unset from the base config, which is
+        // untyped and would need narrowing for no gain.
+        $config['openid_providers'] = [
+            'test_provider' => [
+                'options' => [
+                    'metadata_url' => 'https://example.com/.well-known/openid-configuration',
+                    'client_id' => 'test_id',
+                    'client_secret' => 'test_secret',
+                    'redirect_uri' => 'https://app.example.org/callback_uri',
+                ],
+            ],
+        ];
+
+        $extension->load([$config], $container);
+
+        // null, not absent: the checker reports every configured provider, and one
+        // without a date has to be reportable as `unknown` rather than missing.
+        $this->assertSame(
+            ['test_provider' => null],
+            $container->getDefinition(ClientSecretExpiryChecker::class)->getArgument('$expiryDates')
+        );
+    }
+
     public function testSecretExpiryIsWired(): void
     {
         $extension = new ItkDevOpenIdConnectExtension();
@@ -216,61 +246,6 @@ class ItkDevOpenIdConnectExtensionTest extends TestCase
         $this->assertIsArray($provider);
         $this->assertArrayNotHasKey('client_secret_expires_at', $provider);
         $this->assertSame('test_secret', $provider['client_secret']);
-    }
-
-    public function testMissingExpiryDateTriggersADeprecation(): void
-    {
-        $extension = new ItkDevOpenIdConnectExtension();
-        $container = new ContainerBuilder();
-
-        $config = $this->getBaseConfig();
-        // Built without the date rather than unset from the base config, which is
-        // untyped and would need narrowing for no gain.
-        $config['openid_providers'] = [
-            'test_provider' => [
-                'options' => [
-                    'metadata_url' => 'https://example.com/.well-known/openid-configuration',
-                    'client_id' => 'test_id',
-                    'client_secret' => 'test_secret',
-                ],
-            ],
-        ];
-
-        $this->expectUserDeprecationMessage('Since itk-dev/openid-connect-bundle 5.1: Not configuring "client_secret_expires_at" for OIDC provider "test_provider" is deprecated. Without it the bundle cannot warn before the secret expires, and an expired secret breaks every login. It will be required in 6.0.');
-
-        $extension->load([$config], $container);
-
-        $expiryDates = $container->getDefinition(ClientSecretExpiryChecker::class)->getArgument('$expiryDates');
-        $this->assertIsArray($expiryDates);
-        $this->assertNull($expiryDates['test_provider'], 'An unset date is recorded as unknown, not guessed at');
-    }
-
-    public function testConfiguredExpiryDateTriggersNoDeprecation(): void
-    {
-        $extension = new ItkDevOpenIdConnectExtension();
-        $container = new ContainerBuilder();
-
-        $deprecations = [];
-        // All four arguments must be forwarded: the handler being wrapped is
-        // PHPUnit's, whose __invoke() requires file and line. Passing two worked
-        // only while nothing else raised an error during the call.
-        $previous = set_error_handler(static function (int $level, string $message, string $file = '', int $line = 0) use (&$deprecations, &$previous): bool {
-            if (\E_USER_DEPRECATED === $level) {
-                $deprecations[] = $message;
-
-                return true;
-            }
-
-            return null !== $previous && false !== ($previous)($level, $message, $file, $line);
-        });
-
-        try {
-            $extension->load([$this->getBaseConfig()], $container);
-        } finally {
-            restore_error_handler();
-        }
-
-        $this->assertSame([], $deprecations, 'An installation that has set the date must not be nagged');
     }
 
     public function testLoadWiresProviderManagerConfig(): void

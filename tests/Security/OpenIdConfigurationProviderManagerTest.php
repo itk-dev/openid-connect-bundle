@@ -6,10 +6,13 @@ use GuzzleHttp\Client as GuzzleClient;
 use ItkDev\OpenIdConnect\Security\OpenIdConfigurationProvider;
 use ItkDev\OpenIdConnectBundle\Exception\InvalidProviderException;
 use ItkDev\OpenIdConnectBundle\Security\OpenIdConfigurationProviderManager;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
+use Psr\Cache\CacheItemPoolInterface;
 use Symfony\Component\Cache\Adapter\ArrayAdapter;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
+use Symfony\Component\Routing\RequestContext;
 use Symfony\Component\Routing\RouterInterface;
 
 class OpenIdConfigurationProviderManagerTest extends TestCase
@@ -35,12 +38,24 @@ class OpenIdConfigurationProviderManagerTest extends TestCase
     }
 
     /**
-     * Test helper: callers build provider arrays from {@see getBaseProviderConfig()}
-     * plus optional fields, so the parameter is intentionally typed loosely. The
-     * production manager constructor has the precise array shape.
-     *
-     * @param array<string, array<string, mixed>> $providers
-     * @param array<string, mixed>                $defaultOptions
+     * @param array<string, array{
+     *     metadata_url: string,
+     *     client_id: string,
+     *     client_secret: string,
+     *     redirect_uri?: string,
+     *     redirect_route?: string,
+     *     redirect_route_parameters?: array<string, string>,
+     *     callback_path?: string,
+     *     leeway?: int,
+     *     cache_duration?: int,
+     *     allow_http?: bool,
+     *     http_client_options?: array{
+     *         timeout?: float,
+     *         proxy?: string,
+     *         verify?: bool,
+     *     },
+     * }>                            $providers
+     * @param array{cacheItemPool?: CacheItemPoolInterface} $defaultOptions
      */
     private function createManager(array $providers, array $defaultOptions = []): OpenIdConfigurationProviderManager
     {
@@ -52,7 +67,6 @@ class OpenIdConfigurationProviderManagerTest extends TestCase
             'providers' => $providers,
         ];
 
-        // @phpstan-ignore argument.type (test helper relaxes the strict provider shape declared by the production constructor — callers build configs ad-hoc from getBaseProviderConfig() plus optional fields)
         return new OpenIdConfigurationProviderManager($this->stubRouter, $config);
     }
 
@@ -219,5 +233,165 @@ class OpenIdConfigurationProviderManagerTest extends TestCase
         $provider2 = $manager->getProvider('test');
 
         $this->assertSame($provider1, $provider2);
+    }
+
+    /**
+     * @return iterable<string, array{array{redirect_uri?: string, callback_path?: string}, string}>
+     */
+    public static function pathDerivationProvider(): iterable
+    {
+        yield 'path of an absolute redirect_uri' => [['redirect_uri' => 'https://app.example.org/callback_uri'], '/callback_uri'];
+        yield 'trailing slash removed' => [['redirect_uri' => 'https://app.example.org/callback_uri/'], '/callback_uri'];
+        yield 'nested path' => [['redirect_uri' => 'https://app.example.org/auth/oidc/callback'], '/auth/oidc/callback'];
+        yield 'query and fragment ignored' => [['redirect_uri' => 'https://app.example.org/callback_uri?x=1#f'], '/callback_uri'];
+        // A redirect_uri naming only a host answers at the root.
+        yield 'no path at all' => [['redirect_uri' => 'https://app.example.org'], '/'];
+        yield 'bare root' => [['redirect_uri' => 'https://app.example.org/'], '/'];
+        // callback_path exists for proxies that rewrite the external path, so it has
+        // to win over the redirect_uri it contradicts.
+        yield 'callback_path overrides redirect_uri' => [
+            ['redirect_uri' => 'https://app.example.org/prefix/auth/callback', 'callback_path' => '/auth/callback'],
+            '/auth/callback',
+        ];
+        yield 'callback_path is normalized too' => [['callback_path' => '/auth/callback/'], '/auth/callback'];
+    }
+
+    /**
+     * @param array{redirect_uri?: string, callback_path?: string} $options
+     */
+    #[DataProvider('pathDerivationProvider')]
+    public function testRedirectUriPathsAreDerivedAndNormalized(array $options, string $expected): void
+    {
+        $manager = $this->createManager(['provider1' => $this->getBaseProviderConfig() + $options]);
+
+        $this->assertSame(['provider1' => $expected], $manager->getRedirectUriPaths());
+    }
+
+    public function testARouteIsGeneratedAsAPathNotAUrl(): void
+    {
+        // ABSOLUTE_PATH, so that whatever a reverse proxy does to the host or scheme
+        // cannot affect the comparison, and the router's base path is included.
+        $router = $this->createMock(RouterInterface::class);
+        $router->expects($this->once())
+            ->method('generate')
+            ->with('my_route', ['id' => '7'], UrlGeneratorInterface::ABSOLUTE_PATH)
+            ->willReturn('/generated/callback');
+
+        $config = [
+            'default_providers_options' => [],
+            'providers' => ['provider1' => $this->getBaseProviderConfig() + [
+                'redirect_route' => 'my_route',
+                'redirect_route_parameters' => ['id' => '7'],
+            ]],
+        ];
+
+        $manager = new OpenIdConfigurationProviderManager($router, $config);
+
+        $this->assertSame(['provider1' => '/generated/callback'], $manager->getRedirectUriPaths());
+        // Memoized: supports() asks on every request through the firewall, and the
+        // once() above is what holds that.
+        $manager->getRedirectUriPaths();
+    }
+
+    public function testAProviderWithNoRedirectTargetIsAbsentRatherThanMatchingEverything(): void
+    {
+        $manager = $this->createManager([
+            'with_path' => $this->getBaseProviderConfig() + ['redirect_uri' => 'https://app.example.org/callback_uri'],
+            'without_path' => $this->getBaseProviderConfig(),
+        ]);
+
+        $this->assertSame(['with_path' => '/callback_uri'], $manager->getRedirectUriPaths());
+    }
+
+    public function testDerivingPathsDoesNotBuildProviders(): void
+    {
+        // Building a provider pulls in discovery, an HTTP client and a cache pool.
+        // Nothing in this config could support that, so a successful call proves
+        // supports() is not paying for it on every request.
+        $manager = $this->createManager(['provider1' => [
+            'metadata_url' => 'https://unreachable.invalid/.well-known/openid-configuration',
+            'client_id' => 'id',
+            'client_secret' => 'secret',
+            'redirect_uri' => 'https://app.example.org/callback_uri',
+        ]]);
+
+        $this->assertSame(['provider1' => '/callback_uri'], $manager->getRedirectUriPaths());
+    }
+
+    /**
+     * @return iterable<string, array{string, bool}>
+     */
+    public static function requestPathProvider(): iterable
+    {
+        yield 'exactly' => ['/callback_uri', true];
+        yield 'trailing slash' => ['/callback_uri/', true];
+        yield 'another path' => ['/protected', false];
+        yield 'below it' => ['/callback_uri/extra', false];
+        yield 'differing in case' => ['/Callback_Uri', false];
+    }
+
+    #[DataProvider('requestPathProvider')]
+    public function testIsCallbackPathNormalizesWhatItIsGiven(string $requestPath, bool $expected): void
+    {
+        $manager = $this->createManager(['provider1' => $this->getBaseProviderConfig() + [
+            'redirect_uri' => 'https://app.example.org/callback_uri',
+        ]]);
+
+        $this->assertSame($expected, $manager->isCallbackPath($requestPath, 'provider1'));
+    }
+
+    public function testAnUnknownProviderIsNotACallbackPath(): void
+    {
+        $manager = $this->createManager(['provider1' => $this->getBaseProviderConfig() + [
+            'redirect_uri' => 'https://app.example.org/callback_uri',
+        ]]);
+
+        $this->assertFalse($manager->isCallbackPath('/callback_uri', 'never-heard-of-it'));
+    }
+
+    /**
+     * An environment variable that resolves to nothing must not turn the site root
+     * into the callback path: configuration lets '' through deliberately, because it
+     * is the fixture Symfony substitutes while compiling.
+     */
+    public function testAnEmptyCallbackPathFallsThroughToRedirectUri(): void
+    {
+        $manager = $this->createManager(['provider1' => $this->getBaseProviderConfig() + [
+            'redirect_uri' => 'https://app.example.org/callback_uri',
+            'callback_path' => '',
+        ]]);
+
+        $this->assertSame(['provider1' => '/callback_uri'], $manager->getRedirectUriPaths());
+    }
+
+    /**
+     * Generated routes carry the routing context's base URL, which differs between a
+     * request arriving through a proxy that sends X-Forwarded-Prefix and a direct one.
+     * Memoizing one map for both would leave one of them unable to match.
+     */
+    public function testRoutePathsAreMemoizedPerBaseUrl(): void
+    {
+        $context = new RequestContext();
+        // A stub: this asserts on the paths, not on how the router was called.
+        $router = $this->createStub(RouterInterface::class);
+        $router->method('getContext')->willReturn($context);
+        $router->method('generate')->willReturnCallback(
+            static fn (string $name, array $parameters, int $type): string => $context->getBaseUrl().'/generated/callback'
+        );
+
+        $config = ['default_providers_options' => [], 'providers' => ['provider1' => $this->getBaseProviderConfig() + [
+            'redirect_route' => 'my_route',
+        ]]];
+
+        $manager = new OpenIdConfigurationProviderManager($router, $config);
+
+        $this->assertSame(['provider1' => '/generated/callback'], $manager->getRedirectUriPaths());
+
+        $context->setBaseUrl('/prefix');
+        $this->assertSame(['provider1' => '/prefix/generated/callback'], $manager->getRedirectUriPaths());
+
+        // And back: still memoized per base URL rather than recomputed blindly.
+        $context->setBaseUrl('');
+        $this->assertSame(['provider1' => '/generated/callback'], $manager->getRedirectUriPaths());
     }
 }

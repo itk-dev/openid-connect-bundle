@@ -7,6 +7,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.0.0] - 2026-08-25
+
+See [UPGRADE-6.0.md](UPGRADE-6.0.md).
+
+### Changed (BREAKING)
+
+- A failed OpenID Connect callback throws `AuthenticationFailedException` instead of
+  Symfony's `AuthenticationException`, so it escapes the firewall rather than
+  redirecting to the identity provider again. `CliLoginTokenAuthenticator` is
+  unchanged.
+- `getPrevious()` on that exception is the underlying OpenID Connect exception.
+- A callback is recognised only on the provider's callback path, not on any URL
+  carrying `state` and `code` (#63).
+- Each provider must declare `redirect_uri`, `redirect_route` or `callback_path`.
+
+### Added
+
+- `callback_path` per provider, for a proxy that rewrites the path without announcing
+  it.
+- `OpenIdLoginAuthenticator::getSupportedProviderKeys()`, to narrow an authenticator to
+  named providers. Defaults to all of them.
+- `OpenIdLoginAuthenticator::createTargetPathRedirect()`, returning the user to the
+  page that sent them to log in.
+- `?target_path=` on the login route, validated as a path within the application.
+- `OpenIdConfigurationProviderManager::getRedirectUriPaths()` and `isCallbackPath()`.
+
+### Changed
+
+- `client_secret_expires_at` remains optional, and the 5.1 deprecation for leaving it
+  unset is gone. Unset reports `unknown`; a value that is set must be a string and
+  parseable.
+- `UPGRADE-6.0.md` rewritten and linked from `README.md`.
+- Static analysis runs against both ends of the supported dependency range.
+- `actions/checkout` updated to v7.
+
+### Fixed
+
+- `logging_options.logger` no longer depends on bundle registration order.
+- `getContainerExtension()` no longer returns `mixed` on Symfony 6.4.
+
+### Removed (BREAKING)
+
+- `ItkOpenIdConnectBundleException`. Catch `OpenIdConnectBundleExceptionInterface`.
+- `UserDoesNotExistException`. Use Symfony's `UserNotFoundException`.
+- `symfony/deprecation-contracts` from `require`.
+
 ## [5.1.1] - 2026-08-19
 
 ### Fixed
@@ -281,7 +327,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `itk-dev/openid-connect` 1.0.0 to 2.1.0
 - OpenId Connect Bundle: Added CLI login feature.
 
-[unreleased]: https://github.com/itk-dev/openid-connect-bundle/compare/5.1.1...HEAD
+[unreleased]: https://github.com/itk-dev/openid-connect-bundle/compare/6.0.0...HEAD
+[6.0.0]: https://github.com/itk-dev/openid-connect-bundle/compare/5.1.1...6.0.0
 [5.1.1]: https://github.com/itk-dev/openid-connect-bundle/compare/5.1.0...5.1.1
 [5.1.0]: https://github.com/itk-dev/openid-connect-bundle/compare/5.0.0...5.1.0
 [5.0.0]: https://github.com/itk-dev/openid-connect-bundle/compare/4.2.0...5.0.0

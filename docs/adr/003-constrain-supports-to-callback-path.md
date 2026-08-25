@@ -1,0 +1,98 @@
+# 003: Treat only the configured callback path as a callback
+
+- **Created By:** Ture Gjørup
+- **Date:** 2026-08-20
+- **Decision Maker:** Ture Gjørup
+- **Stakeholders:** Bundle consumers; operators of those applications; bundle
+  maintainers
+- **Status:** Accepted
+
+## Context
+
+`OpenIdLoginAuthenticator::supports()` matched on `state` and `code` alone, so every
+URL behind the firewall was a potential callback. Before 6.0 a stray or forged
+callback degraded quietly: the failure was an `AuthenticationException`, so the
+firewall answered with a redirect to the entry point. [ADR 002](002-fail-closed-on-authentication-failure.md)
+made that failure escape as `AuthenticationFailedException`, which turned the same
+request into a 500 — raisable on any URL by an unauthenticated caller, and noise for
+error reporting. Issue #63.
+
+## Options Considered
+
+1. **Match the provider's configured callback path (chosen).** The path comes from
+   configuration the consumer already writes, and a request that is not a callback is
+   left to the firewall.
+2. **Require the session to hold `oauth2provider`.** No new configuration, but it
+   reinstates the outage: a lost session would make the request merely
+   unauthenticated, so the firewall calls the entry point, the provider returns a
+   fresh `code`, and it arrives back with the session still broken — the loop of
+   2026-08-12. It also conflates "is this a callback" with "did this browser start a
+   login", and touching the session in `supports()` starts one for anonymous traffic.
+3. **Leave it and filter in error reporting.** Moves a bundle defect into every
+   consumer's monitoring configuration.
+
+## Decision
+
+Adopt option 1 in 6.0.0. `supports()` requires `state`, `code`, and a path matching
+one of this authenticator's providers.
+
+- **Paths come from configuration, not from a provider instance.** Building a provider
+  pulls in discovery, an HTTP client and a cache pool; `supports()` runs on every
+  request. `OpenIdConfigurationProviderManager::getRedirectUriPaths()` derives and
+  memoizes them.
+- **`callback_path` is the escape hatch** for a proxy that rewrites the path, where the
+  external `redirect_uri` path is not the one the application sees.
+- **`redirect_route` is generated as `ABSOLUTE_PATH`**, so host and scheme
+  requirements on the route do not enter the comparison; a route whose path varies by
+  host is not supported.
+- **The request path is `getBaseUrl().getPathInfo()`, not path info alone.**
+  `Request::preparePathInfo()` strips `getBaseUrlReal()`, so path info excludes a
+  subdirectory deployment's base path and any trusted `X-Forwarded-Prefix` — while a
+  `redirect_uri` contains them, being the URL the identity provider was given, and
+  `UrlGenerator` prepends the routing context's base URL, which includes the trusted
+  prefix. Comparing path info alone rejected every callback in either deployment.
+  Derived paths are therefore memoized per routing-context base URL, so a service that
+  sees both proxied and direct traffic is not frozen to whichever arrived first.
+- **A provider must declare `redirect_uri`, `redirect_route` or `callback_path`.**
+  Enforced when the container compiles. A provider with none has no callback path, and
+  "matches every path" is the defect being removed.
+- **`getSupportedProviderKeys()`** defaults to every provider, so existing
+  multi-authenticator firewalls behave as before, and can be overridden by an
+  authenticator bound to one provider.
+- **Nothing is logged from `supports()`.** It runs pre-authentication on every
+  request; a log call there is an amplifier for anyone sending traffic. The firewall's
+  own handling is the record.
+
+## Consequences
+
+- A forged callback is handled by the firewall again, as it was before 6.0, without
+  giving up fail-closed behaviour for real callbacks.
+- Consumers behind a rewriting proxy must set `callback_path`, and every provider must
+  declare a callback target. See `UPGRADE-6.0.md`.
+- The callback path is now part of the bundle's contract with the identity provider:
+  changing `redirect_uri` without changing the registration at the provider fails in
+  the same way it always did, but changing it *only* at the provider now also stops
+  callbacks being recognised.
+
+## Returning to a page the firewall never saw
+
+Symfony saves the requested page when the entry point fires, which covers a user who
+was denied something. A login link followed from a public page has no such record, so
+`?target_path=` on the login route lets the link name where to go.
+
+It is stored under a bundle-private session key rather than in `TargetPathTrait`'s
+slot: that slot is keyed by firewall, `LoginController` has no firewall name, and
+writing there would put a value in the firewall's own record that the firewall never
+saved. `createTargetPathRedirect()` prefers the firewall's record when both exist —
+that is the page the user was actually stopped from reaching — and clears both.
+
+The parameter ends up in a `Location` header, so it is validated as a path within the
+application and dropped otherwise: a single leading `/`, no backslashes, no scheme
+separator, no control characters. A rejected value is logged at `warning`; correcting
+one would be guessing at intent on a security boundary.
+
+## References
+
+- [ADR 002](002-fail-closed-on-authentication-failure.md) — the fail-closed decision
+  that made this worth fixing now
+- Issue #63

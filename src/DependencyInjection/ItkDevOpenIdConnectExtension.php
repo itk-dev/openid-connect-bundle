@@ -4,6 +4,7 @@ namespace ItkDev\OpenIdConnectBundle\DependencyInjection;
 
 use ItkDev\OpenIdConnectBundle\Command\UserLoginCommand;
 use ItkDev\OpenIdConnectBundle\Controller\LoginController;
+use ItkDev\OpenIdConnectBundle\DependencyInjection\Compiler\ConfiguredLoggerPass;
 use ItkDev\OpenIdConnectBundle\EventSubscriber\AuthenticationAuditSubscriber;
 use ItkDev\OpenIdConnectBundle\Log\AuthenticationAuditLogger;
 use ItkDev\OpenIdConnectBundle\Security\CliLoginTokenAuthenticator;
@@ -103,10 +104,14 @@ class ItkDevOpenIdConnectExtension extends Extension
 
         // `OpenIdLoginAuthenticator` is abstract and subclassed by the consuming
         // application, so its subclasses are services this extension cannot name.
-        // Autoconfiguration reaches them, and runs after FrameworkBundle's own
-        // LoggerAwareInterface pass, so the configured logger wins.
+        // Autoconfiguration reaches them.
         $container->registerForAutoconfiguration(OpenIdLoginAuthenticator::class)
             ->addMethodCall('setLogger', [$logger]);
+
+        // Whether this call or FrameworkBundle's is the one that takes effect depends
+        // on bundle registration order: see ConfiguredLoggerPass, which reads this
+        // parameter and settles it.
+        $container->setParameter(ConfiguredLoggerPass::LOGGER_PARAMETER, $options['logger']);
     }
 
     /**
@@ -140,7 +145,7 @@ class ItkDevOpenIdConnectExtension extends Extension
     }
 
     /**
-     * Wire the expiry checker, and nudge installations that have not set a date.
+     * Wire the expiry checker.
      *
      * @param array<string, array{options: array<string, mixed>}> $providers
      * @param array{warning_days: int}                            $options
@@ -151,19 +156,11 @@ class ItkDevOpenIdConnectExtension extends Extension
 
         foreach ($providers as $providerKey => $provider) {
             $expiresAt = $provider['options']['client_secret_expires_at'] ?? null;
+            // The key is optional, so null is the ordinary "not monitored" case:
+            // ClientSecretExpiryChecker reports it as Unknown without logging, since
+            // an unset date is a choice rather than a fault. A value that is set but
+            // unusable is a different matter, and is reported at error.
             $expiryDates[$providerKey] = is_string($expiresAt) ? $expiresAt : null;
-
-            if (null === $expiryDates[$providerKey]) {
-                // Symfony's setDeprecated() fires when a node *is* used, which is
-                // the inverse of what is needed: the point is to nudge the
-                // installations that have not set a date yet.
-                trigger_deprecation(
-                    'itk-dev/openid-connect-bundle',
-                    '5.1',
-                    'Not configuring "client_secret_expires_at" for OIDC provider "%s" is deprecated. Without it the bundle cannot warn before the secret expires, and an expired secret breaks every login. It will be required in 6.0.',
-                    $providerKey,
-                );
-            }
         }
 
         $definition = $container->getDefinition(ClientSecretExpiryChecker::class);

@@ -1,4 +1,6 @@
 itkdev_openid_connect:
+  logging_options:
+    logger: ItkDev\OpenIdConnectBundle\Tests\TestLogger
   cache_options:
     cache_pool: "cache.array"
   cli_login_options:

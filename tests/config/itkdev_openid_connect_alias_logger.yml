@@ -1,4 +1,6 @@
 itkdev_openid_connect:
+  logging_options:
+    logger: "test.logger_alias"
   cache_options:
     cache_pool: "cache.array"
   cli_login_options:

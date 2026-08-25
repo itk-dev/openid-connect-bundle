@@ -4,12 +4,11 @@ namespace ItkDev\OpenIdConnectBundle\Tests\Exception;
 
 use ItkDev\OpenIdConnect\Exception\HttpException as LibraryHttpException;
 use ItkDev\OpenIdConnect\Exception\OpenIdConnectExceptionInterface;
+use ItkDev\OpenIdConnectBundle\Exception\AuthenticationFailedException;
 use ItkDev\OpenIdConnectBundle\Exception\CacheException;
 use ItkDev\OpenIdConnectBundle\Exception\InvalidProviderException;
-use ItkDev\OpenIdConnectBundle\Exception\ItkOpenIdConnectBundleException;
 use ItkDev\OpenIdConnectBundle\Exception\OpenIdConnectBundleExceptionInterface;
 use ItkDev\OpenIdConnectBundle\Exception\TokenNotFoundException;
-use ItkDev\OpenIdConnectBundle\Exception\UserDoesNotExistException;
 use ItkDev\OpenIdConnectBundle\Exception\UsernameDoesNotExistException;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -41,7 +40,7 @@ class ExceptionHierarchyTest extends TestCase
         // Runtime conditions → \RuntimeException
         yield 'CacheException' => [CacheException::class, \RuntimeException::class];
         yield 'TokenNotFoundException' => [TokenNotFoundException::class, \RuntimeException::class];
-        yield 'UserDoesNotExistException' => [UserDoesNotExistException::class, \RuntimeException::class];
+        yield 'AuthenticationFailedException' => [AuthenticationFailedException::class, \RuntimeException::class];
     }
 
     /**
@@ -113,21 +112,5 @@ class ExceptionHierarchyTest extends TestCase
         }
 
         $this->assertSame([LibraryHttpException::class, CacheException::class], $caught);
-    }
-
-    public function testDeprecatedAbstractBaseImplementsBundleMarker(): void
-    {
-        // `ItkOpenIdConnectBundleException` is kept as a deprecated alias through 5.x.
-        // Concrete bundle exceptions no longer extend it, but it still implements the
-        // marker so any consumer-defined subclass remains catchable via the marker.
-        // PHPStan can statically prove the assertion holds today; the test exists so
-        // the day a refactor removes the implements, the failure is loud.
-        $deprecated = ItkOpenIdConnectBundleException::class; // @phpstan-ignore classConstant.deprecatedClass (the test asserts a property of this deprecated class on purpose)
-        // @phpstan-ignore method.alreadyNarrowedType (the assertion is the guard — PHPStan proves it today; the test fails the day the guard stops holding)
-        $this->assertTrue(
-            // @phpstan-ignore function.alreadyNarrowedType (same as above — the static proof IS the contract being asserted)
-            is_subclass_of($deprecated, OpenIdConnectBundleExceptionInterface::class),
-            'Deprecated abstract base must continue to implement the bundle marker through 5.x.',
-        );
     }
 }

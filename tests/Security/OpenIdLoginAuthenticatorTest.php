@@ -7,15 +7,21 @@ use ItkDev\OpenIdConnect\Exception\OpenIdConnectExceptionInterface;
 use ItkDev\OpenIdConnect\Exception\ValidationException;
 use ItkDev\OpenIdConnect\Security\OpenIdConfigurationProvider;
 use ItkDev\OpenIdConnectBundle\EventSubscriber\AuthenticationAuditSubscriber;
+use ItkDev\OpenIdConnectBundle\Exception\AuthenticationFailedException;
 use ItkDev\OpenIdConnectBundle\Exception\InvalidProviderException;
+use ItkDev\OpenIdConnectBundle\Exception\OpenIdConnectBundleExceptionInterface;
 use ItkDev\OpenIdConnectBundle\Security\OpenIdConfigurationProviderManager;
 use ItkDev\OpenIdConnectBundle\Security\OpenIdLoginAuthenticator;
 use ItkDev\OpenIdConnectBundle\Tests\TestLogger;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LogLevel;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Session\Session;
 use Symfony\Component\HttpFoundation\Session\SessionInterface;
+use Symfony\Component\HttpFoundation\Session\Storage\MockArraySessionStorage;
+use Symfony\Component\Routing\RouterInterface;
 use Symfony\Component\Security\Core\Exception\AuthenticationException;
 
 class OpenIdLoginAuthenticatorTest extends TestCase
@@ -35,34 +41,242 @@ class OpenIdLoginAuthenticatorTest extends TestCase
         $this->authenticator->setLogger($this->logger);
     }
 
-    public function testSupports(): void
+    /**
+     * A real manager, not a stub: the path comparison lives there, and stubbing it
+     * would mean reimplementing normalization in the test — where a bug in the real
+     * one could not be seen.
+     *
+     * @param array<string, string> $paths callback_path per provider
+     */
+    private function managerWithPaths(array $paths): OpenIdConfigurationProviderManager
     {
-        $request = new Request();
+        $providers = [];
 
-        $this->assertFalse($this->authenticator->supports($request));
+        foreach ($paths as $key => $path) {
+            $providers[$key] = [
+                'metadata_url' => 'https://provider.example.org/.well-known/openid-configuration',
+                'client_id' => 'id',
+                'client_secret' => 'secret',
+                'callback_path' => $path,
+            ];
+        }
 
-        $request->query->set('state', 'abcd');
-        $this->assertFalse($this->authenticator->supports($request));
+        $config = ['default_providers_options' => [], 'providers' => $providers];
 
-        $request->query->set('code', 'xyz');
-        $this->assertTrue($this->authenticator->supports($request));
+        return new OpenIdConfigurationProviderManager($this->createStub(RouterInterface::class), $config);
     }
 
-    public function testOnAuthenticationFailurePreservesCause(): void
+    /**
+     * @param array<string, string> $paths
+     */
+    private function authenticatorWithPaths(array $paths): TestAuthenticator
+    {
+        $authenticator = new TestAuthenticator($this->managerWithPaths($paths));
+        $authenticator->setLogger($this->logger);
+
+        return $authenticator;
+    }
+
+    /**
+     * `state` and `code` are necessary but no longer sufficient: without the path
+     * check any URL under the firewall is a callback, so an unauthenticated caller
+     * can turn any page into a failed login — a 500, since the bundle fails closed.
+     *
+     * @return iterable<string, array{string, bool}>
+     */
+    public static function callbackPathProvider(): iterable
+    {
+        yield 'the configured path' => ['/callback_uri', true];
+        yield 'trailing slash is the same path' => ['/callback_uri/', true];
+        yield 'another provider on this authenticator' => ['/other_callback', true];
+        yield 'a protected page' => ['/protected', false];
+        yield 'the root' => ['/', false];
+        yield 'below the callback path' => ['/callback_uri/extra', false];
+        yield 'above the callback path' => ['/callback', false];
+        yield 'differing in case' => ['/Callback_Uri', false];
+        yield 'the path as a query parameter' => ['/protected/callback_uri', false];
+    }
+
+    #[DataProvider('callbackPathProvider')]
+    public function testSupportsOnlyTheConfiguredCallbackPaths(string $path, bool $expected): void
+    {
+        $authenticator = $this->authenticatorWithPaths([
+            'test_provider_1' => '/callback_uri',
+            'test_provider_2' => '/other_callback',
+        ]);
+
+        $request = Request::create($path.'?state=abcd&code=xyz');
+
+        $this->assertSame($expected, $authenticator->supports($request));
+    }
+
+    /**
+     * Deployments where the request path is not the whole story.
+     *
+     * `getPathInfo()` has both a subdirectory's base path and a trusted
+     * `X-Forwarded-Prefix` stripped out of it, while a configured `redirect_uri`
+     * contains them — it is the URL the identity provider was given. Comparing path
+     * info alone would reject every callback in either deployment.
+     *
+     * @return iterable<string, array{string, string, bool}>
+     */
+    public static function baseUrlProvider(): iterable
+    {
+        //                                   configured path,          base url, request path info, expected
+        yield 'subdirectory deployment' => ['/app/callback_uri', '/app', true];
+        yield 'trusted proxy prefix' => ['/prefix/callback_uri', '/prefix', true];
+        yield 'root deployment' => ['/callback_uri', '', true];
+        // A proxy that rewrites without a prefix header: the internal path really is
+        // different, which is what callback_path exists to declare.
+        yield 'rewriting proxy, no header' => ['/prefix/callback_uri', '', false];
+    }
+
+    #[DataProvider('baseUrlProvider')]
+    public function testTheCallbackPathIncludesTheBaseUrl(string $configured, string $baseUrl, bool $expected): void
+    {
+        $authenticator = $this->authenticatorWithPaths(['test_provider_1' => $configured]);
+
+        $request = new RequestWithBaseUrl($baseUrl, ['state' => 'abcd', 'code' => 'xyz']);
+        $request->server->set('REQUEST_URI', $baseUrl.'/callback_uri?state=abcd&code=xyz');
+
+        $this->assertSame($expected, $authenticator->supports($request));
+    }
+
+    /**
+     * @return iterable<string, array{array<string, string>}>
+     */
+    public static function incompleteCallbackProvider(): iterable
+    {
+        yield 'neither' => [[]];
+        yield 'state only' => [['state' => 'abcd']];
+        yield 'code only' => [['code' => 'xyz']];
+    }
+
+    #[DataProvider('incompleteCallbackProvider')]
+    public function testTheRightPathAloneIsNotACallback(array $query): void
+    {
+        $authenticator = $this->authenticatorWithPaths(['test_provider_1' => '/callback_uri']);
+
+        $this->assertFalse($authenticator->supports(Request::create('/callback_uri?'.http_build_query($query))));
+    }
+
+    /**
+     * A subclass bound to one provider does not answer another provider's callback,
+     * which is what lets one authenticator per provider share a firewall.
+     */
+    public function testASubclassCanNarrowTheProvidersItAnswersFor(): void
+    {
+        $authenticator = new SingleProviderAuthenticator($this->managerWithPaths([
+            'test_provider_1' => '/callback_uri',
+            'test_provider_2' => '/other_callback',
+        ]));
+
+        $this->assertTrue($authenticator->supports(Request::create('/callback_uri?state=a&code=b')));
+        $this->assertFalse($authenticator->supports(Request::create('/other_callback?state=a&code=b')));
+    }
+
+    /**
+     * A provider with no derivable path contributes no match rather than matching
+     * everything, which would be the bug this constraint removes.
+     */
+    public function testAProviderWithoutAPathMatchesNothing(): void
+    {
+        // No redirect_uri, redirect_route or callback_path: nothing to match on, and
+        // matching everything is the defect this constraint removes.
+        $config = ['default_providers_options' => [], 'providers' => ['test_provider_1' => [
+            'metadata_url' => 'https://provider.example.org/.well-known/openid-configuration',
+            'client_id' => 'id',
+            'client_secret' => 'secret',
+        ]]];
+
+        $manager = new OpenIdConfigurationProviderManager($this->createStub(RouterInterface::class), $config);
+
+        $authenticator = new TestAuthenticator($manager);
+
+        $this->assertFalse($authenticator->supports(Request::create('/callback_uri?state=a&code=b')));
+    }
+
+    /**
+     * The assertion that encodes "the loop cannot come back".
+     *
+     * Everything else here is detail; what matters is the type. Symfony's security
+     * ExceptionListener catches `AuthenticationException` and re-enters the entry
+     * point, which for this authenticator is another redirect to the identity
+     * provider. Throwing something outside that hierarchy is what stops a failing
+     * callback from being retried forever.
+     */
+    public function testOnAuthenticationFailureThrowsOutsideTheSecurityHierarchy(): void
     {
         $cause = new AuthenticationException('Original cause message');
 
+        // Caught as Throwable on purpose: catching the expected type first would
+        // narrow it statically and make the assertions below tautologies, which is
+        // precisely the mistake that would let the type quietly regress.
         try {
             $this->authenticator->onAuthenticationFailure(new Request(), $cause);
-            $this->fail('Expected AuthenticationException');
-        } catch (AuthenticationException $thrown) {
-            $this->assertSame($cause, $thrown->getPrevious(), 'Original exception must be chained as previous');
+            $this->fail('Expected AuthenticationFailedException');
+        } catch (\Throwable $thrown) {
+            $this->assertNotInstanceOf(
+                AuthenticationException::class,
+                $thrown,
+                'An AuthenticationException would be caught by the firewall and turned back into a redirect to the identity provider',
+            );
+            $this->assertInstanceOf(
+                OpenIdConnectBundleExceptionInterface::class,
+                $thrown,
+                'Consumers catch the bundle marker, per ADR 001',
+            );
+            $this->assertInstanceOf(AuthenticationFailedException::class, $thrown);
+
+            // Not chained, even though ADR 001 asks for a cause: the security
+            // ExceptionListener walks the whole $previous chain, so an
+            // AuthenticationException reachable through it is caught and turned back
+            // into a redirect exactly as if it had been thrown directly. The message
+            // carries the reason instead.
+            $this->assertNull($thrown->getPrevious(), 'An AuthenticationException must not be reachable through the chain');
             $this->assertStringContainsString('Original cause message', $thrown->getMessage(), 'Cause message must be preserved for logs');
 
             // Deliberately no record: the framework already logs the original
-            // exception, and validateClaims() logged the specific reason.
+            // exception, validateClaims() logged the specific reason, and the
+            // application logs whatever escapes.
             $this->assertSame([], $this->logger->records);
         }
+    }
+
+    /**
+     * The chain is dropped only as far as it has to be. A library exception below
+     * the AuthenticationException is what says *why* the callback failed, and it
+     * is safe to keep because the listener does not act on it.
+     */
+    #[DataProvider('causeChainProvider')]
+    public function testACauseOutsideTheSecurityHierarchyIsKept(\Throwable $cause, ?\Throwable $expected): void
+    {
+        try {
+            $this->authenticator->onAuthenticationFailure(new Request(), new AuthenticationException('Sanitised by the firewall', 0, $cause));
+            $this->fail('Expected AuthenticationFailedException');
+        } catch (\Throwable $thrown) {
+            $this->assertSame($expected, $thrown->getPrevious());
+        }
+    }
+
+    /**
+     * @return iterable<string, array{\Throwable, ?\Throwable}>
+     */
+    public static function causeChainProvider(): iterable
+    {
+        $root = new ValidationException('Invalid state');
+
+        yield 'library cause is kept' => [$root, $root];
+        // The firewall wraps more than once in places, so one skip is not enough.
+        yield 'reached past nested security exceptions' => [new AuthenticationException('inner', 0, $root), $root];
+        // A library exception is not safe merely by being one: skipping only the
+        // leading security exceptions would keep this outer cause and leave an
+        // AuthenticationException reachable one level further down.
+        yield 'library cause hiding a security exception is skipped too' => [
+            new ValidationException('outer', 0, new AuthenticationException('inner', 0, $root)),
+            $root,
+        ];
+        yield 'nothing left to keep' => [new AuthenticationException('inner'), null];
     }
 
     public function testUnknownProviderIsLoggedAndRethrown(): void
@@ -271,8 +485,8 @@ class OpenIdLoginAuthenticatorTest extends TestCase
         // onAuthenticationFailure().
         try {
             $authenticator->onAuthenticationFailure(new Request(), new AuthenticationException('boom'));
-            $this->fail('Expected AuthenticationException');
-        } catch (AuthenticationException $thrown) {
+            $this->fail('Expected AuthenticationFailedException');
+        } catch (AuthenticationFailedException $thrown) {
             $this->assertStringContainsString('boom', $thrown->getMessage());
         }
     }
@@ -300,5 +514,122 @@ class OpenIdLoginAuthenticatorTest extends TestCase
         $stubSession->method('remove')->willReturnMap($map);
 
         $request->setSession($stubSession);
+    }
+
+    /**
+     * The property above is deliberately typed as the abstract class, so the fixture
+     * method exposing the protected helper needs a concrete local.
+     */
+    private function fixtureAuthenticator(): TestAuthenticator
+    {
+        $authenticator = new TestAuthenticator($this->stubProviderManager);
+        $authenticator->setLogger($this->logger);
+
+        return $authenticator;
+    }
+
+    private function requestWithSession(?string $targetPath): Request
+    {
+        $request = new Request();
+        $session = new Session(new MockArraySessionStorage());
+
+        if (null !== $targetPath) {
+            $session->set('_security.main.target_path', $targetPath);
+        }
+
+        $request->setSession($session);
+
+        return $request;
+    }
+
+    public function testTheRequestedPageIsReturnedToAndThenForgotten(): void
+    {
+        $request = $this->requestWithSession('/admin/reports');
+
+        $response = $this->fixtureAuthenticator()->callCreateTargetPathRedirect($request, 'main', '/dashboard');
+
+        $this->assertSame('/admin/reports', $response->getTargetUrl());
+        // Cleared, so a later visit to the login link does not replay it.
+        $this->assertFalse($request->getSession()->has('_security.main.target_path'));
+    }
+
+    /**
+     * @return iterable<string, array{?string}>
+     */
+    public static function noTargetPathProvider(): iterable
+    {
+        yield 'nothing saved' => [null];
+        yield 'saved but empty' => [''];
+    }
+
+    #[DataProvider('noTargetPathProvider')]
+    public function testTheFallbackIsUsedWhenNoPageWasRequested(?string $targetPath): void
+    {
+        // A user who went to the login link directly, rather than being sent there.
+        $request = $this->requestWithSession($targetPath);
+
+        $response = $this->fixtureAuthenticator()->callCreateTargetPathRedirect($request, 'main', '/dashboard');
+
+        $this->assertSame('/dashboard', $response->getTargetUrl());
+    }
+
+    public function testTheTargetPathIsReadForTheRightFirewall(): void
+    {
+        $request = $this->requestWithSession('/admin/reports');
+
+        $response = $this->fixtureAuthenticator()->callCreateTargetPathRedirect($request, 'other_firewall', '/dashboard');
+
+        $this->assertSame('/dashboard', $response->getTargetUrl());
+        $this->assertTrue($request->getSession()->has('_security.main.target_path'), 'Another firewall\'s target path is left alone');
+    }
+
+    public function testATargetNamedOnTheLoginLinkIsUsedWhenNothingWasDenied(): void
+    {
+        // The case the firewall cannot cover: the user was never refused anything, so
+        // Symfony saved nothing. They followed a login link that named where to go.
+        $request = $this->requestWithSession(null);
+        $request->getSession()->set(OpenIdLoginAuthenticator::TARGET_PATH_SESSION_KEY, '/admin/reports');
+
+        $response = $this->fixtureAuthenticator()->callCreateTargetPathRedirect($request, 'main', '/dashboard');
+
+        $this->assertSame('/admin/reports', $response->getTargetUrl());
+        $this->assertFalse($request->getSession()->has(OpenIdLoginAuthenticator::TARGET_PATH_SESSION_KEY), 'Consumed, so it cannot replay');
+    }
+
+    public function testTheDeniedPageWinsOverATargetNamedOnTheLink(): void
+    {
+        // Both present: the firewall's record is what the user was actually stopped
+        // from reaching, so it is the more faithful answer.
+        $request = $this->requestWithSession('/admin/denied-page');
+        $request->getSession()->set(OpenIdLoginAuthenticator::TARGET_PATH_SESSION_KEY, '/admin/reports');
+
+        $response = $this->fixtureAuthenticator()->callCreateTargetPathRedirect($request, 'main', '/dashboard');
+
+        $this->assertSame('/admin/denied-page', $response->getTargetUrl());
+        // Both cleared, or the unused one would resurface on a later login.
+        $this->assertFalse($request->getSession()->has('_security.main.target_path'));
+        $this->assertFalse($request->getSession()->has(OpenIdLoginAuthenticator::TARGET_PATH_SESSION_KEY));
+    }
+
+    /**
+     * @return iterable<string, array{mixed}>
+     */
+    public static function unusableNamedTargetProvider(): iterable
+    {
+        yield 'empty' => [''];
+        // Nothing writes a non-string, but the session is shared with the application.
+        yield 'not a string' => [['/admin/reports']];
+    }
+
+    #[DataProvider('unusableNamedTargetProvider')]
+    public function testAnUnusableNamedTargetFallsBack(mixed $stored): void
+    {
+        $request = $this->requestWithSession(null);
+        $request->getSession()->set(OpenIdLoginAuthenticator::TARGET_PATH_SESSION_KEY, $stored);
+
+        $response = $this->fixtureAuthenticator()->callCreateTargetPathRedirect($request, 'main', '/dashboard');
+
+        $this->assertSame('/dashboard', $response->getTargetUrl());
+        $this->assertFalse($request->getSession()->has(OpenIdLoginAuthenticator::TARGET_PATH_SESSION_KEY));
     }
 }
