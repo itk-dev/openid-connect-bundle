@@ -156,10 +156,10 @@ class ItkDevOpenIdConnectExtension extends Extension
 
         foreach ($providers as $providerKey => $provider) {
             $expiresAt = $provider['options']['client_secret_expires_at'] ?? null;
-            // Configuration requires the key and rejects a non-string, so the
-            // fallback is unreachable and kept only because the shape here is mixed.
-            // It must not become the quiet path it used to be: a null reaches
-            // ClientSecretExpiryChecker as Unknown with nothing logged.
+            // The key is optional, so null is the ordinary "not monitored" case:
+            // ClientSecretExpiryChecker reports it as Unknown without logging, since
+            // an unset date is a choice rather than a fault. A value that is set but
+            // unusable is a different matter, and is reported at error.
             $expiryDates[$providerKey] = is_string($expiresAt) ? $expiresAt : null;
         }
 

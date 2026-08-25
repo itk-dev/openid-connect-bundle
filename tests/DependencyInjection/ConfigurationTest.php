@@ -414,15 +414,22 @@ class ConfigurationTest extends TestCase
         $this->processor->processConfiguration($this->configuration, [$input]);
     }
 
-    public function testTheExpiryDateIsRequired(): void
+    /**
+     * Optional on purpose. A required key can force a value, never a correct one, and
+     * it cannot be scoped to the environment where the real secret lives — Symfony
+     * compiles a container per environment, so a required node has to appear in all of
+     * them. What that produces is a date in a committed default, which reports `ok`
+     * forever while monitoring nothing. Unset is the honest state, and it is visible:
+     * the provider reports `unknown`.
+     */
+    public function testTheExpiryDateIsOptional(): void
     {
         $input = $this->getMinimalConfig();
         unset($input['openid_providers']['provider1']['options']['client_secret_expires_at']);
 
-        $this->expectException(InvalidConfigurationException::class);
-        $this->expectExceptionMessage('The child config "client_secret_expires_at" under "itkdev_openid_connect.openid_providers.provider1.options" must be configured');
+        $config = $this->processor->processConfiguration($this->configuration, [$input]);
 
-        $this->processor->processConfiguration($this->configuration, [$input]);
+        $this->assertArrayNotHasKey('client_secret_expires_at', $config['openid_providers']['provider1']['options']);
     }
 
     public function testMultipleProviders(): void

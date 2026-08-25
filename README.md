@@ -61,6 +61,9 @@ Symfony bundle for authorization via OpenID Connect.
 > If your application needs browser-based OIDC login, this bundle is still
 > required.
 
+Upgrading from an earlier major? See [UPGRADE-6.0.md](UPGRADE-6.0.md) and
+[UPGRADE-5.0.md](UPGRADE-5.0.md).
+
 ## Installation
 
 To install run
@@ -115,9 +118,10 @@ itkdev_openid_connect:
         metadata_url: '%env(string:ADMIN_OIDC_METADATA_URL)%'
         client_id: '%env(string:ADMIN_OIDC_CLIENT_ID)%'
         client_secret: '%env(string:ADMIN_OIDC_CLIENT_SECRET)%'
-        # Required. Date the client secret expires. An expired secret breaks
-        # every login, so the bundle warns while there is still time to rotate.
-        # See "Client secret expiry" below.
+        # Optional: date the client secret expires. Set it and the bundle warns
+        #           before the secret expires; unset means the provider is not
+        #           monitored and reports "unknown". Set it where the real secret
+        #           lives. See "Client secret expiry" below.
         client_secret_expires_at: '%env(string:ADMIN_OIDC_CLIENT_SECRET_EXPIRES_AT)%'
         # Specify redirect URI
         redirect_uri: '%env(string:ADMIN_OIDC_REDIRECT_URI)%'
@@ -231,9 +235,13 @@ For a genuinely expired secret that means the login still fails, at the callback
 with `invalid_client` — but the `critical` record here and the failure record from
 the callback together name the cause without anyone having to reproduce it.
 
-`client_secret_expires_at` is required, because the bundle cannot warn about an
-expiry it does not know about. Quote it: YAML reads an unquoted `2027-01-31` as a
-number, and a value that is not a string is rejected while the container compiles.
+`client_secret_expires_at` is optional, and where you set it matters more than that
+you set it. Put it with the real secret — the production secret store, or a `when@prod`
+block. A date in a committed `.env` default is a date nobody maintains: it reports `ok`
+while measuring nothing, which is worse than the `unknown` you get by leaving it out.
+
+Quote it: YAML reads an unquoted `2027-01-31` as a number, and a value that is not a
+string is rejected while the container compiles.
 
 A provider still reaches `unknown` at runtime when the value resolves to something
 unusable — an environment variable that is set but blank, or a date
@@ -980,6 +988,9 @@ checks on all PRs.
 We use [SemVer](http://semver.org/) for versioning. For the versions available,
 see the [tags on this
 repository](https://github.com/itk-dev/openid-connect/tags).
+
+Upgrading across a major: [UPGRADE-6.0.md](UPGRADE-6.0.md),
+[UPGRADE-5.0.md](UPGRADE-5.0.md). [CHANGELOG.md](CHANGELOG.md) has the rest.
 
 ## License
 
