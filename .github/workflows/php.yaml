@@ -26,6 +26,10 @@ jobs:
           docker compose run --rm phpfpm vendor/bin/php-cs-fixer fix --dry-run --diff
 
   phpstan:
+    # Analysed on the highest supported PHP, not the default 8.3 service: Symfony 8.1
+    # requires PHP >= 8.4.1, so on 8.3 composer cannot install the Symfony 8 that
+    # composer.json advertises and the analysis never sees it. phpstan.neon pins the
+    # analysis to the declared php ^8.3 range, so the floor stays protected from here.
     name: PHPStan
     runs-on: ubuntu-latest
     steps:
@@ -36,8 +40,8 @@ jobs:
           docker network create frontend
 
       - run: |
-          docker compose run --rm phpfpm composer install
-          docker compose run --rm phpfpm vendor/bin/phpstan
+          docker compose run --rm phpfpm85 composer install
+          docker compose run --rm phpfpm85 vendor/bin/phpstan
 
   unit-tests:
     name: Unit tests (${{ matrix.php }}, ${{ matrix.prefer }})

@@ -9,9 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Static analysis is pinned to the PHP range `composer.json` declares rather than
-  whichever version it happens to run on, so analysing on a newer PHP cannot silently
-  stop protecting the `^8.3` floor.
+- Static analysis now covers the Symfony versions this bundle claims to support. It
+  runs on the highest supported PHP, since Symfony 8.1 requires PHP >= 8.4.1 and was
+  therefore uninstallable — and so unanalysed — in the PHP 8.3 container it ran in.
+  Analysis is pinned to the PHP range `composer.json` declares, so moving up cannot
+  silently stop protecting the `^8.3` floor.
 - `supports()` no longer treats `?state=…&code=…` on an arbitrary path as a
   callback (#63). A forged callback is handled by the firewall — an entry point
   redirect for anonymous visitors — instead of surfacing as a 500 that any
