@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `supports()` no longer treats `?state=…&code=…` on an arbitrary path as a
+  callback (#63). A forged callback is handled by the firewall — an entry point
+  redirect for anonymous visitors — instead of surfacing as a 500 that any
+  unauthenticated caller could raise on any URL.
 - `logging_options.logger` no longer depends on bundle registration order.
   FrameworkBundle autoconfigures a `setLogger()` call onto every
   `LoggerAwareInterface` service and the last call wins, so an application
@@ -31,11 +35,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `getPrevious()` on that exception is the underlying OpenID Connect exception
   rather than the `AuthenticationException`, which the security component would
   have followed straight back into the loop.
+- Each provider must declare `redirect_uri`, `redirect_route` or `callback_path`.
+  It is how a callback is recognised, so a provider without one could never
+  complete a login. Enforced while the container compiles.
 - `client_secret_expires_at` is now required for every provider, and must be a
   string. A missing date fails while the container compiles instead of emitting the
   5.1 deprecation, and an unquoted `2027-01-31` — which YAML reads as a number — is
   rejected rather than silently leaving the provider unmonitored. See
   `UPGRADE-6.0.md`.
+
+### Added
+
+- `callback_path` per provider, for a reverse proxy that rewrites the path without
+  announcing it, so the path of `redirect_uri` is not the one the application
+  receives. A subdirectory deployment or a trusted `X-Forwarded-Prefix` needs none:
+  the request path is matched as `getBaseUrl()` plus `getPathInfo()`.
+- `OpenIdLoginAuthenticator::getSupportedProviderKeys()`, to narrow an
+  authenticator to the providers whose callbacks it answers. Defaults to all of
+  them, so existing multi-authenticator firewalls are unaffected.
+- `OpenIdLoginAuthenticator::createTargetPathRedirect()`, for returning the user to
+  the page that sent them to log in.
+- `?target_path=` on the login route, for a login link on a public page where the
+  firewall saved no requested page. Validated as a path within the application and
+  otherwise dropped and logged, since the value reaches a `Location` header. A page
+  the firewall denied takes precedence over it.
+- `OpenIdConfigurationProviderManager::getRedirectUriPaths()` and
+  `isCallbackPath()`.
 
 ### Removed (BREAKING)
 

@@ -174,6 +174,22 @@ class Configuration implements ConfigurationInterface
                                     ->arrayNode('redirect_route_parameters')
                                         ->info('Redirect route parameters')
                                     ->end()
+                                    ->scalarNode('callback_path')
+                                        ->info('Optional. The request path the callback arrives on, for a proxy that rewrites it without sending X-Forwarded-Prefix. Include any base path. Defaults to the path of redirect_uri, or of the generated redirect_route; a trusted X-Forwarded-Prefix or a subdirectory deployment is already accounted for without this.')
+                                        // As on client_secret_expires_at: a validated node that also
+                                        // disallows empty values refuses environment variables, and the
+                                        // closure is the half worth keeping.
+                                        ->validate()
+                                            ->ifTrue(static fn (mixed $v): bool => !is_string($v))
+                                            ->thenInvalid('callback_path must be a string, e.g. "/auth/callback". Got %s.')
+                                        ->end()
+                                        ->validate()
+                                            // '' is the fixture Symfony substitutes for a string
+                                            // environment variable while compiling, so it has to pass.
+                                            ->ifTrue(static fn (mixed $v): bool => is_string($v) && '' !== $v && !str_starts_with($v, '/'))
+                                            ->thenInvalid('callback_path must start with "/", e.g. "/auth/callback". Got %s.')
+                                        ->end()
+                                    ->end()
                                     ->booleanNode('allow_http')
                                         ->info('Whether to allow http or not (default: false)')
                                         ->defaultValue(false)
@@ -202,6 +218,14 @@ class Configuration implements ConfigurationInterface
                                 ->validate()
                                     ->ifTrue(static fn (array $v) => isset($v['redirect_uri'], $v['redirect_route']))
                                     ->thenInvalid('Only one of redirect_uri or redirect_route must be set.')
+                                ->end()
+                                ->validate()
+                                    // Without one of these there is no path to recognise a callback on,
+                                    // and since 6.0 that means the provider can never complete a login:
+                                    // supports() matches the configured callback path, not any path
+                                    // carrying state and code.
+                                    ->ifTrue(static fn (array $v) => !isset($v['redirect_uri']) && !isset($v['redirect_route']) && !isset($v['callback_path']))
+                                    ->thenInvalid('One of redirect_uri, redirect_route or callback_path must be set: it is how a callback is recognised.')
                             ->end()
                         ->end()
                     ->end()

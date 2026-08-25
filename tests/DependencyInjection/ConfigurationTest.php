@@ -36,6 +36,7 @@ class ConfigurationTest extends TestCase
                         'client_id' => 'my_id',
                         'client_secret' => 'my_secret',
                         'client_secret_expires_at' => '2027-01-31',
+                        'redirect_uri' => 'https://app.example.org/callback_uri',
                     ],
                 ],
             ],
@@ -252,6 +253,8 @@ class ConfigurationTest extends TestCase
     public function testRedirectRouteConfig(): void
     {
         $input = $this->getMinimalConfig();
+        // Mutually exclusive with redirect_uri, which the minimal config sets.
+        unset($input['openid_providers']['provider1']['options']['redirect_uri']);
         $input['openid_providers']['provider1']['options']['redirect_route'] = 'my_redirect_route';
 
         $config = $this->processor->processConfiguration(
@@ -431,6 +434,7 @@ class ConfigurationTest extends TestCase
                 'client_id' => 'other_id',
                 'client_secret' => 'other_secret',
                 'client_secret_expires_at' => '2028-06-30',
+                'redirect_uri' => 'https://app.example.org/other_callback',
             ],
         ];
 
@@ -442,5 +446,77 @@ class ConfigurationTest extends TestCase
         $this->assertCount(2, $config['openid_providers']);
         $this->assertArrayHasKey('provider1', $config['openid_providers']);
         $this->assertArrayHasKey('provider2', $config['openid_providers']);
+    }
+
+    /**
+     * @return iterable<string, array{mixed, string}>
+     */
+    public static function invalidCallbackPathProvider(): iterable
+    {
+        yield 'not a string' => [42, 'callback_path must be a string'];
+        yield 'null' => [null, 'callback_path must be a string'];
+        yield 'no leading slash' => ['auth/callback', 'callback_path must start with "/"'];
+        yield 'a full url' => ['https://app.example.org/auth/callback', 'callback_path must start with "/"'];
+    }
+
+    #[DataProvider('invalidCallbackPathProvider')]
+    public function testAnInvalidCallbackPathIsRejected(mixed $configured, string $expectedMessage): void
+    {
+        $input = $this->getMinimalConfig();
+        $input['openid_providers']['provider1']['options']['callback_path'] = $configured;
+
+        $this->expectException(InvalidConfigurationException::class);
+        $this->expectExceptionMessage($expectedMessage);
+
+        $this->processor->processConfiguration($this->configuration, [$input]);
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function validCallbackPathProvider(): iterable
+    {
+        yield 'a path' => ['/auth/callback'];
+        yield 'the root' => ['/'];
+        // As on client_secret_expires_at: '' is the fixture Symfony substitutes for a
+        // string environment variable while compiling, so it must pass here.
+        yield 'the environment variable fixture' => [''];
+    }
+
+    #[DataProvider('validCallbackPathProvider')]
+    public function testAValidCallbackPathIsAccepted(string $configured): void
+    {
+        $input = $this->getMinimalConfig();
+        $input['openid_providers']['provider1']['options']['callback_path'] = $configured;
+
+        $config = $this->processor->processConfiguration($this->configuration, [$input]);
+
+        $this->assertSame($configured, $config['openid_providers']['provider1']['options']['callback_path']);
+    }
+
+    /**
+     * A provider that declares no callback target cannot recognise a callback, so it
+     * could never complete a login.
+     */
+    public function testAProviderMustDeclareACallbackTarget(): void
+    {
+        $input = $this->getMinimalConfig();
+        unset($input['openid_providers']['provider1']['options']['redirect_uri']);
+
+        $this->expectException(InvalidConfigurationException::class);
+        $this->expectExceptionMessage('One of redirect_uri, redirect_route or callback_path must be set');
+
+        $this->processor->processConfiguration($this->configuration, [$input]);
+    }
+
+    public function testCallbackPathAloneSatisfiesTheRequirement(): void
+    {
+        $input = $this->getMinimalConfig();
+        unset($input['openid_providers']['provider1']['options']['redirect_uri']);
+        $input['openid_providers']['provider1']['options']['callback_path'] = '/auth/callback';
+
+        $config = $this->processor->processConfiguration($this->configuration, [$input]);
+
+        $this->assertSame('/auth/callback', $config['openid_providers']['provider1']['options']['callback_path']);
     }
 }

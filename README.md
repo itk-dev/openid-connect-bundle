@@ -121,6 +121,11 @@ itkdev_openid_connect:
         client_secret_expires_at: '%env(string:ADMIN_OIDC_CLIENT_SECRET_EXPIRES_AT)%'
         # Specify redirect URI
         redirect_uri: '%env(string:ADMIN_OIDC_REDIRECT_URI)%'
+        # Optional: the path the callback arrives on, for a proxy that rewrites it
+        #           without sending X-Forwarded-Prefix. Defaults to the path of
+        #           redirect_uri, or of the generated redirect_route. See "Which
+        #           requests count as a callback" below.
+        callback_path: '/auth/callback'
         # Optional: Specify leeway (seconds) to account for clock skew between provider and hosting
         #           Defaults to 10
         leeway: '%env(int:ADMIN_OIDC_LEEWAY)%'
@@ -643,7 +648,8 @@ class SomeAuthenticator extends OpenIdLoginAuthenticator
 
     public function onAuthenticationSuccess(Request $request, TokenInterface $token, string $firewallName): ?Response
     {
-        // TODO: Implement onAuthenticationSuccess() method.
+        // Back to whatever the user was trying to reach, or your default.
+        return $this->createTargetPathRedirect($request, $firewallName, '/');
     }
 
     public function start(Request $request, AuthenticationException $authException = null)
@@ -667,6 +673,85 @@ security:
           - ItkDev\OpenIdConnectBundle\Security\LoginTokenAuthenticator
         entry_point: App\Security\ExampleAuthenticator
 ```
+
+With one authenticator per provider, override `getSupportedProviderKeys()` in each so
+it only answers its own provider's callback:
+
+```php
+protected function getSupportedProviderKeys(): array
+{
+    return ['admin'];
+}
+```
+
+Without the override every authenticator supports every callback path, Symfony asks
+them in the order above, and the session's provider key decides which provider
+validates the callback — which is how existing setups already work.
+
+#### Which requests count as a callback
+
+A request is treated as an OpenID Connect callback when it carries both `state` and
+`code` **and** arrives on a provider's configured callback path — the path of
+`redirect_uri`, of the generated `redirect_route`, or `callback_path` when set. Every
+provider must declare one of the three.
+
+`?state=…&code=…` on any other URL is ignored by the authenticator, and the firewall
+handles the request as it would without them: an anonymous visitor is sent to your
+entry point, a logged-in one gets the page.
+
+The path is matched against `getBaseUrl()` plus `getPathInfo()`, so an application
+deployed in a subdirectory, or behind a proxy that sends `X-Forwarded-Prefix` with
+Symfony's [trusted proxies](https://symfony.com/doc/current/deployment/proxies.html)
+configured, matches without further configuration: the prefix is part of the base URL
+on the way in and part of `redirect_uri` on the way out.
+
+Set `callback_path` when a proxy rewrites the path **without** announcing it — an
+external `https://app.example.org/prefix/auth/callback` that arrives here as
+`/auth/callback`. Nothing in the request says where the prefix went, so the path has to
+be declared:
+
+```yaml
+callback_path: '/auth/callback'
+```
+
+Give it the path as this application receives it, including any base path of its own.
+
+#### Returning to the originally requested page
+
+`createTargetPathRedirect()` sends the user back to the page that triggered the login,
+falling back to a URL of your choosing when there is nothing to go back to:
+
+```php
+public function onAuthenticationSuccess(Request $request, TokenInterface $token, string $firewallName): ?Response
+{
+    return $this->createTargetPathRedirect($request, $firewallName, $this->router->generate('dashboard'));
+}
+```
+
+Symfony saves the requested page when your entry point fires, so this works both for
+applications that redirect straight to the identity provider and for those that show a
+login screen with a provider link on it. The fallback covers a user who went to the
+login link directly. The saved page is cleared on use, so a later visit to that link
+does not replay it.
+
+For a login link on a public page, where nothing was denied and so nothing was saved,
+name the destination on the link itself:
+
+```twig
+<a href="{{ path('itkdev_openid_connect_login', {provider: 'admin', target_path: '/admin/reports'}) }}">Log in</a>
+```
+
+The value must be a path within the application: a single leading `/`, no backslash,
+no `://`, no control characters. Anything else is dropped and logged at `warning`,
+because it would otherwise turn the login route into an open redirect. When a page was
+also denied, that page wins — it is what the user was actually stopped from reaching.
+
+Only pages that exist and are access-controlled return this way, and that is by
+design. Routing runs before security — `RouterListener` on `kernel.request` at
+priority 32, the firewall at 8 — so a link to a URL with no route is a 404 before the
+firewall is reached: no entry point fires, nothing is saved, and there is nothing to
+come back to. A link to a page that exists but is public simply loads. Neither is
+affected by the login flow.
 
 #### Example authenticator functions
 
@@ -713,7 +798,7 @@ class AzureOIDCAuthenticator extends OpenIdLoginAuthenticator
         private readonly UrlGeneratorInterface $router,
         private readonly OpenIdConfigurationProviderManager $providerManager
     ) {
-        parent::__construct($providerManager, $requestStack);
+        parent::__construct($providerManager);
     }
 
     /** @inheritDoc */
@@ -750,7 +835,11 @@ class AzureOIDCAuthenticator extends OpenIdLoginAuthenticator
     /** @inheritDoc */
     public function onAuthenticationSuccess(Request $request, TokenInterface $token, string $firewallName): ?Response
     {
-        return new RedirectResponse($this->router->generate('homepage_authenticated'));
+        return $this->createTargetPathRedirect(
+            $request,
+            $firewallName,
+            $this->router->generate('homepage_authenticated')
+        );
     }
 
     /** @inheritDoc */

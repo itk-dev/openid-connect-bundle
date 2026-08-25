@@ -90,6 +90,61 @@ switch to `UserNotFoundException`: `UserLoginCommand` catches that and reports t
 username as unknown. Not to be confused with `UsernameDoesNotExistException`, which
 stays — the CLI authenticator throws it when a token resolves to no username.
 
+## Callbacks are only accepted on the configured callback path
+
+A request counts as a callback when it carries `state` and `code` **and** arrives on a
+provider's callback path. `?state=…&code=…` on any other URL is left to the firewall,
+as it was before 6.0 — which is the point: since a failed callback now escapes as an
+exception, any URL was otherwise a 500 an anonymous caller could trigger.
+
+Every provider must declare one of `redirect_uri`, `redirect_route` or the new
+`callback_path`, or the container will not compile:
+
+```text
+One of redirect_uri, redirect_route or callback_path must be set: it is how a
+callback is recognised.
+```
+
+Set `callback_path` if a reverse proxy rewrites the path, so an external
+`https://app.example.org/prefix/auth/callback` arrives here as `/auth/callback`:
+
+```yaml
+openid_providers:
+    admin:
+        options:
+            redirect_uri: 'https://app.example.org/prefix/auth/callback'
+            callback_path: '/auth/callback'
+```
+
+A subdirectory deployment, or a proxy sending `X-Forwarded-Prefix` with trusted
+proxies configured, needs no `callback_path`: the path is matched against
+`getBaseUrl()` plus `getPathInfo()`, so the prefix is accounted for on both sides.
+`callback_path` is for a proxy that rewrites the path without announcing it, where
+nothing in the request says so. If you run one authenticator per provider, override
+`getSupportedProviderKeys()` so each answers only its own callback; without it they
+behave exactly as in 5.x.
+
+## Redirecting back to the originally requested page
+
+`createTargetPathRedirect()` returns the user to the page that sent them to log in:
+
+```php
+public function onAuthenticationSuccess(Request $request, TokenInterface $token, string $firewallName): ?Response
+{
+    return $this->createTargetPathRedirect($request, $firewallName, $this->router->generate('dashboard'));
+}
+```
+
+Optional — existing `onAuthenticationSuccess()` implementations keep working.
+
+Only pages that exist and are access-controlled come back this way: routing runs
+before security, so a link to a URL with no route is a 404 before the firewall sees
+it and there is nothing to return to.
+
+A login link on a public page can name its own destination with
+`?target_path=/admin/reports`. The value must be a path within the application, or it
+is dropped and logged.
+
 ## CLI login is unchanged
 
 `CliLoginTokenAuthenticator` still throws `AuthenticationException`, so a consumed

@@ -36,6 +36,7 @@ class ItkDevOpenIdConnectExtensionTest extends TestCase
                         'client_id' => 'test_id',
                         'client_secret' => 'test_secret',
                         'client_secret_expires_at' => '2027-01-31',
+                        'redirect_uri' => 'https://app.example.org/callback_uri',
                     ],
                 ],
             ],
