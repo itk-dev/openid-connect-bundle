@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Static analysis now covers the Symfony versions this bundle claims to support. It
+  runs on the highest supported PHP, since Symfony 8.1 requires PHP >= 8.4.1 and was
+  therefore uninstallable — and so unanalysed — in the PHP 8.3 container it ran in.
+  Analysis is pinned to the PHP range `composer.json` declares, so moving up cannot
+  silently stop protecting the `^8.3` floor.
 - `UPGRADE-6.0.md` is ordered by what a consumer hits first, names the two required
   configuration keys up front, quotes the compile errors as they actually read, and
   documents both outcomes of an undefined environment variable behind
