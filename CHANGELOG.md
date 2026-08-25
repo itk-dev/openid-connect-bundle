@@ -46,8 +46,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- `callback_path` per provider, for deployments where a reverse proxy rewrites the
-  path so that the path of `redirect_uri` is not the one the application receives.
+- `callback_path` per provider, for a reverse proxy that rewrites the path without
+  announcing it, so the path of `redirect_uri` is not the one the application
+  receives. A subdirectory deployment or a trusted `X-Forwarded-Prefix` needs none:
+  the request path is matched as `getBaseUrl()` plus `getPathInfo()`.
 - `OpenIdLoginAuthenticator::getSupportedProviderKeys()`, to narrow an
   authenticator to the providers whose callbacks it answers. Defaults to all of
   them, so existing multi-authenticator firewalls are unaffected.
@@ -57,7 +59,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   firewall saved no requested page. Validated as a path within the application and
   otherwise dropped and logged, since the value reaches a `Location` header. A page
   the firewall denied takes precedence over it.
-- `OpenIdConfigurationProviderManager::getRedirectUriPaths()`.
+- `OpenIdConfigurationProviderManager::getRedirectUriPaths()` and
+  `isCallbackPath()`.
 
 ### Removed (BREAKING)
 
