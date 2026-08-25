@@ -61,6 +61,15 @@ class ItkDevOpenIdConnectBundleTestingKernel extends Kernel
      * This bundle is registered before FrameworkBundle deliberately. It is the
      * unconventional order, and the one where autoconfigured method calls land in the
      * losing order — so it is the order that holds ConfiguredLoggerPass to its job.
+     *
+     * The return is annotated with the three bundle classes rather than inherited as
+     * `iterable<BundleInterface>`: Symfony 8.1 deprecates
+     * `HttpKernel\Bundle\BundleInterface` in favour of
+     * `DependencyInjection\Kernel\BundleInterface`, and naming either one would break
+     * on the other end of the supported range. The concrete classes are covariant with
+     * both, and more precise than either.
+     *
+     * @return list<ItkDevOpenIdConnectBundle|SecurityBundle|FrameworkBundle>
      */
     public function registerBundles(): iterable
     {
