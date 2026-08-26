@@ -18,6 +18,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `igor-baseline.json` records the state the bundle shares on purpose, one written
   reason per entry; anything else fails the build. `task analyze:worker` runs it
   locally.
+- A README section on developing against a mock identity provider, and why that beats
+  turning the firewall off in `dev`.
 - A README section on running under a worker runtime: what the bundle shares between
   requests and why, what a consumer's authenticator must not hold, and the
   stateful-firewall requirement.

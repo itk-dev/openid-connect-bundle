@@ -1064,6 +1064,81 @@ If you audit your own application with it, expect the same shape of result: the 
 reports shared mutable state, which is not the same thing as a leak. Judge each finding
 and record the safe ones with a reason rather than refactoring them away.
 
+## Local development against a mock identity provider
+
+Pointing a development environment at the real identity provider is usually
+impractical: it will not have your local hostname among its registered redirect URIs,
+and you may not want real accounts logging into a laptop. A mock provider gives you
+the whole authorization code flow locally, so the callback path, the claims mapping
+and the failure paths are exercised the way they will be in production.
+
+[`oidc-provider-mock`](https://github.com/geigerzaehler/oidc-provider-mock) needs no
+configuration file — users are given as repeated `--user-claims` flags, and it accepts
+any client id and secret. A service in an override file, so it never starts on a
+server:
+
+```yaml
+services:
+  idp:
+    image: ghcr.io/geigerzaehler/oidc-provider-mock:latest
+    networks: [app]
+    expose:
+      - "80"
+    command:
+      - "--port"
+      - "80"
+      - "--user-claims"
+      - '{"sub": "admin", "email": "admin@example.org", "name": "Admin Jensen", "groups": ["administrator"]}'
+      - "--user-claims"
+      - '{"sub": "editor", "email": "editor@example.org", "name": "Ed Editor", "groups": ["editor"]}'
+```
+
+At the login screen you pick which of those identities to be, which makes testing a
+role or a claim a matter of choosing a different subject.
+
+Point a provider at it in development-only configuration:
+
+```yaml
+# config/packages/dev/itkdev_openid_connect.yaml
+itkdev_openid_connect:
+  openid_providers:
+    admin:
+      options:
+        metadata_url: 'http://idp/.well-known/openid-configuration'
+        # Any values will do; the mock accepts whatever it is given.
+        client_id: 'client-id'
+        client_secret: 'client-secret'
+        redirect_uri: 'http://localhost:8080/openid-connect/callback'
+        # Required: the mock is reached over http between containers, and the
+        # bundle refuses plain http otherwise. Never set this in production.
+        allow_http: true
+```
+
+Two things to know:
+
+* **`allow_http: true` is mandatory here.** Traffic between containers is http, and
+  since `itk-dev/openid-connect` 5.1 the scheme check covers every endpoint the
+  discovery document announces, not only `metadata_url`. Keep it in development-only
+  configuration rather than driving it from an environment variable that could be set
+  wrong somewhere else.
+* **PKCE needs no special handling.** The mock accepts the challenge and the verifier,
+  so a login completes with the bundle's default. It does not advertise
+  `code_challenge_methods_supported`, so it is not checking the challenge — the round
+  trip is exercised, the protection is not. Set `pkce: false` only for a provider that
+  rejects the parameters outright rather than ignoring them.
+
+**Prefer a mock over turning security off in `dev`.** Disabling the firewall for the
+development environment is the tempting shortcut, and it means no OpenID Connect code
+path is exercised until it reaches a server: a broken callback path, a renamed claim
+or a login loop all stay invisible locally. It is also easy to forget, so the next
+person to debug an authentication problem loses an afternoon to a firewall that was
+never running.
+
+[deltag.aarhus.dk](https://github.com/itk-dev/deltag.aarhus.dk/blob/develop/docker-compose.oidc.yml)
+has a worked example, including two providers side by side.
+
+ITK Dev developers: the internal ITK Dev documentation covers the fuller setup.
+
 ## Sign in from command line
 
 Rather than signing in via OpenId Connect, you can get a sign in url from the
