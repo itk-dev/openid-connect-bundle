@@ -18,3 +18,6 @@ context that drove them and the consequences we accept. See
 - **[003 — Treat only the configured callback path as a
   callback](003-constrain-supports-to-callback-path.md)** — Accepted —
   2026-08-20
+- **[004 — Handle provider error
+  callbacks](004-handle-provider-error-callbacks.md)** — Accepted —
+  2026-08-26
