@@ -159,6 +159,9 @@ itkdev_openid_connect:
         # Optional: Cache duration (seconds) for the OIDC discovery document and JWKS
         #           Defaults to 86400 (24 hours)
         cache_duration: '%env(int:ADMIN_OIDC_CACHE_DURATION)%'
+        # Optional: Send a PKCE challenge (RFC 7636, S256) with the authorization
+        #           request. Defaults to true. See "PKCE" below.
+        pkce: true
         # Optional: Allow (non-secure) http requests (used for mocking a IdP). NOT RECOMMENDED FOR PRODUCTION.
         #           Defaults to false
         allow_http: '%env(bool:ADMIN_OIDC_ALLOW_HTTP)%'
@@ -883,6 +886,30 @@ class AzureOIDCAuthenticator extends OpenIdLoginAuthenticator
     }
 }
 ```
+
+### PKCE
+
+The bundle sends a PKCE challenge (RFC 7636, S256) with every authorization request.
+The login route generates a verifier, keeps it in the session, and sends only its
+SHA-256 challenge; the authenticator redeems the authorization code with the verifier.
+An intercepted code is then useless to whoever intercepted it, because they do not
+have the verifier.
+
+It is on by default and needs no configuration. RFC 6749 §3.1 requires an
+authorization server to ignore parameters it does not recognise, so an identity
+provider that has never heard of PKCE behaves exactly as it did before. Turn it off
+only for one that rejects the parameters outright:
+
+```yaml
+openid_providers:
+  legacy:
+    options:
+      pkce: false
+```
+
+The verifier lives in the session alongside the state and the nonce, and is consumed
+on every callback — success, failure or refusal — so it can never be redeemed against
+a code it does not belong to.
 
 ### When the identity provider refuses
 

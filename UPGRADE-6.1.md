@@ -55,5 +55,46 @@ refusal arrives as a plain 500 with the reason only in the message. This was alw
 the documented shape; 6.1 is the first release where dropping the cause costs you
 something.
 
-See [ADR 004](docs/adr/004-handle-provider-error-callbacks.md) for the reasoning, and
-[CHANGELOG.md](CHANGELOG.md) for the rest of the release.
+## PKCE is on by default
+
+Every authorization request now carries a PKCE challenge (RFC 7636, S256). RFC 6749
+§3.1 requires an authorization server to ignore parameters it does not recognise, so a
+provider that does not support PKCE behaves as it did before, and one that does gets
+the extra protection with no configuration from you.
+
+If you have an identity provider that rejects unknown parameters rather than ignoring
+them, turn it off for that provider:
+
+```yaml
+openid_providers:
+  legacy:
+    options:
+      pkce: false
+```
+
+The verifier is kept in the session under `oauth2pkce_verifier`. If your application
+clears or rewrites the session between the login redirect and the callback, it must
+preserve that key alongside `oauth2state` and `oauth2nonce`.
+
+## The library requires 5.1
+
+`itk-dev/openid-connect` `^5.1` comes with this release. Three of its changes affect
+running deployments: an identity provider announcing plain-http endpoints now needs
+`allow_http`, an ID token without `exp` or `iat` is rejected, and the JWKS cache key
+changed so 5.0's entries are not reused. Read its changelog before deploying.
+
+## `getProvider()` no longer returns the same instance
+
+`OpenIdConfigurationProviderManager::getProvider()` builds a fresh provider on every
+call. `league/oauth2-client` records the authorization request's `state` on the
+provider, so a memoized instance carried one request's state into the next — which
+matters once a process outlives a request, as under a FrankenPHP worker. The HTTP
+client is kept per provider instead, so connections to the identity provider are still
+reused.
+
+Nothing to do unless you held the returned provider and relied on getting the same
+object back.
+
+See [ADR 004](docs/adr/004-handle-provider-error-callbacks.md) for the reasoning behind
+the error-callback handling, and [CHANGELOG.md](CHANGELOG.md) for the rest of the
+release.

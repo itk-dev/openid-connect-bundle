@@ -68,7 +68,7 @@ class LoginControllerTest extends TestCase
 
         $request = new Request(query: ['provider' => 'test']);
         $mockSession = $this->createMock(SessionInterface::class);
-        $matcher = $this->exactly(3);
+        $matcher = $this->exactly(4);
         $mockSession
             ->expects($matcher)
             ->method('set')->willReturnCallback(function (...$parameters) use ($matcher) {
@@ -84,11 +84,94 @@ class LoginControllerTest extends TestCase
                     $this->assertEquals('oauth2nonce', $parameters[0]);
                     $this->assertEquals('1234', $parameters[1]);
                 }
+                if (4 === $matcher->numberOfInvocations()) {
+                    // Written even with PKCE off, so a verifier left by an earlier
+                    // login cannot be redeemed against this one's code.
+                    $this->assertEquals('oauth2pkce_verifier', $parameters[0]);
+                    $this->assertNull($parameters[1]);
+                }
             });
 
         $response = $controller->login($request, $mockSession, 'test');
         $this->assertSame('https://provider.example.org/authorize', $response->getTargetUrl());
         $this->assertSame([], $this->logger->records, 'A successful login must not log a failure.');
+    }
+
+    public function testPkceSendsAChallengeAndKeepsTheVerifier(): void
+    {
+        $mockProvider = $this->createMock(OpenIdConfigurationProvider::class);
+        $mockProvider->method('generateNonce')->willReturn('1234');
+        $mockProvider->method('generateState')->willReturn('abcd');
+        $mockProvider
+            ->expects($this->once())
+            ->method('generatePkceVerifier')
+            ->willReturn('the-verifier');
+        $mockProvider
+            ->expects($this->once())
+            ->method('getPkceChallenge')
+            ->with('the-verifier')
+            ->willReturn('the-challenge');
+        $mockProvider
+            ->expects($this->once())
+            ->method('getAuthorizationUrl')
+            ->with([
+                'state' => 'abcd',
+                'nonce' => '1234',
+                'response_type' => 'code',
+                'scope' => 'openid email profile',
+                // The library adds code_challenge_method=S256 alongside this.
+                'code_challenge' => 'the-challenge',
+            ])
+            ->willReturn('https://provider.example.org/authorize');
+
+        $controller = $this->createController($mockProvider, pkce: true);
+        $session = new Session(new MockArraySessionStorage());
+
+        $controller->login(new Request(), $session, 'test');
+
+        // The verifier is kept, never sent. Only the challenge goes over the wire.
+        $this->assertSame('the-verifier', $session->get('oauth2pkce_verifier'));
+    }
+
+    public function testPkceCanBeTurnedOffForAProviderThatRejectsIt(): void
+    {
+        $mockProvider = $this->createMock(OpenIdConfigurationProvider::class);
+        $mockProvider->method('generateNonce')->willReturn('1234');
+        $mockProvider->method('generateState')->willReturn('abcd');
+        $mockProvider->expects($this->never())->method('generatePkceVerifier');
+        $mockProvider->expects($this->never())->method('getPkceChallenge');
+        $mockProvider
+            ->expects($this->once())
+            ->method('getAuthorizationUrl')
+            ->with($this->logicalNot($this->arrayHasKey('code_challenge')))
+            ->willReturn('https://provider.example.org/authorize');
+
+        $controller = $this->createController($mockProvider, pkce: false);
+        $session = new Session(new MockArraySessionStorage());
+
+        $controller->login(new Request(), $session, 'test');
+
+        $this->assertNull($session->get('oauth2pkce_verifier'));
+    }
+
+    /**
+     * A verifier from an abandoned login must not be redeemable against the code this
+     * one is about to receive, so the key is written on every login rather than only
+     * when PKCE is on.
+     */
+    public function testAStaleVerifierIsOverwrittenWhenPkceIsOff(): void
+    {
+        $stubProvider = $this->createStub(OpenIdConfigurationProvider::class);
+        $stubProvider->method('generateNonce')->willReturn('1234');
+        $stubProvider->method('generateState')->willReturn('abcd');
+        $stubProvider->method('getAuthorizationUrl')->willReturn('https://provider.example.org/authorize');
+
+        $session = new Session(new MockArraySessionStorage());
+        $session->set('oauth2pkce_verifier', 'left-over-from-an-earlier-login');
+
+        $this->createController($stubProvider, pkce: false)->login(new Request(), $session, 'test');
+
+        $this->assertNull($session->get('oauth2pkce_verifier'));
     }
 
     public function testUnknownProviderKeyMapsTo404(): void
@@ -256,7 +339,7 @@ class LoginControllerTest extends TestCase
         $this->fail('Expected NotFoundHttpException');
     }
 
-    private function createController(OpenIdConfigurationProvider $provider, ?ClientSecretExpiryChecker $expiryChecker = null): LoginController
+    private function createController(OpenIdConfigurationProvider $provider, ?ClientSecretExpiryChecker $expiryChecker = null, bool $pkce = false): LoginController
     {
         $mockProviderManager = $this->createMock(OpenIdConfigurationProviderManager::class);
         $mockProviderManager
@@ -264,6 +347,10 @@ class LoginControllerTest extends TestCase
             ->method('getProvider')
             ->with('test')
             ->willReturn($provider);
+        $mockProviderManager
+            ->method('isPkceEnabled')
+            ->with('test')
+            ->willReturn($pkce);
 
         return new LoginController($mockProviderManager, $this->logger, $expiryChecker ?? $this->createExpiryChecker());
     }

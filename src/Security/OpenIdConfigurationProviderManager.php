@@ -2,6 +2,7 @@
 
 namespace ItkDev\OpenIdConnectBundle\Security;
 
+use GuzzleHttp\Client as GuzzleClient;
 use ItkDev\OpenIdConnect\Exception\OpenIdConnectExceptionInterface;
 use ItkDev\OpenIdConnect\Security\OpenIdConfigurationProvider;
 use ItkDev\OpenIdConnectBundle\Exception\InvalidProviderException;
@@ -11,10 +12,29 @@ use Symfony\Component\Routing\RouterInterface;
 
 class OpenIdConfigurationProviderManager
 {
-    /** @var array<string,OpenIdConfigurationProvider> */
-    private array $providers = [];
+    /**
+     * One HTTP client per provider, for the life of the process.
+     *
+     * The client owns the connection pool, so sharing it across logins means a token
+     * exchange reuses an open connection to the identity provider rather than
+     * renegotiating TLS. Its options come from configuration and never change, and it
+     * holds nothing belonging to a request, so it is safe to share however long the
+     * process lives.
+     *
+     * @var array<string, GuzzleClient>
+     */
+    private array $httpClients = [];
 
-    /** @var array<string, array<string, string>> */
+    /**
+     * Callback paths, keyed by the routing context's base URL.
+     *
+     * Safe to hold across requests: the values are a pure function of configuration
+     * and that base URL, so two requests sharing a key derive identical paths. The
+     * key set is bounded by the number of base URLs an application answers on, which
+     * is one in every deployment shape the bundle documents.
+     *
+     * @var array<string, array<string, string>>
+     */
     private array $redirectUriPaths = [];
 
     /**
@@ -30,6 +50,7 @@ class OpenIdConfigurationProviderManager
      *         callback_path?: string,
      *         leeway?: int,
      *         cache_duration?: int,
+     *         pkce?: bool,
      *         allow_http?: bool,
      *         http_client_options?: array{
      *             timeout?: float,
@@ -53,6 +74,21 @@ class OpenIdConfigurationProviderManager
     public function getProviderKeys(): array
     {
         return array_keys($this->config['providers']);
+    }
+
+    /**
+     * Whether this provider's authorization request carries a PKCE challenge.
+     *
+     * Read from configuration, like the callback paths: the caller needs the answer
+     * before it has any use for a provider.
+     *
+     * An unconfigured key answers true. The config tree makes that unreachable, since
+     * `pkce` defaults to true there, and matching it here keeps one rule in two places
+     * from drifting apart.
+     */
+    public function isPkceEnabled(string $providerKey): bool
+    {
+        return $this->config['providers'][$providerKey]['pkce'] ?? true;
     }
 
     /**
@@ -166,11 +202,19 @@ class OpenIdConfigurationProviderManager
     /**
      * Get a provider by key.
      *
+     * A fresh instance every call. A provider belongs to one request:
+     * `league/oauth2-client` assigns `$this->state` on every `getAuthorizationUrl()`
+     * call, so an instance shared between requests holds the previous one's state.
+     *
+     * Constructing one is cheap. Discovery and JWKS are lazy and cached in the PSR-6
+     * pool, and the costly collaborator — the HTTP client, with its connection pool —
+     * comes from `$httpClients`.
+     *
      * @throws OpenIdConnectExceptionInterface
      */
     public function getProvider(string $key): OpenIdConfigurationProvider
     {
-        if (!isset($this->providers[$key]) && isset($this->config['providers'][$key])) {
+        if (isset($this->config['providers'][$key])) {
             $options = $this->config['providers'][$key];
             $providerOptions = [
                 'openIDConnectMetadataUrl' => $options['metadata_url'],
@@ -204,13 +248,46 @@ class OpenIdConfigurationProviderManager
                 $providerOptions += $options['http_client_options'];
             }
 
-            $this->providers[$key] = new OpenIdConfigurationProvider($providerOptions);
-        }
-
-        if (isset($this->providers[$key])) {
-            return $this->providers[$key];
+            return new OpenIdConfigurationProvider(
+                $providerOptions,
+                ['httpClient' => $this->httpClient($key, $providerOptions)],
+            );
         }
 
         throw new InvalidProviderException(sprintf('Invalid provider: %s', $key));
+    }
+
+    /**
+     * The HTTP client for a provider, built once and shared by its providers.
+     *
+     * `league/oauth2-client` builds a client per provider instance, which would mean
+     * a new connection pool per request; building it here gives every provider for a
+     * key the same one.
+     *
+     * The option filter mirrors `AbstractProvider::getAllowedClientOptions()`, so the
+     * client is configured exactly as league configures its own: `timeout` and
+     * `proxy` always, `verify` only alongside a proxy — league's rule that TLS
+     * verification may be relaxed for a proxy and nowhere else.
+     *
+     * @param array<string, mixed> $providerOptions
+     */
+    private function httpClient(string $key, array $providerOptions): GuzzleClient
+    {
+        if (isset($this->httpClients[$key])) {
+            return $this->httpClients[$key];
+        }
+
+        $allowed = ['timeout', 'proxy'];
+
+        // `proxy` is a scalar node, so it arrives as a string or not at all; an empty
+        // one names no proxy. This matches league's own `empty()` test for every
+        // value the config tree can produce.
+        if (isset($providerOptions['proxy']) && '' !== $providerOptions['proxy']) {
+            $allowed[] = 'verify';
+        }
+
+        return $this->httpClients[$key] = new GuzzleClient(
+            array_intersect_key($providerOptions, array_flip($allowed))
+        );
     }
 }
