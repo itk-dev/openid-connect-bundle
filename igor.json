@@ -1,0 +1,26 @@
+{
+  "exclude": [
+    "tests",
+    "vendor",
+    "var",
+    "node_modules",
+    "build",
+    "coverage",
+    "phpstan"
+  ],
+  "safe_namespaces": [
+    "Symfony\\",
+    "Doctrine\\",
+    "Psr\\",
+    "IgorPhp\\IgorBundle\\"
+  ],
+  "scan_vendors": null,
+  "ignore_vendors": true,
+  "ignore_external_baseline": false,
+  "console_path": "",
+  "env": "prod",
+  "verbose": false,
+  "baseline": "igor-baseline.json",
+  "output": "",
+  "container_dump": ""
+}

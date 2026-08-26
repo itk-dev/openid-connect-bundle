@@ -6,6 +6,10 @@ vars:
   DOCKER_COMPOSE: "docker compose"
   PHP: "{{.DOCKER_COMPOSE}} exec phpfpm"
   COMPOSER: "{{.PHP}} composer"
+  # Pinned: Igor is pre-1.0 and its rules change between releases, which would move
+  # the baseline underneath us. The composer package is only a bootstrapper; this is
+  # the version of the binary it fetches.
+  IGOR_VERSION: "0.9.5"
 
 tasks:
   default:
@@ -132,6 +136,21 @@ tasks:
     cmds:
       - "{{.PHP}} vendor/bin/phpstan"
 
+  analyze:worker:
+    desc: Audit worker-mode (FrankenPHP) state leaks with Igor
+    cmds:
+      - "{{.DOCKER_COMPOSE}} exec -e IGOR_VERSION={{.IGOR_VERSION}} phpfpm vendor/bin/igor-php --no-agent ."
+
+  analyze:worker:baseline:
+    desc: Regenerate the Igor baseline (each entry then needs a reason)
+    cmds:
+      - "{{.DOCKER_COMPOSE}} exec -e IGOR_VERSION={{.IGOR_VERSION}} phpfpm vendor/bin/igor-php --no-agent --generate-baseline ."
+
+  analyze:worker:check:
+    desc: Fail if the Igor baseline lists findings that no longer occur
+    cmds:
+      - "{{.DOCKER_COMPOSE}} exec -e IGOR_VERSION={{.IGOR_VERSION}} phpfpm vendor/bin/igor-php --no-agent --check-baseline ."
+
   # Testing
 
   test:
@@ -254,5 +273,6 @@ tasks:
       - task: composer:check
       - task: lint
       - task: analyze:php
+      - task: analyze:worker
       - task: test:matrix
       - task: test:mutation
