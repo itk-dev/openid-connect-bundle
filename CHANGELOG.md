@@ -14,6 +14,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   authenticator redeems the code with it. Turn it off per provider with `pkce: false`
   for an identity provider that rejects the parameters rather than ignoring them.
 - `OpenIdConfigurationProviderManager::isPkceEnabled()` and `getScopes()`.
+- A README section on running under a worker runtime: what the bundle shares between
+  requests and why, what a consumer's authenticator must not hold, and the
+  stateful-firewall requirement.
 - Per-provider `scopes`, defaulting to `openid`, `email` and `profile` — the scopes the
   bundle has always requested. Accepts a list or a space-separated string, so the value
   can come from an environment variable. A list without `openid` is rejected at compile
