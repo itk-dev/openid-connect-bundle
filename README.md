@@ -1053,12 +1053,16 @@ The authorization code flow spans two requests, and the session is what ties the
 together. A firewall declared `stateless: true` throws `StatelessFirewallException`,
 naming the setting to remove.
 
-### If you audit this yourself
+### How this is enforced
 
-[`igor-php`](https://github.com/igor-php/igor-php) is a static analyser for worker-mode
-state leaks. Pointed at this bundle's `src/` it reports the three shared values in the
-table above and nothing else — they are shared deliberately, so record them in an
-`igor-baseline.json` with a reason rather than refactoring them away.
+CI runs [`igor-php`](https://github.com/igor-php/igor-php), a static analyser for
+worker-mode state leaks, on every pull request. The three values above are recorded in
+`igor-baseline.json`, each with a written reason for why sharing it is safe. Anything
+else that appears fails the build.
+
+If you audit your own application with it, expect the same shape of result: the tool
+reports shared mutable state, which is not the same thing as a leak. Judge each finding
+and record the safe ones with a reason rather than refactoring them away.
 
 ## Sign in from command line
 
@@ -1147,6 +1151,24 @@ to `infection.log` and `infection.html` on each run.
 ```shell
 task analyze
 ```
+
+### Worker Mode Analysis
+
+```shell
+task analyze:worker          # audit for state that leaks between requests
+task analyze:worker:check    # fail if the baseline lists findings that no longer occur
+task analyze:worker:baseline # regenerate the baseline after judging new findings
+```
+
+`igor-baseline.json` records the state this bundle shares on purpose, one written
+reason per entry. A new finding fails `task analyze:worker`: either make the code
+stateless, or add it to the baseline with a reason that says why sharing it is safe.
+Never add an entry without one.
+
+The analyser is a Go binary that the composer package downloads on first run. `task`
+pins the version, since Igor is pre-1.0 and its rules change between releases; bump
+`IGOR_VERSION` in `Taskfile.yml` and `.github/workflows/php.yaml` together, and
+regenerate the baseline when you do.
 
 ### Coding Standards
 
