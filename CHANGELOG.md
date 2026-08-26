@@ -7,72 +7,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.1.0] - 2026-08-26
+
+See [UPGRADE-6.1.md](UPGRADE-6.1.md). Nothing is required of a consumer.
+
 ### Added
 
-- PKCE (RFC 7636, S256), on by default. The login route generates a verifier, keeps it
-  in the session under `oauth2pkce_verifier`, and sends the challenge; the
-  authenticator redeems the code with it. Turn it off per provider with `pkce: false`
-  for an identity provider that rejects the parameters rather than ignoring them.
-- `OpenIdConfigurationProviderManager::isPkceEnabled()` and `getScopes()`.
-- CI gates worker-mode compatibility with [Igor](https://github.com/igor-php/igor-php).
-  `igor-baseline.json` records the state the bundle shares on purpose, one written
-  reason per entry; anything else fails the build. `task analyze:worker` runs it
-  locally.
-- A README section on developing against a mock identity provider, and why that beats
-  turning the firewall off in `dev`.
-- A README section on running under a worker runtime: what the bundle shares between
-  requests and why, what a consumer's authenticator must not hold, and the
-  stateful-firewall requirement.
-- Per-provider `scopes`, defaulting to `openid`, `email` and `profile` — the scopes the
-  bundle has always requested. Accepts a list or a space-separated string, so the value
-  can come from an environment variable. A list without `openid` is rejected at compile
-  time.
-- `StatelessFirewallException`, naming the misconfiguration when the authenticator is
-  put on a firewall declared `stateless: true`. Previously Symfony's
-  `SessionNotFoundException` surfaced as an unexplained 500.
+- PKCE (RFC 7636, S256) on every authorization request. The verifier is kept in the
+  session under `oauth2pkce_verifier`. `pkce: false` per provider turns it off.
+- `scopes` per provider, defaulting to `openid`, `email` and `profile`. Accepts a list
+  or a space-separated string, and must include `openid`.
 - `ProviderErrorException`, thrown when the identity provider refuses the authorization
-  request (RFC 6749 §4.1.2.1). It extends `AuthenticationFailedException`, so existing
-  `catch` blocks keep matching, and carries `getError()`, `getErrorDescription()` and
-  `getStatusCode()`. See [ADR 004](docs/adr/004-handle-provider-error-callbacks.md).
+  request (RFC 6749 §4.1.2.1). Extends `AuthenticationFailedException` and carries
+  `getError()`, `getErrorDescription()` and `getStatusCode()`. See
+  [ADR 004](docs/adr/004-handle-provider-error-callbacks.md).
+- `StatelessFirewallException`, thrown when the authenticator is used on a firewall
+  declared `stateless: true`.
+- `OpenIdConfigurationProviderManager::isPkceEnabled()` and `getScopes()`.
+- README sections on developing against a mock identity provider and on running under
+  a worker runtime.
+- A worker-mode CI gate ([Igor](https://github.com/igor-php/igor-php)) with
+  `igor-baseline.json`. `task analyze:worker` runs it locally.
 
 ### Fixed
 
-- A provider error callback no longer loops between the application and the identity
-  provider. `supports()` accepts a callback carrying `state` and either `code` or
-  `error`, so a refusal — a cancelled consent screen, an expired provider session, a
-  tenant policy — ends in a page that says so instead of another authorization request.
-  Observed against Azure AD B2C.
+- A callback carrying `error` and no `code` is recognised, so a refused login ends in
+  an error page instead of another authorization request (#63 shape, seen against
+  Azure AD B2C).
 
 ### Changed
 
+- Requires `itk-dev/openid-connect` `^5.1`, which enforces `allowHttp` on every
+  discovered endpoint, requires `exp` and `iat` on the ID token, and changes the JWKS
+  cache key.
+- A refused login answers 403, or 503 where the provider reports its own trouble and
+  500 otherwise. Other callback failures still answer 500.
+- `error` and `error_description` are sanitized before they are logged or held, and are
+  not read until the callback's state matches.
+- `oauth2provider`, `oauth2state`, `oauth2nonce` and `oauth2pkce_verifier` are consumed
+  on every callback.
+- The stored state is compared with `hash_equals()`; an empty or missing one is
+  rejected explicitly.
+- `getProvider()` returns a fresh provider on every call. The HTTP client is cached per
+  provider instead, so connections are still reused.
 - `OpenIdLoginAuthenticator` implements `InteractiveAuthenticatorInterface`, so a
-  completed login dispatches `security.interactive_login` and remember-me treats the
-  token as one a user asked for.
-- `leeway` and `cache_duration` reject a negative value while the container compiles.
-  A negative leeway used to fail at the first login that needed it, and a negative
-  cache duration passed through to the cache unnoticed.
-- Requires `itk-dev/openid-connect` `^5.1`, for its PKCE support. That release also
-  enforces `allowHttp` on every discovered endpoint, requires `exp` and `iat` on the
-  ID token, and changes the JWKS cache key — see its changelog before upgrading.
-- `getProvider()` returns a fresh provider on every call instead of a memoized one.
-  `league/oauth2-client` writes the authorization request's `state` onto the provider,
-  so a held instance carried one request's state into the next — harmless today, but
-  not under a worker runtime where the process outlives the request. The HTTP client
-  is now what is kept per provider, so the connection pool still survives.
-- A refused login is answered with the status that matches its cause: 403 where the
-  user or a policy declined, 503 where the provider reports its own trouble, 500
-  otherwise. Other callback failures are unchanged and still surface as 500.
-- `error` and `error_description` are sanitized before they are logged or held —
-  control characters collapsed, invalid UTF-8 dropped, capped at 200 characters — and
-  neither is read at all until the callback's state matches.
-- Every one-time session value is consumed on every callback, including one carrying a
-  provider error: `oauth2provider`, `oauth2state`, `oauth2nonce` and
-  `oauth2pkce_verifier`.
-- The stored state is compared with `hash_equals()`, and an empty or missing stored
-  state is rejected explicitly rather than by comparison.
-- A callback naming a provider that is not configured is now reported as an invalid
-  state at `warning` when its state does not match, rather than as an unconfigured
-  provider at `error`: the provider is built after the state check, not before it.
+  completed login dispatches `security.interactive_login`.
+- `leeway` and `cache_duration` reject negative values while the container compiles.
+- A callback whose state does not match is reported as an invalid state even when its
+  provider key is no longer configured.
 
 ## [6.0.0] - 2026-08-25
 
@@ -395,6 +377,7 @@ See [UPGRADE-6.0.md](UPGRADE-6.0.md).
 - OpenId Connect Bundle: Added CLI login feature.
 
 [unreleased]: https://github.com/itk-dev/openid-connect-bundle/compare/6.0.0...HEAD
+[6.1.0]: https://github.com/itk-dev/openid-connect-bundle/compare/6.0.0...6.1.0
 [6.0.0]: https://github.com/itk-dev/openid-connect-bundle/compare/5.1.1...6.0.0
 [5.1.1]: https://github.com/itk-dev/openid-connect-bundle/compare/5.1.0...5.1.1
 [5.1.0]: https://github.com/itk-dev/openid-connect-bundle/compare/5.0.0...5.1.0
