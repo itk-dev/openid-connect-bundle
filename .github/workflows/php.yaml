@@ -25,6 +25,28 @@ jobs:
           docker compose run --rm phpfpm composer install
           docker compose run --rm phpfpm vendor/bin/php-cs-fixer fix --dry-run --diff
 
+  worker-mode:
+    # Igor reports shared mutable state, which is not the same thing as a leak: the
+    # values in igor-baseline.json are shared on purpose, each with a written reason.
+    # What this job protects is the difference — state that appears without one.
+    #
+    # IGOR_VERSION pins the binary the composer bootstrapper fetches. Igor is pre-1.0
+    # and its rules change between releases, which would move the baseline underneath
+    # us. Bump it deliberately, and regenerate the baseline when you do.
+    name: Worker mode (Igor)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Create docker network
+        run: |
+          docker network create frontend
+
+      - run: |
+          docker compose run --rm phpfpm composer install
+          docker compose run --rm -e IGOR_VERSION=0.9.5 phpfpm vendor/bin/igor-php --no-agent .
+          docker compose run --rm -e IGOR_VERSION=0.9.5 phpfpm vendor/bin/igor-php --no-agent --check-baseline .
+
   phpstan:
     # Analysed on the highest supported PHP, not the default 8.3 service: Symfony 8.1
     # requires PHP >= 8.4.1, so on 8.3 composer cannot install the Symfony 8 that

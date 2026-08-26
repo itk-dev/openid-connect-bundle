@@ -221,7 +221,11 @@ class OpenIdConfigurationProviderManagerTest extends TestCase
         $this->assertNull($this->getGuzzleConfig($httpClient, 'timeout'));
     }
 
-    public function testGetProviderCachesInstance(): void
+    /**
+     * A provider belongs to one request: `league/oauth2-client` records the
+     * authorization request's `state` on it, so sharing an instance shares that state.
+     */
+    public function testGetProviderReturnsAFreshInstance(): void
     {
         $manager = $this->createManager([
             'test' => $this->getBaseProviderConfig() + [
@@ -229,10 +233,107 @@ class OpenIdConfigurationProviderManagerTest extends TestCase
             ],
         ]);
 
-        $provider1 = $manager->getProvider('test');
-        $provider2 = $manager->getProvider('test');
+        $this->assertNotSame($manager->getProvider('test'), $manager->getProvider('test'));
+    }
 
-        $this->assertSame($provider1, $provider2);
+    /**
+     * Nothing one request puts on a provider reaches the next. Asserted through the
+     * state league records, so the test tracks the library's observable behaviour and
+     * not the shape of its internals.
+     */
+    public function testNoRequestStateSurvivesOnTheNextProvider(): void
+    {
+        $manager = $this->createManager([
+            'test' => $this->getBaseProviderConfig() + [
+                'redirect_uri' => 'https://app.example.org/callback',
+            ],
+        ]);
+
+        $first = $manager->getProvider('test');
+        $firstState = $first->generateState();
+
+        $this->assertSame($firstState, $first->getState(), 'The library records state on the provider; if it stops, this test needs rewriting');
+        $this->assertNotSame($firstState, $manager->getProvider('test')->getState());
+    }
+
+    /**
+     * The client owns the connection pool: sharing it is what lets a token exchange
+     * reuse an open connection to the identity provider.
+     */
+    public function testTheHttpClientIsReusedAcrossProviders(): void
+    {
+        $manager = $this->createManager([
+            'test' => $this->getBaseProviderConfig() + [
+                'redirect_uri' => 'https://app.example.org/callback',
+            ],
+        ]);
+
+        $this->assertSame(
+            $manager->getProvider('test')->getHttpClient(),
+            $manager->getProvider('test')->getHttpClient()
+        );
+    }
+
+    /**
+     * league's rule, kept: TLS verification may be turned off for a proxy and
+     * nowhere else. Without a proxy, `verify` is not forwarded at all, so Guzzle's
+     * default — verify — stands.
+     */
+    public function testVerifyIsNotForwardedWithoutAProxy(): void
+    {
+        $manager = $this->createManager([
+            'test' => $this->getBaseProviderConfig() + [
+                'redirect_uri' => 'https://app.example.org/callback',
+                'http_client_options' => [
+                    'timeout' => 1.5,
+                    'verify' => false,
+                ],
+            ],
+        ]);
+
+        $httpClient = $manager->getProvider('test')->getHttpClient();
+        $this->assertInstanceOf(GuzzleClient::class, $httpClient);
+
+        $this->assertSame(1.5, $this->getGuzzleConfig($httpClient, 'timeout'));
+        $this->assertNotFalse($this->getGuzzleConfig($httpClient, 'verify'), 'Verification must not be disabled without a proxy');
+    }
+
+    /**
+     * Only the three options league forwards reach the client. The rest of a
+     * provider's configuration — its client secret above all — has no business in
+     * Guzzle's request options.
+     */
+    public function testProviderCredentialsNeverReachTheHttpClient(): void
+    {
+        $manager = $this->createManager([
+            'test' => $this->getBaseProviderConfig() + [
+                'redirect_uri' => 'https://app.example.org/callback',
+                'http_client_options' => ['timeout' => 1.5],
+            ],
+        ]);
+
+        $httpClient = $manager->getProvider('test')->getHttpClient();
+        $this->assertInstanceOf(GuzzleClient::class, $httpClient);
+
+        $this->assertNull($this->getGuzzleConfig($httpClient, 'clientSecret'));
+        $this->assertNull($this->getGuzzleConfig($httpClient, 'clientId'));
+        $this->assertNull($this->getGuzzleConfig($httpClient, 'cacheItemPool'));
+    }
+
+    /**
+     * Each provider keeps its own, since `http_client_options` is per provider.
+     */
+    public function testEachProviderGetsItsOwnHttpClient(): void
+    {
+        $manager = $this->createManager([
+            'one' => $this->getBaseProviderConfig() + ['redirect_uri' => 'https://app.example.org/one'],
+            'two' => $this->getBaseProviderConfig() + ['redirect_uri' => 'https://app.example.org/two'],
+        ]);
+
+        $this->assertNotSame(
+            $manager->getProvider('one')->getHttpClient(),
+            $manager->getProvider('two')->getHttpClient()
+        );
     }
 
     /**

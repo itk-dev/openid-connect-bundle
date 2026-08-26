@@ -1,0 +1,26 @@
+{
+  "files": {
+    "src/ItkDevOpenIdConnectBundle.php": [
+      {
+        "message": "Mutation of state 'extension' in ItkDevOpenIdConnectBundle::getContainerExtension()",
+        "reason": "Symfony's own lazy init for a bundle's extension, inherited from Bundle. It runs while the container is compiled, not while a request is served, and the extension it stores is immutable."
+      }
+    ],
+    "src/Security/OpenIdConfigurationProviderManager.php": [
+      {
+        "message": "Mutation of state 'redirectUriPaths' in OpenIdConfigurationProviderManager::getRedirectUriPaths()",
+        "reason": "Paths derived from configuration and the routing context's base URL, cached under that base URL. Two requests sharing a key derive identical values, so nothing one request sees came from another, and the key set is bounded by the base URLs the application answers on. supports() consults this on every request through the firewall, which is why it is cached."
+      },
+      {
+        "message": "Mutation of state 'httpClients' in OpenIdConfigurationProviderManager::httpClient()",
+        "reason": "Guzzle clients, one per provider: fixed options from configuration plus a connection pool. Sharing them is the point, so that a token exchange reuses an open connection to the identity provider instead of renegotiating TLS. The provider built around the client is not shared; getProvider() returns a fresh one, pinned by testNoRequestStateSurvivesOnTheNextProvider()."
+      }
+    ],
+    "src/Security/OpenIdLoginAuthenticator.php": [
+      {
+        "message": "Mutation of state 'logger' in OpenIdLoginAuthenticator::setLogger()",
+        "reason": "Written once by the container at build time, through LoggerAwareInterface autoconfiguration. Never written while a request is served."
+      }
+    ]
+  }
+}

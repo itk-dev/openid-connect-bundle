@@ -15,6 +15,8 @@ Symfony bundle for authorization via OpenID Connect.
 >
 > ## Symfony Native OIDC Support
 >
+> Status as of August 2026.
+>
 > Since this bundle was created Symfony has added [support for OpenID Connect](https://symfony.com/blog/new-in-symfony-6-3-openid-connect-token-handler)
 > as documented in ["Using OpenID Connect (OIDC)"](https://symfony.com/doc/current/security/access_token.html#using-openid-connect-oidc).
 >
@@ -30,39 +32,60 @@ Symfony bundle for authorization via OpenID Connect.
 > * [JWE (encrypted token) support](https://github.com/symfony/symfony/pull/57721)
 >   was added in Symfony 7.3 for OIDC token handlers.
 >
-> However, Symfony's native OIDC support is designed for **stateless bearer
-> token validation** (the `access_token` authenticator) only. It validates tokens
-> that are already present on the request (e.g. in an `Authorization: Bearer`
-> header).
->
-> It does **not** implement the **authorization code flow** — the browser-based
+> Everything released so far is designed for **stateless bearer token
+> validation** (the `access_token` authenticator) only. It validates tokens that
+> are already present on the request (e.g. in an `Authorization: Bearer` header),
+> and does not implement the **authorization code flow** — the browser-based
 > login where the application redirects to the IdP, handles the callback with an
-> authorization code, exchanges it for tokens, and establishes a session. This
-> is tracked upstream in [symfony/symfony#50896](https://github.com/symfony/symfony/issues/50896).
+> authorization code, exchanges it for tokens, and establishes a session. That
+> gap is tracked in [symfony/symfony#50896](https://github.com/symfony/symfony/issues/50896).
 >
-> This means the following features of this bundle have no native Symfony
-> equivalent:
+> ### The authorization code flow is coming upstream
+>
+> A native `oidc_login` authenticator is being added in
+> [symfony/symfony#64954](https://github.com/symfony/symfony/pull/64954),
+> targeted at **Symfony 8.2 (November 2026)**. The pull request is in active
+> review and is being reworked into a feature-complete implementation covering
+> discovery, PKCE, configurable scopes and claims mapping, token-endpoint client
+> authentication, and RP-initiated logout. One review question is still open —
+> ID token signature verification, which this bundle's underlying library
+> already does.
+>
+> ### What this bundle still provides
 >
 > | Feature                        | This bundle | Symfony native |
 > |--------------------------------|:-----------:|:--------------:|
-> | Authorization code flow        | ✅          | ❌             |
-> | Session-based browser login    | ✅          | ❌             |
-> | Multiple named OIDC providers  | ✅          | ❌ ¹           |
+> | Authorization code flow        | ✅          | ⏳ ¹           |
+> | Session-based browser login    | ✅          | ⏳ ¹           |
+> | Multiple named OIDC providers  | ✅          | ❌ ²           |
 > | CLI login tokens               | ✅          | ❌             |
+> | Client secret expiry checks    | ✅          | ❌             |
 > | OIDC discovery                 | ✅          | ✅             |
 > | Bearer token validation (API)  | ❌          | ✅             |
 > | OAuth2 token introspection     | ❌          | ✅             |
 >
-> ¹ Symfony's `access_token` handler accepts multiple `issuers` for token
+> ¹ In review for Symfony 8.2, see above.
+>
+> ² Symfony's `access_token` handler accepts multiple `issuers` for token
 > validation, but this is not the same as this bundle's named provider model
 > with distinct client credentials, redirect URIs, and selectable login routes
 > per provider.
 >
-> If your application needs browser-based OIDC login, this bundle is still
-> required.
+> ### What this means for the bundle
+>
+> Long term we expect Symfony core to replace most of this bundle. It is not
+> there yet: multiple providers per firewall, CLI login and the client secret
+> expiry checks have no upstream equivalent, and our applications track Symfony
+> LTS releases.
+>
+> Until those gaps close the bundle remains fully supported. New features that
+> upstream will provide are frozen; security and compatibility fixes continue. A
+> deprecation will be announced here and in the [CHANGELOG](CHANGELOG.md) once a
+> migration path exists — realistically no earlier than 2028.
 
-Upgrading from an earlier major? See [UPGRADE-6.0.md](UPGRADE-6.0.md) and
-[UPGRADE-5.0.md](UPGRADE-5.0.md).
+Upgrading? See [UPGRADE-6.1.md](UPGRADE-6.1.md), and
+[UPGRADE-6.0.md](UPGRADE-6.0.md) / [UPGRADE-5.0.md](UPGRADE-5.0.md) if you are coming
+from an earlier major.
 
 ## Installation
 
@@ -136,6 +159,13 @@ itkdev_openid_connect:
         # Optional: Cache duration (seconds) for the OIDC discovery document and JWKS
         #           Defaults to 86400 (24 hours)
         cache_duration: '%env(int:ADMIN_OIDC_CACHE_DURATION)%'
+        # Optional: Send a PKCE challenge (RFC 7636, S256) with the authorization
+        #           request. Defaults to true. See "PKCE" below.
+        pkce: true
+        # Optional: Scopes to request. Defaults to openid, email, profile.
+        #           Must include openid. A space-separated string is accepted too,
+        #           so the value can come from an environment variable.
+        scopes: ['openid', 'email', 'profile']
         # Optional: Allow (non-secure) http requests (used for mocking a IdP). NOT RECOMMENDED FOR PRODUCTION.
         #           Defaults to false
         allow_http: '%env(bool:ADMIN_OIDC_ALLOW_HTTP)%'
@@ -649,8 +679,9 @@ class SomeAuthenticator extends OpenIdLoginAuthenticator
             // TODO: Implement authenticate() method.
             
         } catch (ItkOpenIdConnectException $exception) {
-            // Authentication failed
-            throw new CustomUserMessageAuthenticationException($exception->getMessage());
+            // Authentication failed. Chain the cause: the bundle reads it back in
+            // onAuthenticationFailure() to decide what the user is shown.
+            throw new CustomUserMessageAuthenticationException($exception->getMessage(), previous: $exception);
         }
     }
 
@@ -836,7 +867,7 @@ class AzureOIDCAuthenticator extends OpenIdLoginAuthenticator
 
             return new SelfValidatingPassport(new UserBadge($user->getUserIdentifier()));
         } catch (ItkOpenIdConnectException|InvalidProviderException $exception) {
-            throw new CustomUserMessageAuthenticationException($exception->getMessage());
+            throw new CustomUserMessageAuthenticationException($exception->getMessage(), previous: $exception);
         }
     }
 
@@ -859,6 +890,254 @@ class AzureOIDCAuthenticator extends OpenIdLoginAuthenticator
     }
 }
 ```
+
+### Scopes
+
+The authorization request asks for `openid`, `email` and `profile`. Set `scopes` per
+provider to ask for something else:
+
+```yaml
+openid_providers:
+  admin:
+    options:
+      scopes: ['openid', 'profile', 'groups']
+```
+
+`openid` must be among them — OpenID Connect Core 1.0 §3.1.2.1 defines an
+authentication request as one that asks for it, and without it the provider returns an
+OAuth2 grant with no ID token, which is the only thing this bundle can validate. A list
+missing it fails at compile time.
+
+A space-separated string is accepted and split, since an environment variable can only
+carry a scalar:
+
+```yaml
+      scopes: '%env(ADMIN_OIDC_SCOPES)%'   # ADMIN_OIDC_SCOPES=openid profile groups
+```
+
+### PKCE
+
+The bundle sends a PKCE challenge (RFC 7636, S256) with every authorization request.
+The login route generates a verifier, keeps it in the session, and sends only its
+SHA-256 challenge; the authenticator redeems the authorization code with the verifier.
+An intercepted code is then useless to whoever intercepted it, because they do not
+have the verifier.
+
+It is on by default and needs no configuration. RFC 6749 §3.1 requires an
+authorization server to ignore parameters it does not recognise, so an identity
+provider that has never heard of PKCE behaves exactly as it did before. Turn it off
+only for one that rejects the parameters outright:
+
+```yaml
+openid_providers:
+  legacy:
+    options:
+      pkce: false
+```
+
+The verifier lives in the session alongside the state and the nonce, and is consumed
+on every callback — success, failure or refusal — so it can never be redeemed against
+a code it does not belong to.
+
+### When the identity provider refuses
+
+A provider that will not issue a code redirects back to the callback with an `error`
+and no `code` — the user closed the consent screen, their session at the provider had
+expired, a tenant policy said no. The bundle recognises that callback, spends the
+one-time session values like any other, and throws `ProviderErrorException`.
+
+It extends `AuthenticationFailedException`, so anything already catching the bundle's
+login failure catches this too, and it implements Symfony's `HttpExceptionInterface`,
+so the kernel answers a refusal with **403** rather than a 500 — 503 where the
+provider reports its own trouble, 500 where the error says our request or
+registration is wrong. Nothing is required of the application to get that.
+
+The error code is an accessor, not something to search the message for:
+
+```php
+use ItkDev\OpenIdConnectBundle\Exception\ProviderErrorException;
+use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
+use Symfony\Component\HttpKernel\Event\ExceptionEvent;
+use Symfony\Component\HttpKernel\KernelEvents;
+
+#[AsEventListener(KernelEvents::EXCEPTION, priority: 1)]
+public function onLoginRefused(ExceptionEvent $event): void
+{
+    $exception = $event->getThrowable();
+
+    if (!$exception instanceof ProviderErrorException) {
+        return;
+    }
+
+    $template = ProviderErrorException::ACCESS_DENIED === $exception->getError()
+        ? 'security/login_cancelled.html.twig'
+        : 'security/login_failed.html.twig';
+
+    $event->setResponse(new Response(
+        $this->twig->render($template, ['error' => $exception->getError()]),
+        $exception->getStatusCode(),
+    ));
+}
+```
+
+`error` and `error_description` reach you sanitized — control characters collapsed,
+invalid UTF-8 dropped, capped at 200 characters — and neither is read at all until
+the callback's state matches, so a forged callback cannot put text in your logs or on
+your page. `getErrorDescription()` is whatever the provider sent, which may be
+nothing; it is a diagnostic, not a message to show a user.
+
+You can also pin the status and log level without writing a listener:
+
+```yaml
+framework:
+  exceptions:
+    ItkDev\OpenIdConnectBundle\Exception\ProviderErrorException:
+      log_level: info
+      status_code: 403
+```
+
+One thing is required of your authenticator: when `authenticate()` catches a bundle
+exception and raises Symfony's, **chain the cause** — `previous: $exception`, as the
+examples above do. The bundle reads it back to decide what the user is shown, and an
+unchained failure arrives as a plain 500 with the reason only in the message.
+
+If your application has its own listener that redirects 403 responses to a login
+page, exclude `ProviderErrorException` from it. Otherwise a refusal is sent straight
+back to the provider that refused it, which is the loop this handling exists to
+prevent.
+
+See [ADR 004](docs/adr/004-handle-provider-error-callbacks.md) for the reasoning.
+
+## Worker mode (FrankenPHP, Roadrunner)
+
+The bundle is safe to run under a worker runtime, where one process serves many
+requests and every service outlives the request that created it.
+
+No service in the bundle retains request data. State, nonce, PKCE verifier and claims
+live on the request or in the session, never on a collaborator, and every one-time
+session value is spent on the callback that uses it. `getProvider()` returns a fresh
+provider each call, because `league/oauth2-client` records the authorization request's
+`state` on the provider it builds.
+
+Three things are shared across requests on purpose:
+
+| What | Why it is safe |
+| --- | --- |
+| The Guzzle client, one per provider | Fixed options and a connection pool. Sharing it is the point: a token exchange reuses an open connection instead of renegotiating TLS. |
+| The derived callback paths | Computed from your configuration and the routing base URL, and cached under that base URL. Two requests sharing a key derive identical values. |
+| The authenticator's logger | Injected once by the container, never per request. |
+
+### What your authenticator must not do
+
+Your `OpenIdLoginAuthenticator` subclass is a shared service too. Its `authenticate()`
+and `onAuthenticationSuccess()` run once per request on the same object, so nothing
+belonging to a request may be assigned to a property:
+
+```php
+// Wrong: the next request through this process sees the previous user's claims.
+private array $claims;
+
+public function authenticate(Request $request): Passport
+{
+    $this->claims = $this->validateClaims($request);
+    // ...
+}
+```
+
+Pass the values down instead, or put them on the request's attributes. The same applies
+to a user provider, a claims mapper, or anything else you inject into the flow.
+
+### The firewall must be stateful
+
+The authorization code flow spans two requests, and the session is what ties them
+together. A firewall declared `stateless: true` throws `StatelessFirewallException`,
+naming the setting to remove.
+
+### How this is enforced
+
+CI runs [`igor-php`](https://github.com/igor-php/igor-php), a static analyser for
+worker-mode state leaks, on every pull request. The three values above are recorded in
+`igor-baseline.json`, each with a written reason for why sharing it is safe. Anything
+else that appears fails the build.
+
+If you audit your own application with it, expect the same shape of result: the tool
+reports shared mutable state, which is not the same thing as a leak. Judge each finding
+and record the safe ones with a reason rather than refactoring them away.
+
+## Local development against a mock identity provider
+
+Pointing a development environment at the real identity provider is usually
+impractical: it will not have your local hostname among its registered redirect URIs,
+and you may not want real accounts logging into a laptop. A mock provider gives you
+the whole authorization code flow locally, so the callback path, the claims mapping
+and the failure paths are exercised the way they will be in production.
+
+[`oidc-provider-mock`](https://github.com/geigerzaehler/oidc-provider-mock) needs no
+configuration file — users are given as repeated `--user-claims` flags, and it accepts
+any client id and secret. A service in an override file, so it never starts on a
+server:
+
+```yaml
+services:
+  idp:
+    image: ghcr.io/geigerzaehler/oidc-provider-mock:latest
+    networks: [app]
+    expose:
+      - "80"
+    command:
+      - "--port"
+      - "80"
+      - "--user-claims"
+      - '{"sub": "admin", "email": "admin@example.org", "name": "Admin Jensen", "groups": ["administrator"]}'
+      - "--user-claims"
+      - '{"sub": "editor", "email": "editor@example.org", "name": "Ed Editor", "groups": ["editor"]}'
+```
+
+At the login screen you pick which of those identities to be, which makes testing a
+role or a claim a matter of choosing a different subject.
+
+Point a provider at it in development-only configuration:
+
+```yaml
+# config/packages/dev/itkdev_openid_connect.yaml
+itkdev_openid_connect:
+  openid_providers:
+    admin:
+      options:
+        metadata_url: 'http://idp/.well-known/openid-configuration'
+        # Any values will do; the mock accepts whatever it is given.
+        client_id: 'client-id'
+        client_secret: 'client-secret'
+        redirect_uri: 'http://localhost:8080/openid-connect/callback'
+        # Required: the mock is reached over http between containers, and the
+        # bundle refuses plain http otherwise. Never set this in production.
+        allow_http: true
+```
+
+Two things to know:
+
+* **`allow_http: true` is mandatory here.** Traffic between containers is http, and
+  since `itk-dev/openid-connect` 5.1 the scheme check covers every endpoint the
+  discovery document announces, not only `metadata_url`. Keep it in development-only
+  configuration rather than driving it from an environment variable that could be set
+  wrong somewhere else.
+* **PKCE needs no special handling.** The mock accepts the challenge and the verifier,
+  so a login completes with the bundle's default. It does not advertise
+  `code_challenge_methods_supported`, so it is not checking the challenge — the round
+  trip is exercised, the protection is not. Set `pkce: false` only for a provider that
+  rejects the parameters outright rather than ignoring them.
+
+**Prefer a mock over turning security off in `dev`.** Disabling the firewall for the
+development environment is the tempting shortcut, and it means no OpenID Connect code
+path is exercised until it reaches a server: a broken callback path, a renamed claim
+or a login loop all stay invisible locally. It is also easy to forget, so the next
+person to debug an authentication problem loses an afternoon to a firewall that was
+never running.
+
+[deltag.aarhus.dk](https://github.com/itk-dev/deltag.aarhus.dk/blob/develop/docker-compose.oidc.yml)
+has a worked example, including two providers side by side.
+
+ITK Dev developers: the internal ITK Dev documentation covers the fuller setup.
 
 ## Sign in from command line
 
@@ -947,6 +1226,24 @@ to `infection.log` and `infection.html` on each run.
 ```shell
 task analyze
 ```
+
+### Worker Mode Analysis
+
+```shell
+task analyze:worker          # audit for state that leaks between requests
+task analyze:worker:check    # fail if the baseline lists findings that no longer occur
+task analyze:worker:baseline # regenerate the baseline after judging new findings
+```
+
+`igor-baseline.json` records the state this bundle shares on purpose, one written
+reason per entry. A new finding fails `task analyze:worker`: either make the code
+stateless, or add it to the baseline with a reason that says why sharing it is safe.
+Never add an entry without one.
+
+The analyser is a Go binary that the composer package downloads on first run. `task`
+pins the version, since Igor is pre-1.0 and its rules change between releases; bump
+`IGOR_VERSION` in `Taskfile.yml` and `.github/workflows/php.yaml` together, and
+regenerate the baseline when you do.
 
 ### Coding Standards
 

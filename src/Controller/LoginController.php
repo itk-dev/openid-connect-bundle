@@ -58,6 +58,11 @@ class LoginController extends AbstractController
         $nonce = $provider->generateNonce();
         $state = $provider->generateState();
 
+        // The verifier is kept, the challenge is sent. Only the holder of the
+        // verifier can redeem the code, which is what makes a code intercepted in
+        // transit useless to whoever intercepted it (RFC 7636).
+        $pkceVerifier = $this->providerManager->isPkceEnabled($providerKey) ? $provider->generatePkceVerifier() : null;
+
         $this->rememberNamedTargetPath($request, $session);
 
         // Save to session
@@ -65,13 +70,27 @@ class LoginController extends AbstractController
         $session->set('oauth2state', $state);
         $session->set('oauth2nonce', $nonce);
 
+        // Written on every login, null included. The key names the verifier for this
+        // login and nothing else: leaving an abandoned login's verifier in place
+        // would offer it up against a code it does not belong to.
+        $session->set('oauth2pkce_verifier', $pkceVerifier);
+
         try {
-            $authUrl = $provider->getAuthorizationUrl([
+            $options = [
                 'state' => $state,
                 'nonce' => $nonce,
                 'response_type' => 'code',
-                'scope' => 'openid email profile',
-            ]);
+                // Space-delimited, as RFC 6749 §3.3 defines the parameter.
+                'scope' => implode(' ', $this->providerManager->getScopes($providerKey)),
+            ];
+
+            if (null !== $pkceVerifier) {
+                // Passing a challenge is what turns PKCE on in the library; it adds
+                // code_challenge_method=S256 alongside.
+                $options['code_challenge'] = $provider->getPkceChallenge($pkceVerifier);
+            }
+
+            $authUrl = $provider->getAuthorizationUrl($options);
         } catch (OpenIdConnectExceptionInterface $e) {
             // Building the authorization URL fetches the IdP's discovery
             // document. Surface upstream/transport/cache failures as 503 with

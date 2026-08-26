@@ -10,6 +10,8 @@ use ItkDev\OpenIdConnectBundle\EventSubscriber\AuthenticationAuditSubscriber;
 use ItkDev\OpenIdConnectBundle\Exception\AuthenticationFailedException;
 use ItkDev\OpenIdConnectBundle\Exception\InvalidProviderException;
 use ItkDev\OpenIdConnectBundle\Exception\OpenIdConnectBundleExceptionInterface;
+use ItkDev\OpenIdConnectBundle\Exception\ProviderErrorException;
+use ItkDev\OpenIdConnectBundle\Exception\StatelessFirewallException;
 use ItkDev\OpenIdConnectBundle\Security\OpenIdConfigurationProviderManager;
 use ItkDev\OpenIdConnectBundle\Security\OpenIdLoginAuthenticator;
 use ItkDev\OpenIdConnectBundle\Tests\TestLogger;
@@ -17,6 +19,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LogLevel;
+use Symfony\Component\HttpFoundation\Exception\SessionNotFoundException;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Session\Session;
 use Symfony\Component\HttpFoundation\Session\SessionInterface;
@@ -150,6 +153,8 @@ class OpenIdLoginAuthenticatorTest extends TestCase
         yield 'neither' => [[]];
         yield 'state only' => [['state' => 'abcd']];
         yield 'code only' => [['code' => 'xyz']];
+        yield 'error only' => [['error' => 'access_denied']];
+        yield 'error and code, no state' => [['error' => 'access_denied', 'code' => 'xyz']];
     }
 
     #[DataProvider('incompleteCallbackProvider')]
@@ -158,6 +163,34 @@ class OpenIdLoginAuthenticatorTest extends TestCase
         $authenticator = $this->authenticatorWithPaths(['test_provider_1' => '/callback_uri']);
 
         $this->assertFalse($authenticator->supports(Request::create('/callback_uri?'.http_build_query($query))));
+    }
+
+    /**
+     * A refusal is a callback too, and the path is still what decides. RFC 6749
+     * §4.1.2.1 sends `error` with `state` and no `code`.
+     */
+    #[DataProvider('callbackPathProvider')]
+    public function testAnErrorCallbackIsAlsoACallback(string $path, bool $expected): void
+    {
+        $authenticator = $this->authenticatorWithPaths([
+            'test_provider_1' => '/callback_uri',
+            'test_provider_2' => '/other_callback',
+        ]);
+
+        $this->assertSame($expected, $authenticator->supports(Request::create($path.'?state=abcd&error=access_denied')));
+    }
+
+    /**
+     * The one that keeps the loop closed. A provider is entitled to send an empty
+     * `error`, and if that is not recognised as a callback the firewall answers it,
+     * the entry point mints a fresh state, and the next refusal comes back with a
+     * state that matches — a loop indistinguishable from a first attempt.
+     */
+    public function testAnEmptyErrorIsStillACallback(): void
+    {
+        $authenticator = $this->authenticatorWithPaths(['test_provider_1' => '/callback_uri']);
+
+        $this->assertTrue($authenticator->supports(Request::create('/callback_uri?state=abcd&error=')));
     }
 
     /**
@@ -503,17 +536,415 @@ class OpenIdLoginAuthenticatorTest extends TestCase
         $this->fail(sprintf('Expected ValidationException "%s"', $expectedMessage));
     }
 
-    private function setSessionOnRequest(Request $request, ?string $nonce = 'test_nonce'): void
+    public function testAProviderErrorIsReportedWithItsCode(): void
+    {
+        $request = new Request(query: [
+            'state' => 'test_state',
+            'error' => 'access_denied',
+            'error_description' => 'User cancelled',
+        ]);
+        $this->setSessionOnRequest($request);
+
+        try {
+            $this->authenticator->authenticate($request);
+        } catch (\Throwable $thrown) {
+            // ADR 002: nothing the security component will catch and answer with
+            // another trip to the identity provider. Asserted before the type is
+            // narrowed, or it holds statically and proves nothing.
+            $this->assertNotInstanceOf(AuthenticationException::class, $thrown);
+            $this->assertNull($thrown->getPrevious(), 'Nothing beneath it for the ExceptionListener to find');
+
+            $this->assertInstanceOf(ProviderErrorException::class, $thrown);
+            $this->assertSame('access_denied', $thrown->getError());
+            $this->assertSame('User cancelled', $thrown->getErrorDescription());
+
+            $record = $this->logger->singleRecord();
+            $this->assertSame(LogLevel::WARNING, $record['level'], 'A user who changed their mind is not an operator problem');
+            $this->assertStringContainsString('refused the request', $record['message']);
+            $this->assertSame('test_provider_1', $record['context']['provider'] ?? null);
+            $this->assertSame('access_denied', $record['context']['error'] ?? null);
+            $this->assertSame('User cancelled', $record['context']['error_description'] ?? null);
+
+            return;
+        }
+        $this->fail('Expected ProviderErrorException');
+    }
+
+    public function testAProviderErrorWithNoDescriptionReportsNull(): void
+    {
+        $request = new Request(query: ['state' => 'test_state', 'error' => 'access_denied']);
+        $this->setSessionOnRequest($request);
+
+        try {
+            $this->authenticator->authenticate($request);
+        } catch (ProviderErrorException $thrown) {
+            $this->assertNull($thrown->getErrorDescription());
+            $this->assertArrayHasKey('error_description', $this->logger->singleRecord()['context']);
+            $this->assertNull($this->logger->singleRecord()['context']['error_description']);
+
+            return;
+        }
+        $this->fail('Expected ProviderErrorException');
+    }
+
+    /**
+     * Constructing a provider pulls in discovery, an HTTP client and a cache pool.
+     * A refusal has no use for any of it.
+     */
+    public function testAProviderErrorNeverBuildsAProvider(): void
+    {
+        $mockManager = $this->createMock(OpenIdConfigurationProviderManager::class);
+        $mockManager->expects($this->never())->method('getProvider');
+
+        $authenticator = new TestAuthenticator($mockManager);
+        $authenticator->setLogger($this->logger);
+
+        $request = new Request(query: ['state' => 'test_state', 'error' => 'access_denied']);
+        $this->setSessionOnRequest($request);
+
+        $this->expectException(ProviderErrorException::class);
+        $authenticator->authenticate($request);
+    }
+
+    /**
+     * `error` and `error_description` are chosen by whoever built the callback URL.
+     * Until the state matches, nothing in it is known to belong to a login this
+     * browser started, so none of it is read, logged or repeated back.
+     */
+    public function testAForgedStateHidesTheProvidersErrorText(): void
+    {
+        $request = new Request(query: [
+            'state' => 'wrong_test_state',
+            'error' => 'access_denied',
+            'error_description' => "attacker\ntext",
+        ]);
+        $this->setSessionOnRequest($request);
+
+        try {
+            $this->authenticator->authenticate($request);
+        } catch (\Throwable $thrown) {
+            $this->assertNotInstanceOf(ProviderErrorException::class, $thrown);
+            $this->assertInstanceOf(ValidationException::class, $thrown);
+            $this->assertSame('Invalid state', $thrown->getMessage());
+
+            $record = $this->logger->singleRecord();
+            $this->assertSame(LogLevel::WARNING, $record['level']);
+            $this->assertStringContainsString('invalid state', $record['message']);
+
+            $logged = json_encode($this->logger->records);
+            $this->assertIsString($logged);
+            $this->assertStringNotContainsString('access_denied', $logged, 'Nothing the sender wrote reaches the log');
+            $this->assertStringNotContainsString('attacker', $logged);
+
+            return;
+        }
+        $this->fail('Expected ValidationException');
+    }
+
+    /**
+     * @return iterable<string, array{string, array<string, string>}>
+     */
+    public static function oneTimeConsumptionProvider(): iterable
+    {
+        yield 'provider error' => ['test_state', ['error' => 'access_denied']];
+        yield 'invalid state' => ['wrong_test_state', []];
+        yield 'missing code' => ['test_state', []];
+    }
+
+    /**
+     * A value left in the session is one a later request can replay, so a callback
+     * is spent whatever becomes of it.
+     *
+     * @param array<string, string> $extraQuery
+     */
+    #[DataProvider('oneTimeConsumptionProvider')]
+    public function testEveryOneTimeSessionValueIsConsumed(string $state, array $extraQuery): void
+    {
+        $request = new Request(query: ['state' => $state] + $extraQuery);
+        $session = $this->realSessionOnRequest($request);
+
+        try {
+            $this->authenticator->authenticate($request);
+        } catch (\Throwable) {
+            // The failure itself is asserted elsewhere; what matters here is what
+            // the session no longer holds.
+        }
+
+        $this->assertFalse($session->has('oauth2provider'));
+        $this->assertFalse($session->has('oauth2state'));
+        $this->assertFalse($session->has('oauth2nonce'));
+        $this->assertFalse($session->has('oauth2pkce_verifier'), 'A surviving verifier could be redeemed against a later code');
+    }
+
+    /**
+     * @return iterable<string, array{mixed}>
+     */
+    public static function unusableProviderErrorProvider(): iterable
+    {
+        yield 'empty' => [''];
+        yield 'an array' => [['access_denied']];
+        yield 'nothing but control characters' => ["\n\t"];
+        yield 'not valid UTF-8' => ["\xC3\x28"];
+    }
+
+    /**
+     * An `error` with nothing usable in it is not reported as a refusal — there
+     * would be nothing to report — but it still ends the callback rather than
+     * handing it back to the entry point.
+     */
+    #[DataProvider('unusableProviderErrorProvider')]
+    public function testAnUnusableProviderErrorFallsThroughToTheMissingCodeFailure(mixed $error): void
+    {
+        $request = new Request(query: ['state' => 'test_state', 'error' => $error]);
+        $this->setSessionOnRequest($request);
+
+        $this->expectException(ValidationException::class);
+        $this->expectExceptionMessage('Missing or invalid code');
+        $this->authenticator->authenticate($request);
+    }
+
+    public function testTheProvidersErrorTextIsCappedAndCleanedBeforeItIsLogged(): void
+    {
+        $request = new Request(query: [
+            'state' => 'test_state',
+            'error' => 'access_denied',
+            'error_description' => "line one\r\nline two\x1b[31m".str_repeat('a', 10000),
+        ]);
+        $this->setSessionOnRequest($request);
+
+        try {
+            $this->authenticator->authenticate($request);
+        } catch (ProviderErrorException $thrown) {
+            $logged = $this->logger->singleRecord()['context']['error_description'] ?? null;
+            $this->assertIsString($logged);
+            // Exact, not <=: an off-by-one in the cap has to fail here.
+            $this->assertSame(200, mb_strlen($logged));
+            $this->assertSame(0, preg_match('/[[:cntrl:]]/', $logged), 'No forged log records, no terminal escapes');
+            $this->assertStringContainsString('line one line two', $logged, 'A run of control characters reads as one space');
+            $this->assertSame($logged, $thrown->getErrorDescription(), 'One sanitized value, two consumers');
+
+            return;
+        }
+        $this->fail('Expected ProviderErrorException');
+    }
+
+    public function testCleanProviderTextIsPassedThroughUnchanged(): void
+    {
+        $request = new Request(query: [
+            'state' => 'test_state',
+            'error' => 'access_denied',
+            'error_description' => 'Consent was not granted',
+        ]);
+        $this->setSessionOnRequest($request);
+
+        try {
+            $this->authenticator->authenticate($request);
+        } catch (ProviderErrorException $thrown) {
+            $this->assertSame('Consent was not granted', $thrown->getErrorDescription());
+
+            return;
+        }
+        $this->fail('Expected ProviderErrorException');
+    }
+
+    /**
+     * `?state[]=x` makes `InputBag::get()` throw Symfony's `BadRequestException`.
+     * A method whose whole job is to end a callback cleanly is not where a
+     * framework exception should escape from.
+     */
+    public function testAnArrayStateIsRejectedAsAnInvalidState(): void
+    {
+        $request = new Request(query: ['state' => ['test_state'], 'code' => 'test_code']);
+        $this->setSessionOnRequest($request);
+
+        $this->expectException(ValidationException::class);
+        $this->expectExceptionMessage('Invalid state');
+        $this->authenticator->authenticate($request);
+    }
+
+    /**
+     * @return iterable<string, array{mixed}>
+     */
+    public static function unusableStoredStateProvider(): iterable
+    {
+        yield 'never stored' => [null];
+        yield 'stored empty' => [''];
+        yield 'not a string' => [['test_state']];
+    }
+
+    /**
+     * Without the guard, an empty stored state and an empty query state compare
+     * equal and the callback passes. The safety is local here, not emergent from
+     * whatever the controller happened to write.
+     */
+    #[DataProvider('unusableStoredStateProvider')]
+    public function testAnUnusableStoredStateIsAnInvalidState(mixed $stored): void
+    {
+        $request = new Request(query: ['state' => '', 'code' => 'test_code']);
+        $stubSession = $this->createStub(SessionInterface::class);
+        $stubSession->method('remove')->willReturnMap([
+            ['oauth2provider', 'test_provider_1'],
+            ['oauth2state', $stored],
+            ['oauth2nonce', 'test_nonce'],
+        ]);
+        $request->setSession($stubSession);
+
+        $this->expectException(ValidationException::class);
+        $this->expectExceptionMessage('Invalid state');
+        $this->authenticator->authenticate($request);
+    }
+
+    /**
+     * A refusal already says why, and in what terms the application should answer.
+     * Wrapping it would replace a 403 the user caused by clicking Cancel with a 500
+     * somebody gets paged for.
+     */
+    public function testTheProviderErrorLeavesOnAuthenticationFailureUnwrapped(): void
+    {
+        $providerError = new ProviderErrorException('access_denied');
+
+        try {
+            $this->authenticator->onAuthenticationFailure(
+                new Request(),
+                new AuthenticationException('sanitised', 0, $providerError),
+            );
+        } catch (\Throwable $thrown) {
+            $this->assertNotInstanceOf(AuthenticationException::class, $thrown);
+            // The SemVer promise: everything already catching the bundle's login
+            // failure keeps catching this one. Both asserted before assertSame()
+            // below narrows the type and makes them hold statically.
+            $this->assertInstanceOf(AuthenticationFailedException::class, $thrown);
+            $this->assertSame($providerError, $thrown, 'Rethrown as it stands, not rebuilt');
+            $this->assertSame(403, $thrown->getStatusCode());
+            $this->assertSame([], $this->logger->records, 'Already logged in validateClaims()');
+
+            return;
+        }
+        $this->fail('Expected ProviderErrorException');
+    }
+
+    /**
+     * Symfony dispatches `security.interactive_login` for an authenticator that says
+     * so, and keys remember-me off it.
+     */
+    public function testTheAuthenticatorIsInteractive(): void
+    {
+        $this->assertTrue($this->authenticator->isInteractive());
+    }
+
+    /**
+     * The flow spans two requests and the session is what ties them together, so a
+     * firewall with none can never complete a login. Named as the misconfiguration it
+     * is rather than surfacing Symfony's SessionNotFoundException as a 500.
+     */
+    public function testAStatelessFirewallIsNamedAsTheProblem(): void
+    {
+        // A Request with no session set is what a stateless firewall hands over.
+        $request = new Request(query: ['state' => 'test_state', 'code' => 'test_code']);
+
+        try {
+            $this->authenticator->authenticate($request);
+        } catch (StatelessFirewallException $thrown) {
+            $this->assertStringContainsString('stateless: true', $thrown->getMessage());
+            $this->assertInstanceOf(SessionNotFoundException::class, $thrown->getPrevious());
+
+            return;
+        }
+        $this->fail('Expected StatelessFirewallException');
+    }
+
+    public function testTheStoredVerifierIsSentWithTheTokenRequest(): void
+    {
+        $claims = new \stdClass();
+        $claims->email = 'test@example.org';
+
+        $mockProvider = $this->createMock(OpenIdConfigurationProvider::class);
+        $mockProvider
+            ->expects($this->once())
+            ->method('getIdToken')
+            ->with('test_code', 'test_verifier')
+            ->willReturn('an.id.token');
+        $mockProvider->method('validateIdToken')->willReturn($claims);
+        $this->stubProviderManager->method('getProvider')->willReturn($mockProvider);
+
+        $request = new Request(query: ['state' => 'test_state', 'code' => 'test_code']);
+        $this->setSessionOnRequest($request, pkceVerifier: 'test_verifier');
+
+        $this->authenticator->authenticate($request);
+    }
+
+    /**
+     * @return iterable<string, array{mixed}>
+     */
+    public static function absentVerifierProvider(): iterable
+    {
+        // PKCE off for this provider, or a callback from a login that began before
+        // the verifier was ever stored.
+        yield 'never stored' => [null];
+        // Nothing writes a non-string, but the session is shared with the application.
+        yield 'not a string' => [['test_verifier']];
+    }
+
+    /**
+     * Without a verifier the token request goes out without a `code_verifier`, which
+     * is what the identity provider expects when it was sent no challenge.
+     */
+    #[DataProvider('absentVerifierProvider')]
+    public function testNoVerifierMeansNoCodeVerifier(mixed $stored): void
+    {
+        $claims = new \stdClass();
+        $claims->email = 'test@example.org';
+
+        $mockProvider = $this->createMock(OpenIdConfigurationProvider::class);
+        $mockProvider
+            ->expects($this->once())
+            ->method('getIdToken')
+            ->with('test_code', null)
+            ->willReturn('an.id.token');
+        $mockProvider->method('validateIdToken')->willReturn($claims);
+        $this->stubProviderManager->method('getProvider')->willReturn($mockProvider);
+
+        $request = new Request(query: ['state' => 'test_state', 'code' => 'test_code']);
+        $stubSession = $this->createStub(SessionInterface::class);
+        $stubSession->method('remove')->willReturnMap([
+            ['oauth2provider', 'test_provider_1'],
+            ['oauth2state', 'test_state'],
+            ['oauth2nonce', 'test_nonce'],
+            ['oauth2pkce_verifier', $stored],
+        ]);
+        $request->setSession($stubSession);
+
+        $this->authenticator->authenticate($request);
+    }
+
+    private function setSessionOnRequest(Request $request, ?string $nonce = 'test_nonce', ?string $pkceVerifier = null): void
     {
         $stubSession = $this->createStub(SessionInterface::class);
         $map = [
             ['oauth2provider', 'test_provider_1'],
             ['oauth2state', 'test_state'],
             ['oauth2nonce', $nonce],
+            ['oauth2pkce_verifier', $pkceVerifier],
         ];
         $stubSession->method('remove')->willReturnMap($map);
 
         $request->setSession($stubSession);
+    }
+
+    /**
+     * A real session where the stub above will not do: asserting that a one-time
+     * value is gone needs a `has()` that answers truthfully.
+     */
+    private function realSessionOnRequest(Request $request): Session
+    {
+        $session = new Session(new MockArraySessionStorage());
+        $session->set('oauth2provider', 'test_provider_1');
+        $session->set('oauth2state', 'test_state');
+        $session->set('oauth2nonce', 'test_nonce');
+        $session->set('oauth2pkce_verifier', 'test_verifier');
+        $request->setSession($session);
+
+        return $session;
     }
 
     /**

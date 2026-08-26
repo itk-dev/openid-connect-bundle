@@ -158,10 +158,56 @@ class Configuration implements ConfigurationInterface
                                     ->integerNode('leeway')
                                         ->info('Leeway in seconds to account for clock skew between server and provider')
                                         ->defaultValue(10)
+                                        // A window, so zero means no window. A negative one is
+                                        // rejected here rather than at the first login it breaks.
+                                        ->min(0)
                                     ->end()
                                     ->integerNode('cache_duration')
                                         ->info('Cache duration in seconds for the OIDC discovery document and JWKS (default: 86400 — 24 hours)')
                                         ->defaultValue(86400)
+                                        // Zero fetches the discovery document every time, which is
+                                        // wasteful but coherent. A negative lifetime is not.
+                                        ->min(0)
+                                    ->end()
+                                    ->arrayNode('scopes')
+                                        ->info('Scopes requested from the identity provider (default: openid, email, profile)')
+                                        ->scalarPrototype()->end()
+                                        ->defaultValue(['openid', 'email', 'profile'])
+                                        ->requiresAtLeastOneElement()
+                                        // Accept a space-separated string so the list can come from
+                                        // an environment variable, which can only carry a scalar.
+                                        ->beforeNormalization()
+                                            ->ifString()
+                                            ->then(static function (string $scopes): array {
+                                                // NO_EMPTY drops the empty strings a
+                                                // leading or trailing space produces,
+                                                // so surrounding whitespace needs no
+                                                // separate trim.
+                                                $split = preg_split('/\s+/', $scopes, -1, PREG_SPLIT_NO_EMPTY);
+
+                                                // preg_split only fails on a malformed
+                                                // pattern; this one is a literal. An
+                                                // empty list is caught below.
+                                                return false === $split ? [] : $split;
+                                            })
+                                        ->end()
+                                        ->validate()
+                                            // OpenID Connect Core 1.0 §3.1.2.1: an authentication
+                                            // request is one that asks for `openid`. Without it the
+                                            // provider answers with a plain OAuth2 grant and no ID
+                                            // token, and every check this bundle makes needs one.
+                                            ->ifTrue(static fn (array $scopes): bool => !in_array('openid', $scopes, true))
+                                            ->thenInvalid('scopes must include openid: without it the provider returns no ID token.')
+                                        ->end()
+                                    ->end()
+                                    ->booleanNode('pkce')
+                                        // On by default: RFC 6749 §3.1 requires an authorization
+                                        // server to ignore parameters it does not recognise, so a
+                                        // challenge costs nothing at an identity provider that does
+                                        // not support PKCE. Turn it off for one that rejects
+                                        // unknown parameters outright.
+                                        ->info('Send a PKCE challenge (RFC 7636, S256) with the authorization request')
+                                        ->defaultTrue()
                                     ->end()
                                     ->scalarNode('redirect_uri')
                                         ->info('Redirect URI registered at identity provider')

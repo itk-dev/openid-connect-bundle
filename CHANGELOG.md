@@ -7,6 +7,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.1.0] - 2026-08-26
+
+See [UPGRADE-6.1.md](UPGRADE-6.1.md). Nothing is required of a consumer.
+
+### Added
+
+- PKCE (RFC 7636, S256) on every authorization request. The verifier is kept in the
+  session under `oauth2pkce_verifier`. `pkce: false` per provider turns it off.
+- `scopes` per provider, defaulting to `openid`, `email` and `profile`. Accepts a list
+  or a space-separated string, and must include `openid`.
+- `ProviderErrorException`, thrown when the identity provider refuses the authorization
+  request (RFC 6749 §4.1.2.1). Extends `AuthenticationFailedException` and carries
+  `getError()`, `getErrorDescription()` and `getStatusCode()`. See
+  [ADR 004](docs/adr/004-handle-provider-error-callbacks.md).
+- `StatelessFirewallException`, thrown when the authenticator is used on a firewall
+  declared `stateless: true`.
+- `OpenIdConfigurationProviderManager::isPkceEnabled()` and `getScopes()`.
+- README sections on developing against a mock identity provider and on running under
+  a worker runtime.
+- A worker-mode CI gate ([Igor](https://github.com/igor-php/igor-php)) with
+  `igor-baseline.json`. `task analyze:worker` runs it locally.
+
+### Fixed
+
+- A callback carrying `error` and no `code` is recognised, so a refused login ends in
+  an error page instead of another authorization request (#63 shape, seen against
+  Azure AD B2C).
+
+### Changed
+
+- Requires `itk-dev/openid-connect` `^5.1`, which enforces `allowHttp` on every
+  discovered endpoint, requires `exp` and `iat` on the ID token, and changes the JWKS
+  cache key.
+- A refused login answers 403, or 503 where the provider reports its own trouble and
+  500 otherwise. Other callback failures still answer 500.
+- `error` and `error_description` are sanitized before they are logged or held, and are
+  not read until the callback's state matches.
+- `oauth2provider`, `oauth2state`, `oauth2nonce` and `oauth2pkce_verifier` are consumed
+  on every callback.
+- The stored state is compared with `hash_equals()`; an empty or missing one is
+  rejected explicitly.
+- `getProvider()` returns a fresh provider on every call. The HTTP client is cached per
+  provider instead, so connections are still reused.
+- `OpenIdLoginAuthenticator` implements `InteractiveAuthenticatorInterface`, so a
+  completed login dispatches `security.interactive_login`.
+- `leeway` and `cache_duration` reject negative values while the container compiles.
+- A callback whose state does not match is reported as an invalid state even when its
+  provider key is no longer configured.
+
 ## [6.0.0] - 2026-08-25
 
 See [UPGRADE-6.0.md](UPGRADE-6.0.md).
@@ -328,6 +377,7 @@ See [UPGRADE-6.0.md](UPGRADE-6.0.md).
 - OpenId Connect Bundle: Added CLI login feature.
 
 [unreleased]: https://github.com/itk-dev/openid-connect-bundle/compare/6.0.0...HEAD
+[6.1.0]: https://github.com/itk-dev/openid-connect-bundle/compare/6.0.0...6.1.0
 [6.0.0]: https://github.com/itk-dev/openid-connect-bundle/compare/5.1.1...6.0.0
 [5.1.1]: https://github.com/itk-dev/openid-connect-bundle/compare/5.1.0...5.1.1
 [5.1.0]: https://github.com/itk-dev/openid-connect-bundle/compare/5.0.0...5.1.0
