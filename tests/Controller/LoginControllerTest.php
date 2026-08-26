@@ -174,6 +174,24 @@ class LoginControllerTest extends TestCase
         $this->assertNull($session->get('oauth2pkce_verifier'));
     }
 
+    public function testConfiguredScopesReachTheAuthorizationRequest(): void
+    {
+        $mockProvider = $this->createMock(OpenIdConfigurationProvider::class);
+        $mockProvider->method('generateNonce')->willReturn('1234');
+        $mockProvider->method('generateState')->willReturn('abcd');
+        $mockProvider
+            ->expects($this->once())
+            ->method('getAuthorizationUrl')
+            ->with($this->callback(
+                static fn (array $options): bool => 'openid profile groups' === ($options['scope'] ?? null)
+            ))
+            ->willReturn('https://provider.example.org/authorize');
+
+        $controller = $this->createController($mockProvider, scopes: ['openid', 'profile', 'groups']);
+
+        $controller->login(new Request(), new Session(new MockArraySessionStorage()), 'test');
+    }
+
     public function testUnknownProviderKeyMapsTo404(): void
     {
         $cause = new InvalidProviderException('Invalid provider: bogus');
@@ -339,7 +357,10 @@ class LoginControllerTest extends TestCase
         $this->fail('Expected NotFoundHttpException');
     }
 
-    private function createController(OpenIdConfigurationProvider $provider, ?ClientSecretExpiryChecker $expiryChecker = null, bool $pkce = false): LoginController
+    /**
+     * @param string[] $scopes
+     */
+    private function createController(OpenIdConfigurationProvider $provider, ?ClientSecretExpiryChecker $expiryChecker = null, bool $pkce = false, array $scopes = ['openid', 'email', 'profile']): LoginController
     {
         $mockProviderManager = $this->createMock(OpenIdConfigurationProviderManager::class);
         $mockProviderManager
@@ -351,6 +372,10 @@ class LoginControllerTest extends TestCase
             ->method('isPkceEnabled')
             ->with('test')
             ->willReturn($pkce);
+        $mockProviderManager
+            ->method('getScopes')
+            ->with('test')
+            ->willReturn($scopes);
 
         return new LoginController($mockProviderManager, $this->logger, $expiryChecker ?? $this->createExpiryChecker());
     }

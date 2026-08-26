@@ -11,6 +11,7 @@ use ItkDev\OpenIdConnectBundle\Exception\AuthenticationFailedException;
 use ItkDev\OpenIdConnectBundle\Exception\InvalidProviderException;
 use ItkDev\OpenIdConnectBundle\Exception\OpenIdConnectBundleExceptionInterface;
 use ItkDev\OpenIdConnectBundle\Exception\ProviderErrorException;
+use ItkDev\OpenIdConnectBundle\Exception\StatelessFirewallException;
 use ItkDev\OpenIdConnectBundle\Security\OpenIdConfigurationProviderManager;
 use ItkDev\OpenIdConnectBundle\Security\OpenIdLoginAuthenticator;
 use ItkDev\OpenIdConnectBundle\Tests\TestLogger;
@@ -18,6 +19,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LogLevel;
+use Symfony\Component\HttpFoundation\Exception\SessionNotFoundException;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Session\Session;
 use Symfony\Component\HttpFoundation\Session\SessionInterface;
@@ -819,6 +821,36 @@ class OpenIdLoginAuthenticatorTest extends TestCase
             return;
         }
         $this->fail('Expected ProviderErrorException');
+    }
+
+    /**
+     * Symfony dispatches `security.interactive_login` for an authenticator that says
+     * so, and keys remember-me off it.
+     */
+    public function testTheAuthenticatorIsInteractive(): void
+    {
+        $this->assertTrue($this->authenticator->isInteractive());
+    }
+
+    /**
+     * The flow spans two requests and the session is what ties them together, so a
+     * firewall with none can never complete a login. Named as the misconfiguration it
+     * is rather than surfacing Symfony's SessionNotFoundException as a 500.
+     */
+    public function testAStatelessFirewallIsNamedAsTheProblem(): void
+    {
+        // A Request with no session set is what a stateless firewall hands over.
+        $request = new Request(query: ['state' => 'test_state', 'code' => 'test_code']);
+
+        try {
+            $this->authenticator->authenticate($request);
+        } catch (StatelessFirewallException $thrown) {
+            $this->assertStringContainsString('stateless: true', $thrown->getMessage());
+            $this->assertInstanceOf(SessionNotFoundException::class, $thrown->getPrevious());
+
+            return;
+        }
+        $this->fail('Expected StatelessFirewallException');
     }
 
     public function testTheStoredVerifierIsSentWithTheTokenRequest(): void

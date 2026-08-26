@@ -51,6 +51,7 @@ class OpenIdConfigurationProviderManager
      *         leeway?: int,
      *         cache_duration?: int,
      *         pkce?: bool,
+     *         scopes?: string[],
      *         allow_http?: bool,
      *         http_client_options?: array{
      *             timeout?: float,
@@ -74,6 +75,22 @@ class OpenIdConfigurationProviderManager
     public function getProviderKeys(): array
     {
         return array_keys($this->config['providers']);
+    }
+
+    /**
+     * The scopes this provider's authorization request asks for.
+     *
+     * Read from configuration, like the callback paths: the caller needs the answer
+     * before it has any use for a provider.
+     *
+     * An unconfigured key answers the same default the config tree applies, keeping
+     * one rule in two places from drifting apart.
+     *
+     * @return string[]
+     */
+    public function getScopes(string $providerKey): array
+    {
+        return $this->config['providers'][$providerKey]['scopes'] ?? ['openid', 'email', 'profile'];
     }
 
     /**

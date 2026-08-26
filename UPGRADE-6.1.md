@@ -76,6 +76,16 @@ The verifier is kept in the session under `oauth2pkce_verifier`. If your applica
 clears or rewrites the session between the login redirect and the callback, it must
 preserve that key alongside `oauth2state` and `oauth2nonce`.
 
+## A stateless firewall is now named as such
+
+Putting the OpenID Connect authenticator on a firewall declared `stateless: true`
+throws `StatelessFirewallException`, naming the setting to remove. It used to surface
+as Symfony's `SessionNotFoundException` and an unexplained 500.
+
+The flow spans two requests and the session is where the state, nonce and PKCE
+verifier wait, so such a firewall could never complete a login. Nothing that worked
+before stops working.
+
 ## The library requires 5.1
 
 `itk-dev/openid-connect` `^5.1` comes with this release. Three of its changes affect
@@ -94,6 +104,11 @@ reused.
 
 Nothing to do unless you held the returned provider and relied on getting the same
 object back.
+
+## Optional: scopes are configurable
+
+The authorization request still asks for `openid`, `email` and `profile`. Set `scopes`
+per provider to change that; `openid` must remain among them.
 
 See [ADR 004](docs/adr/004-handle-provider-error-callbacks.md) for the reasoning behind
 the error-callback handling, and [CHANGELOG.md](CHANGELOG.md) for the rest of the
