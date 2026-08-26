@@ -8,6 +8,7 @@ use ItkDev\OpenIdConnectBundle\Exception\AuthenticationFailedException;
 use ItkDev\OpenIdConnectBundle\Exception\CacheException;
 use ItkDev\OpenIdConnectBundle\Exception\InvalidProviderException;
 use ItkDev\OpenIdConnectBundle\Exception\OpenIdConnectBundleExceptionInterface;
+use ItkDev\OpenIdConnectBundle\Exception\ProviderErrorException;
 use ItkDev\OpenIdConnectBundle\Exception\TokenNotFoundException;
 use ItkDev\OpenIdConnectBundle\Exception\UsernameDoesNotExistException;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -41,6 +42,29 @@ class ExceptionHierarchyTest extends TestCase
         yield 'CacheException' => [CacheException::class, \RuntimeException::class];
         yield 'TokenNotFoundException' => [TokenNotFoundException::class, \RuntimeException::class];
         yield 'AuthenticationFailedException' => [AuthenticationFailedException::class, \RuntimeException::class];
+        yield 'ProviderErrorException' => [ProviderErrorException::class, \RuntimeException::class];
+    }
+
+    /**
+     * A new concrete extends an existing one so that every `catch` already written
+     * against the older type keeps matching it — the SemVer commitment that lets a
+     * subtype ship in a minor.
+     *
+     * @return iterable<string, array{class-string<\Throwable>, class-string<\Throwable>}>
+     */
+    public static function subtypeProvider(): iterable
+    {
+        yield 'ProviderErrorException' => [ProviderErrorException::class, AuthenticationFailedException::class];
+    }
+
+    /**
+     * @param class-string<\Throwable> $concrete
+     * @param class-string<\Throwable> $existing
+     */
+    #[DataProvider('subtypeProvider')]
+    public function testANewSubtypeExtendsAnExistingConcrete(string $concrete, string $existing): void
+    {
+        $this->assertInstanceOf($existing, new $concrete('test'));
     }
 
     /**

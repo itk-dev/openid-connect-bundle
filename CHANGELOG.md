@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `ProviderErrorException`, thrown when the identity provider refuses the authorization
+  request (RFC 6749 §4.1.2.1). It extends `AuthenticationFailedException`, so existing
+  `catch` blocks keep matching, and carries `getError()`, `getErrorDescription()` and
+  `getStatusCode()`. See [ADR 004](docs/adr/004-handle-provider-error-callbacks.md).
+
+### Fixed
+
+- A provider error callback no longer loops between the application and the identity
+  provider. `supports()` accepts a callback carrying `state` and either `code` or
+  `error`, so a refusal — a cancelled consent screen, an expired provider session, a
+  tenant policy — ends in a page that says so instead of another authorization request.
+  Observed against Azure AD B2C.
+
+### Changed
+
+- A refused login is answered with the status that matches its cause: 403 where the
+  user or a policy declined, 503 where the provider reports its own trouble, 500
+  otherwise. Other callback failures are unchanged and still surface as 500.
+- `error` and `error_description` are sanitized before they are logged or held —
+  control characters collapsed, invalid UTF-8 dropped, capped at 200 characters — and
+  neither is read at all until the callback's state matches.
+- `oauth2provider`, `oauth2state` and `oauth2nonce` are consumed on every callback,
+  including one carrying a provider error.
+- The stored state is compared with `hash_equals()`, and an empty or missing stored
+  state is rejected explicitly rather than by comparison.
+- A callback naming a provider that is not configured is now reported as an invalid
+  state at `warning` when its state does not match, rather than as an unconfigured
+  provider at `error`: the provider is built after the state check, not before it.
+
 ## [6.0.0] - 2026-08-25
 
 See [UPGRADE-6.0.md](UPGRADE-6.0.md).

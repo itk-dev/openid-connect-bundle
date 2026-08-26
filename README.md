@@ -83,8 +83,9 @@ Symfony bundle for authorization via OpenID Connect.
 > deprecation will be announced here and in the [CHANGELOG](CHANGELOG.md) once a
 > migration path exists — realistically no earlier than 2028.
 
-Upgrading from an earlier major? See [UPGRADE-6.0.md](UPGRADE-6.0.md) and
-[UPGRADE-5.0.md](UPGRADE-5.0.md).
+Upgrading? See [UPGRADE-6.1.md](UPGRADE-6.1.md), and
+[UPGRADE-6.0.md](UPGRADE-6.0.md) / [UPGRADE-5.0.md](UPGRADE-5.0.md) if you are coming
+from an earlier major.
 
 ## Installation
 
@@ -671,8 +672,9 @@ class SomeAuthenticator extends OpenIdLoginAuthenticator
             // TODO: Implement authenticate() method.
             
         } catch (ItkOpenIdConnectException $exception) {
-            // Authentication failed
-            throw new CustomUserMessageAuthenticationException($exception->getMessage());
+            // Authentication failed. Chain the cause: the bundle reads it back in
+            // onAuthenticationFailure() to decide what the user is shown.
+            throw new CustomUserMessageAuthenticationException($exception->getMessage(), previous: $exception);
         }
     }
 
@@ -858,7 +860,7 @@ class AzureOIDCAuthenticator extends OpenIdLoginAuthenticator
 
             return new SelfValidatingPassport(new UserBadge($user->getUserIdentifier()));
         } catch (ItkOpenIdConnectException|InvalidProviderException $exception) {
-            throw new CustomUserMessageAuthenticationException($exception->getMessage());
+            throw new CustomUserMessageAuthenticationException($exception->getMessage(), previous: $exception);
         }
     }
 
@@ -881,6 +883,75 @@ class AzureOIDCAuthenticator extends OpenIdLoginAuthenticator
     }
 }
 ```
+
+### When the identity provider refuses
+
+A provider that will not issue a code redirects back to the callback with an `error`
+and no `code` — the user closed the consent screen, their session at the provider had
+expired, a tenant policy said no. The bundle recognises that callback, spends the
+one-time session values like any other, and throws `ProviderErrorException`.
+
+It extends `AuthenticationFailedException`, so anything already catching the bundle's
+login failure catches this too, and it implements Symfony's `HttpExceptionInterface`,
+so the kernel answers a refusal with **403** rather than a 500 — 503 where the
+provider reports its own trouble, 500 where the error says our request or
+registration is wrong. Nothing is required of the application to get that.
+
+The error code is an accessor, not something to search the message for:
+
+```php
+use ItkDev\OpenIdConnectBundle\Exception\ProviderErrorException;
+use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
+use Symfony\Component\HttpKernel\Event\ExceptionEvent;
+use Symfony\Component\HttpKernel\KernelEvents;
+
+#[AsEventListener(KernelEvents::EXCEPTION, priority: 1)]
+public function onLoginRefused(ExceptionEvent $event): void
+{
+    $exception = $event->getThrowable();
+
+    if (!$exception instanceof ProviderErrorException) {
+        return;
+    }
+
+    $template = ProviderErrorException::ACCESS_DENIED === $exception->getError()
+        ? 'security/login_cancelled.html.twig'
+        : 'security/login_failed.html.twig';
+
+    $event->setResponse(new Response(
+        $this->twig->render($template, ['error' => $exception->getError()]),
+        $exception->getStatusCode(),
+    ));
+}
+```
+
+`error` and `error_description` reach you sanitized — control characters collapsed,
+invalid UTF-8 dropped, capped at 200 characters — and neither is read at all until
+the callback's state matches, so a forged callback cannot put text in your logs or on
+your page. `getErrorDescription()` is whatever the provider sent, which may be
+nothing; it is a diagnostic, not a message to show a user.
+
+You can also pin the status and log level without writing a listener:
+
+```yaml
+framework:
+  exceptions:
+    ItkDev\OpenIdConnectBundle\Exception\ProviderErrorException:
+      log_level: info
+      status_code: 403
+```
+
+One thing is required of your authenticator: when `authenticate()` catches a bundle
+exception and raises Symfony's, **chain the cause** — `previous: $exception`, as the
+examples above do. The bundle reads it back to decide what the user is shown, and an
+unchained failure arrives as a plain 500 with the reason only in the message.
+
+If your application has its own listener that redirects 403 responses to a login
+page, exclude `ProviderErrorException` from it. Otherwise a refusal is sent straight
+back to the provider that refused it, which is the loop this handling exists to
+prevent.
+
+See [ADR 004](docs/adr/004-handle-provider-error-callbacks.md) for the reasoning.
 
 ## Sign in from command line
 
