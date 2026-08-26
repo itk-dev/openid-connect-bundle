@@ -1008,6 +1008,58 @@ prevent.
 
 See [ADR 004](docs/adr/004-handle-provider-error-callbacks.md) for the reasoning.
 
+## Worker mode (FrankenPHP, Roadrunner)
+
+The bundle is safe to run under a worker runtime, where one process serves many
+requests and every service outlives the request that created it.
+
+No service in the bundle retains request data. State, nonce, PKCE verifier and claims
+live on the request or in the session, never on a collaborator, and every one-time
+session value is spent on the callback that uses it. `getProvider()` returns a fresh
+provider each call, because `league/oauth2-client` records the authorization request's
+`state` on the provider it builds.
+
+Three things are shared across requests on purpose:
+
+| What | Why it is safe |
+| --- | --- |
+| The Guzzle client, one per provider | Fixed options and a connection pool. Sharing it is the point: a token exchange reuses an open connection instead of renegotiating TLS. |
+| The derived callback paths | Computed from your configuration and the routing base URL, and cached under that base URL. Two requests sharing a key derive identical values. |
+| The authenticator's logger | Injected once by the container, never per request. |
+
+### What your authenticator must not do
+
+Your `OpenIdLoginAuthenticator` subclass is a shared service too. Its `authenticate()`
+and `onAuthenticationSuccess()` run once per request on the same object, so nothing
+belonging to a request may be assigned to a property:
+
+```php
+// Wrong: the next request through this process sees the previous user's claims.
+private array $claims;
+
+public function authenticate(Request $request): Passport
+{
+    $this->claims = $this->validateClaims($request);
+    // ...
+}
+```
+
+Pass the values down instead, or put them on the request's attributes. The same applies
+to a user provider, a claims mapper, or anything else you inject into the flow.
+
+### The firewall must be stateful
+
+The authorization code flow spans two requests, and the session is what ties them
+together. A firewall declared `stateless: true` throws `StatelessFirewallException`,
+naming the setting to remove.
+
+### If you audit this yourself
+
+[`igor-php`](https://github.com/igor-php/igor-php) is a static analyser for worker-mode
+state leaks. Pointed at this bundle's `src/` it reports the three shared values in the
+table above and nothing else — they are shared deliberately, so record them in an
+`igor-baseline.json` with a reason rather than refactoring them away.
+
 ## Sign in from command line
 
 Rather than signing in via OpenId Connect, you can get a sign in url from the
