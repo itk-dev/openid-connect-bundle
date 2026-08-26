@@ -163,6 +163,15 @@ class Configuration implements ConfigurationInterface
                                         ->info('Cache duration in seconds for the OIDC discovery document and JWKS (default: 86400 — 24 hours)')
                                         ->defaultValue(86400)
                                     ->end()
+                                    ->booleanNode('pkce')
+                                        // On by default: RFC 6749 §3.1 requires an authorization
+                                        // server to ignore parameters it does not recognise, so a
+                                        // challenge costs nothing at an identity provider that does
+                                        // not support PKCE. Turn it off for one that rejects
+                                        // unknown parameters outright.
+                                        ->info('Send a PKCE challenge (RFC 7636, S256) with the authorization request')
+                                        ->defaultTrue()
+                                    ->end()
                                     ->scalarNode('redirect_uri')
                                         ->info('Redirect URI registered at identity provider')
                                         ->cannotBeEmpty()

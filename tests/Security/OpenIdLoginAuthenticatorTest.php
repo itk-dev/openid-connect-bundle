@@ -671,6 +671,7 @@ class OpenIdLoginAuthenticatorTest extends TestCase
         $this->assertFalse($session->has('oauth2provider'));
         $this->assertFalse($session->has('oauth2state'));
         $this->assertFalse($session->has('oauth2nonce'));
+        $this->assertFalse($session->has('oauth2pkce_verifier'), 'A surviving verifier could be redeemed against a later code');
     }
 
     /**
@@ -820,13 +821,78 @@ class OpenIdLoginAuthenticatorTest extends TestCase
         $this->fail('Expected ProviderErrorException');
     }
 
-    private function setSessionOnRequest(Request $request, ?string $nonce = 'test_nonce'): void
+    public function testTheStoredVerifierIsSentWithTheTokenRequest(): void
+    {
+        $claims = new \stdClass();
+        $claims->email = 'test@example.org';
+
+        $mockProvider = $this->createMock(OpenIdConfigurationProvider::class);
+        $mockProvider
+            ->expects($this->once())
+            ->method('getIdToken')
+            ->with('test_code', 'test_verifier')
+            ->willReturn('an.id.token');
+        $mockProvider->method('validateIdToken')->willReturn($claims);
+        $this->stubProviderManager->method('getProvider')->willReturn($mockProvider);
+
+        $request = new Request(query: ['state' => 'test_state', 'code' => 'test_code']);
+        $this->setSessionOnRequest($request, pkceVerifier: 'test_verifier');
+
+        $this->authenticator->authenticate($request);
+    }
+
+    /**
+     * @return iterable<string, array{mixed}>
+     */
+    public static function absentVerifierProvider(): iterable
+    {
+        // PKCE off for this provider, or a callback from a login that began before
+        // the verifier was ever stored.
+        yield 'never stored' => [null];
+        // Nothing writes a non-string, but the session is shared with the application.
+        yield 'not a string' => [['test_verifier']];
+    }
+
+    /**
+     * Without a verifier the token request goes out without a `code_verifier`, which
+     * is what the identity provider expects when it was sent no challenge.
+     */
+    #[DataProvider('absentVerifierProvider')]
+    public function testNoVerifierMeansNoCodeVerifier(mixed $stored): void
+    {
+        $claims = new \stdClass();
+        $claims->email = 'test@example.org';
+
+        $mockProvider = $this->createMock(OpenIdConfigurationProvider::class);
+        $mockProvider
+            ->expects($this->once())
+            ->method('getIdToken')
+            ->with('test_code', null)
+            ->willReturn('an.id.token');
+        $mockProvider->method('validateIdToken')->willReturn($claims);
+        $this->stubProviderManager->method('getProvider')->willReturn($mockProvider);
+
+        $request = new Request(query: ['state' => 'test_state', 'code' => 'test_code']);
+        $stubSession = $this->createStub(SessionInterface::class);
+        $stubSession->method('remove')->willReturnMap([
+            ['oauth2provider', 'test_provider_1'],
+            ['oauth2state', 'test_state'],
+            ['oauth2nonce', 'test_nonce'],
+            ['oauth2pkce_verifier', $stored],
+        ]);
+        $request->setSession($stubSession);
+
+        $this->authenticator->authenticate($request);
+    }
+
+    private function setSessionOnRequest(Request $request, ?string $nonce = 'test_nonce', ?string $pkceVerifier = null): void
     {
         $stubSession = $this->createStub(SessionInterface::class);
         $map = [
             ['oauth2provider', 'test_provider_1'],
             ['oauth2state', 'test_state'],
             ['oauth2nonce', $nonce],
+            ['oauth2pkce_verifier', $pkceVerifier],
         ];
         $stubSession->method('remove')->willReturnMap($map);
 
@@ -843,6 +909,7 @@ class OpenIdLoginAuthenticatorTest extends TestCase
         $session->set('oauth2provider', 'test_provider_1');
         $session->set('oauth2state', 'test_state');
         $session->set('oauth2nonce', 'test_nonce');
+        $session->set('oauth2pkce_verifier', 'test_verifier');
         $request->setSession($session);
 
         return $session;

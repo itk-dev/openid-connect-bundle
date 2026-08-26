@@ -202,11 +202,13 @@ abstract class OpenIdLoginAuthenticator extends AbstractAuthenticator implements
         // Every one-time value is spent here, before anything below can throw. A
         // callback is used up whether it succeeds, fails validation, or carries the
         // provider's refusal, and a value left behind is one a later request can
-        // replay.
+        // replay. The PKCE verifier belongs to that set: a verifier surviving a
+        // failed callback could be redeemed against a later code.
         $providerKey = $session->remove('oauth2provider');
         $providerKey = is_string($providerKey) ? $providerKey : '';
         $oauth2state = $session->remove('oauth2state');
         $oauth2nonce = $session->remove('oauth2nonce');
+        $pkceVerifier = $session->remove('oauth2pkce_verifier');
 
         // The session entry is removed above, so carry the provider key on the
         // request for anything downstream that needs to attribute this login —
@@ -280,7 +282,11 @@ abstract class OpenIdLoginAuthenticator extends AbstractAuthenticator implements
                 throw new ValidationException('Missing or invalid code');
             }
 
-            $idToken = $provider->getIdToken($code);
+            // Null where no challenge was sent: the provider has PKCE turned off, or
+            // the login began under a session that never stored a verifier. The token
+            // request then carries no code_verifier, which is what an identity
+            // provider that received no challenge expects.
+            $idToken = $provider->getIdToken($code, is_string($pkceVerifier) ? $pkceVerifier : null);
             $claims = $provider->validateIdToken($idToken, $oauth2nonce);
             // Authentication successful
         } catch (OpenIdConnectExceptionInterface $exception) {

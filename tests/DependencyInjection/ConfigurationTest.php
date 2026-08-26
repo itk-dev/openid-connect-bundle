@@ -526,4 +526,21 @@ class ConfigurationTest extends TestCase
 
         $this->assertSame('/auth/callback', $config['openid_providers']['provider1']['options']['callback_path']);
     }
+
+    public function testPkceDefaultsToOn(): void
+    {
+        $config = $this->processor->processConfiguration($this->configuration, [$this->getMinimalConfig()]);
+
+        $this->assertTrue($config['openid_providers']['provider1']['options']['pkce']);
+    }
+
+    public function testPkceCanBeTurnedOff(): void
+    {
+        $input = $this->getMinimalConfig();
+        $input['openid_providers']['provider1']['options']['pkce'] = false;
+
+        $config = $this->processor->processConfiguration($this->configuration, [$input]);
+
+        $this->assertFalse($config['openid_providers']['provider1']['options']['pkce']);
+    }
 }

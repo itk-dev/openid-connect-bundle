@@ -18,7 +18,7 @@
         "ext-json": "*",
         "ext-openssl": "*",
         "doctrine/orm": "^2.8 || ^3.0",
-        "itk-dev/openid-connect": "^5.0",
+        "itk-dev/openid-connect": "^5.1",
         "psr/log": "^3.0",
         "symfony/cache": "^6.4 || ^7.0 || ^8.0",
         "symfony/clock": "^6.4 || ^7.0 || ^8.0",

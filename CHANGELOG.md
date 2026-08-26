@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- PKCE (RFC 7636, S256), on by default. The login route generates a verifier, keeps it
+  in the session under `oauth2pkce_verifier`, and sends the challenge; the
+  authenticator redeems the code with it. Turn it off per provider with `pkce: false`
+  for an identity provider that rejects the parameters rather than ignoring them.
+- `OpenIdConfigurationProviderManager::isPkceEnabled()`.
 - `ProviderErrorException`, thrown when the identity provider refuses the authorization
   request (RFC 6749 §4.1.2.1). It extends `AuthenticationFailedException`, so existing
   `catch` blocks keep matching, and carries `getError()`, `getErrorDescription()` and
@@ -24,14 +29,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Requires `itk-dev/openid-connect` `^5.1`, for its PKCE support. That release also
+  enforces `allowHttp` on every discovered endpoint, requires `exp` and `iat` on the
+  ID token, and changes the JWKS cache key — see its changelog before upgrading.
+- `getProvider()` returns a fresh provider on every call instead of a memoized one.
+  `league/oauth2-client` writes the authorization request's `state` onto the provider,
+  so a held instance carried one request's state into the next — harmless today, but
+  not under a worker runtime where the process outlives the request. The HTTP client
+  is now what is kept per provider, so the connection pool still survives.
 - A refused login is answered with the status that matches its cause: 403 where the
   user or a policy declined, 503 where the provider reports its own trouble, 500
   otherwise. Other callback failures are unchanged and still surface as 500.
 - `error` and `error_description` are sanitized before they are logged or held —
   control characters collapsed, invalid UTF-8 dropped, capped at 200 characters — and
   neither is read at all until the callback's state matches.
-- `oauth2provider`, `oauth2state` and `oauth2nonce` are consumed on every callback,
-  including one carrying a provider error.
+- Every one-time session value is consumed on every callback, including one carrying a
+  provider error: `oauth2provider`, `oauth2state`, `oauth2nonce` and
+  `oauth2pkce_verifier`.
 - The stored state is compared with `hash_equals()`, and an empty or missing stored
   state is rejected explicitly rather than by comparison.
 - A callback naming a provider that is not configured is now reported as an invalid
