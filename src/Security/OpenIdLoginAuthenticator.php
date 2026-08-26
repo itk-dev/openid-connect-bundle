@@ -7,14 +7,17 @@ use ItkDev\OpenIdConnect\Exception\ValidationException;
 use ItkDev\OpenIdConnectBundle\EventSubscriber\AuthenticationAuditSubscriber;
 use ItkDev\OpenIdConnectBundle\Exception\AuthenticationFailedException;
 use ItkDev\OpenIdConnectBundle\Exception\ProviderErrorException;
+use ItkDev\OpenIdConnectBundle\Exception\StatelessFirewallException;
 use Psr\Log\LoggerAwareInterface;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
+use Symfony\Component\HttpFoundation\Exception\SessionNotFoundException;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Security\Core\Exception\AuthenticationException;
 use Symfony\Component\Security\Http\Authenticator\AbstractAuthenticator;
+use Symfony\Component\Security\Http\Authenticator\InteractiveAuthenticatorInterface;
 use Symfony\Component\Security\Http\EntryPoint\AuthenticationEntryPointInterface;
 use Symfony\Component\Security\Http\Util\TargetPathTrait;
 
@@ -47,7 +50,7 @@ use Symfony\Component\Security\Http\Util\TargetPathTrait;
  * class with two states where only one is meaningful. Defaulting to a
  * `NullLogger` keeps a single code path for consumers who never get a logger.
  */
-abstract class OpenIdLoginAuthenticator extends AbstractAuthenticator implements AuthenticationEntryPointInterface, LoggerAwareInterface
+abstract class OpenIdLoginAuthenticator extends AbstractAuthenticator implements AuthenticationEntryPointInterface, InteractiveAuthenticatorInterface, LoggerAwareInterface
 {
     use TargetPathTrait;
 
@@ -83,6 +86,18 @@ abstract class OpenIdLoginAuthenticator extends AbstractAuthenticator implements
     public function setLogger(LoggerInterface $logger): void
     {
         $this->logger = $logger;
+    }
+
+    /**
+     * A person logged in here, at an identity provider, just now.
+     *
+     * Symfony dispatches `security.interactive_login` for an authenticator that says
+     * so, and remember-me treats the resulting token as one a user actually asked
+     * for. Both are true of every login this authenticator completes.
+     */
+    public function isInteractive(): bool
+    {
+        return true;
     }
 
     /**
@@ -197,7 +212,11 @@ abstract class OpenIdLoginAuthenticator extends AbstractAuthenticator implements
      */
     protected function validateClaims(Request $request): array
     {
-        $session = $request->getSession();
+        try {
+            $session = $request->getSession();
+        } catch (SessionNotFoundException $exception) {
+            throw new StatelessFirewallException('The OpenID Connect authenticator needs a session to hold the state, nonce and PKCE verifier between the authorization request and the callback. Remove `stateless: true` from this firewall.', previous: $exception);
+        }
 
         // Every one-time value is spent here, before anything below can throw. A
         // callback is used up whether it succeeds, fails validation, or carries the

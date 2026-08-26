@@ -80,7 +80,8 @@ class LoginController extends AbstractController
                 'state' => $state,
                 'nonce' => $nonce,
                 'response_type' => 'code',
-                'scope' => 'openid email profile',
+                // Space-delimited, as RFC 6749 §3.3 defines the parameter.
+                'scope' => implode(' ', $this->providerManager->getScopes($providerKey)),
             ];
 
             if (null !== $pkceVerifier) {

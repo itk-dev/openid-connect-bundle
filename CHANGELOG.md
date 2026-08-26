@@ -13,7 +13,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   in the session under `oauth2pkce_verifier`, and sends the challenge; the
   authenticator redeems the code with it. Turn it off per provider with `pkce: false`
   for an identity provider that rejects the parameters rather than ignoring them.
-- `OpenIdConfigurationProviderManager::isPkceEnabled()`.
+- `OpenIdConfigurationProviderManager::isPkceEnabled()` and `getScopes()`.
+- Per-provider `scopes`, defaulting to `openid`, `email` and `profile` — the scopes the
+  bundle has always requested. Accepts a list or a space-separated string, so the value
+  can come from an environment variable. A list without `openid` is rejected at compile
+  time.
+- `StatelessFirewallException`, naming the misconfiguration when the authenticator is
+  put on a firewall declared `stateless: true`. Previously Symfony's
+  `SessionNotFoundException` surfaced as an unexplained 500.
 - `ProviderErrorException`, thrown when the identity provider refuses the authorization
   request (RFC 6749 §4.1.2.1). It extends `AuthenticationFailedException`, so existing
   `catch` blocks keep matching, and carries `getError()`, `getErrorDescription()` and
@@ -29,6 +36,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `OpenIdLoginAuthenticator` implements `InteractiveAuthenticatorInterface`, so a
+  completed login dispatches `security.interactive_login` and remember-me treats the
+  token as one a user asked for.
+- `leeway` and `cache_duration` reject a negative value while the container compiles.
+  A negative leeway used to fail at the first login that needed it, and a negative
+  cache duration passed through to the cache unnoticed.
 - Requires `itk-dev/openid-connect` `^5.1`, for its PKCE support. That release also
   enforces `allowHttp` on every discovered endpoint, requires `exp` and `iat` on the
   ID token, and changes the JWKS cache key — see its changelog before upgrading.

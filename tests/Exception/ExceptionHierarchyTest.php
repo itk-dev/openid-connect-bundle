@@ -9,6 +9,7 @@ use ItkDev\OpenIdConnectBundle\Exception\CacheException;
 use ItkDev\OpenIdConnectBundle\Exception\InvalidProviderException;
 use ItkDev\OpenIdConnectBundle\Exception\OpenIdConnectBundleExceptionInterface;
 use ItkDev\OpenIdConnectBundle\Exception\ProviderErrorException;
+use ItkDev\OpenIdConnectBundle\Exception\StatelessFirewallException;
 use ItkDev\OpenIdConnectBundle\Exception\TokenNotFoundException;
 use ItkDev\OpenIdConnectBundle\Exception\UsernameDoesNotExistException;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -37,6 +38,9 @@ class ExceptionHierarchyTest extends TestCase
         // Invalid input to a public method → \InvalidArgumentException
         yield 'InvalidProviderException' => [InvalidProviderException::class, \InvalidArgumentException::class];
         yield 'UsernameDoesNotExistException' => [UsernameDoesNotExistException::class, \InvalidArgumentException::class];
+
+        // Programmer error that should be fixed in code → \LogicException
+        yield 'StatelessFirewallException' => [StatelessFirewallException::class, \LogicException::class];
 
         // Runtime conditions → \RuntimeException
         yield 'CacheException' => [CacheException::class, \RuntimeException::class];

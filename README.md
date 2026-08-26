@@ -162,6 +162,10 @@ itkdev_openid_connect:
         # Optional: Send a PKCE challenge (RFC 7636, S256) with the authorization
         #           request. Defaults to true. See "PKCE" below.
         pkce: true
+        # Optional: Scopes to request. Defaults to openid, email, profile.
+        #           Must include openid. A space-separated string is accepted too,
+        #           so the value can come from an environment variable.
+        scopes: ['openid', 'email', 'profile']
         # Optional: Allow (non-secure) http requests (used for mocking a IdP). NOT RECOMMENDED FOR PRODUCTION.
         #           Defaults to false
         allow_http: '%env(bool:ADMIN_OIDC_ALLOW_HTTP)%'
@@ -885,6 +889,30 @@ class AzureOIDCAuthenticator extends OpenIdLoginAuthenticator
         ]));
     }
 }
+```
+
+### Scopes
+
+The authorization request asks for `openid`, `email` and `profile`. Set `scopes` per
+provider to ask for something else:
+
+```yaml
+openid_providers:
+  admin:
+    options:
+      scopes: ['openid', 'profile', 'groups']
+```
+
+`openid` must be among them — OpenID Connect Core 1.0 §3.1.2.1 defines an
+authentication request as one that asks for it, and without it the provider returns an
+OAuth2 grant with no ID token, which is the only thing this bundle can validate. A list
+missing it fails at compile time.
+
+A space-separated string is accepted and split, since an environment variable can only
+carry a scalar:
+
+```yaml
+      scopes: '%env(ADMIN_OIDC_SCOPES)%'   # ADMIN_OIDC_SCOPES=openid profile groups
 ```
 
 ### PKCE

@@ -543,4 +543,124 @@ class ConfigurationTest extends TestCase
 
         $this->assertFalse($config['openid_providers']['provider1']['options']['pkce']);
     }
+
+    public function testScopesDefaultToTheOpenIdConnectBasics(): void
+    {
+        $config = $this->processor->processConfiguration($this->configuration, [$this->getMinimalConfig()]);
+
+        $this->assertSame(['openid', 'email', 'profile'], $config['openid_providers']['provider1']['options']['scopes']);
+    }
+
+    public function testScopesCanBeConfigured(): void
+    {
+        $input = $this->getMinimalConfig();
+        $input['openid_providers']['provider1']['options']['scopes'] = ['openid', 'profile', 'groups'];
+
+        $config = $this->processor->processConfiguration($this->configuration, [$input]);
+
+        $this->assertSame(['openid', 'profile', 'groups'], $config['openid_providers']['provider1']['options']['scopes']);
+    }
+
+    /**
+     * @return iterable<string, array{string, string[]}>
+     */
+    public static function scopeStringProvider(): iterable
+    {
+        yield 'single space' => ['openid profile groups', ['openid', 'profile', 'groups']];
+        yield 'surrounding whitespace' => ['  openid profile  ', ['openid', 'profile']];
+        yield 'runs of whitespace' => ["openid\t\tprofile\ngroups", ['openid', 'profile', 'groups']];
+        yield 'one scope' => ['openid', ['openid']];
+    }
+
+    /**
+     * An environment variable can only carry a scalar, so the space-delimited form
+     * RFC 6749 §3.3 already uses on the wire is accepted here too.
+     *
+     * @param string[] $expected
+     */
+    #[DataProvider('scopeStringProvider')]
+    public function testScopesAcceptASpaceSeparatedString(string $configured, array $expected): void
+    {
+        $input = $this->getMinimalConfig();
+        $input['openid_providers']['provider1']['options']['scopes'] = $configured;
+
+        $config = $this->processor->processConfiguration($this->configuration, [$input]);
+
+        $this->assertSame($expected, $config['openid_providers']['provider1']['options']['scopes']);
+    }
+
+    /**
+     * @return iterable<string, array{mixed}>
+     */
+    public static function scopesWithoutOpenIdProvider(): iterable
+    {
+        yield 'a list' => [['email', 'profile']];
+        yield 'a string' => ['email profile'];
+    }
+
+    #[DataProvider('scopesWithoutOpenIdProvider')]
+    public function testScopesMustIncludeOpenId(mixed $configured): void
+    {
+        $input = $this->getMinimalConfig();
+        $input['openid_providers']['provider1']['options']['scopes'] = $configured;
+
+        $this->expectException(InvalidConfigurationException::class);
+        $this->expectExceptionMessage('scopes must include openid: without it the provider returns no ID token.');
+        $this->processor->processConfiguration($this->configuration, [$input]);
+    }
+
+    public function testScopesCannotBeEmpty(): void
+    {
+        $input = $this->getMinimalConfig();
+        $input['openid_providers']['provider1']['options']['scopes'] = [];
+
+        $this->expectException(InvalidConfigurationException::class);
+        $this->processor->processConfiguration($this->configuration, [$input]);
+    }
+
+    /**
+     * @return iterable<string, array{string, int}>
+     */
+    public static function negativeDurationProvider(): iterable
+    {
+        yield 'leeway' => ['leeway', -1];
+        yield 'cache_duration' => ['cache_duration', -1];
+    }
+
+    /**
+     * Rejected while the container compiles rather than at the first login that
+     * needs the value.
+     */
+    #[DataProvider('negativeDurationProvider')]
+    public function testDurationsCannotBeNegative(string $option, int $value): void
+    {
+        $input = $this->getMinimalConfig();
+        $input['openid_providers']['provider1']['options'][$option] = $value;
+
+        $this->expectException(InvalidConfigurationException::class);
+        $this->processor->processConfiguration($this->configuration, [$input]);
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function zeroableDurationProvider(): iterable
+    {
+        yield 'leeway' => ['leeway'];
+        yield 'cache_duration' => ['cache_duration'];
+    }
+
+    /**
+     * Zero is a coherent setting for both: no clock-skew window, and no caching.
+     */
+    #[DataProvider('zeroableDurationProvider')]
+    public function testDurationsMayBeZero(string $option): void
+    {
+        $input = $this->getMinimalConfig();
+        $input['openid_providers']['provider1']['options'][$option] = 0;
+
+        $config = $this->processor->processConfiguration($this->configuration, [$input]);
+
+        $this->assertSame(0, $config['openid_providers']['provider1']['options'][$option]);
+    }
 }
