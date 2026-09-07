@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Refreshed the README note on Symfony's native OIDC support: the `oidc_login`
+  authorization code flow authenticator and its follow-ups are merged for Symfony 8.2.
+
 ## [6.1.0] - 2026-08-26
 
 See [UPGRADE-6.1.md](UPGRADE-6.1.md). Nothing is required of a consumer.
